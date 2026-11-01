@@ -488,4 +488,48 @@ route('PUT', '/api/admin/settings', ADMIN, async (c) => {
   return { settings: next };
 });
 
+route('GET', '/api/admin/stats', ADMIN, async (c) => {
+  const from = Number(c.query.from) || 0;
+  const to = Number(c.query.to) || Date.now() + DAY;
+  const os = (await q('SELECT * FROM orders WHERE created_at>=$1 AND created_at<$2', [from, to])).rows;
+  const ex = (await q('SELECT * FROM expenses WHERE at>=$1 AND at<$2 ORDER BY at DESC', [from, to])).rows;
+  const sc = async (sql) => Number((await q(sql, [from, to])).rows[0].n);
+  const fees = await sc('SELECT COALESCE(SUM(fee),0) AS n FROM orders WHERE accepted_at>=$1 AND accepted_at<$2');
+  const cards = await sc(`SELECT COALESCE(SUM(amount),0) AS n FROM txs WHERE kind='charge' AND at>=$1 AND at<$2`);
+  const users = (await q(`SELECT * FROM users WHERE role IN ('merchant','driver') AND phone NOT LIKE 'deleted-%' ORDER BY created_at DESC`)).rows;
+  const sum = (a, k) => a.reduce((s, o) => s + (Number(o[k]) || 0), 0);
+  const done = os.filter((o) => DONE.includes(o.status));
+  const counts = {};
+  os.forEach((o) => { counts[o.status] = (counts[o.status] || 0) + 1; });
+  const days = {};
+  os.forEach((o) => { const k = dayStart(o.created_at); days[k] = days[k] || { t: k, n: 0, d: 0 }; days[k].n++; if (DONE.includes(o.status)) days[k].d++; });
+  const expTotal = sum(ex, 'amount');
+  const merchants = users.filter((u) => u.role === 'merchant').map((u) => {
+    const m = os.filter((o) => o.merchant_id === u.id); const d = m.filter((o) => DONE.includes(o.status));
+    return { ...pub(u), orders: m.length, delivered: d.length, goods: sum(d, 'product_price'), delivery: sum(d, 'delivery_price') };
+  });
+  const drivers = users.filter((u) => u.role === 'driver').map((u) => {
+    const m = os.filter((o) => o.driver_id === u.id); const d = m.filter((o) => DONE.includes(o.status));
+    return { ...pub(u), orders: m.length, delivered: d.length, fees: sum(m, 'fee'), collected: sum(d, 'total') };
+  });
+  return {
+    total: os.length, counts, delivered: done.length, goods: sum(done, 'product_price'), delivery: sum(done, 'delivery_price'),
+    fees, cards, expenses: expTotal, net: fees - expTotal, days: Object.values(days).sort((a, b) => a.t - b.t),
+    expensesList: ex.map((e) => ({ id: e.id, amount: e.amount, category: e.category, note: e.note, at: e.at })), merchants, drivers
+  };
+});
+
+route('POST', '/api/admin/expenses', ADMIN, async (c) => {
+  const amount = int(c.body.amount);
+  if (!Number.isFinite(amount) || amount <= 0 || amount > 10000000000) fail('اكتب مبلغاً صحيحاً');
+  const e = await db.insert('expenses', { amount, category: clean(c.body.category, 40) || 'عام', note: clean(c.body.note, 160), at: Number(c.body.at) || Date.now(), created_at: Date.now() });
+  return { expense: e };
+});
+
+route('DELETE', '/api/admin/expenses/:id', ADMIN, async (c) => {
+  const r = await q('DELETE FROM expenses WHERE id=$1', [Number(c.params.id)]);
+  if (!r.count) fail('المصروف غير موجود', 404);
+  return { ok: true };
+});
+
 module.exports = { dispatch, HttpError, getSettings };
