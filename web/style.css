@@ -260,7 +260,8 @@ a.btn{text-decoration:none}
 .btn.wa{background:#25d366;color:#fff}
 .rcpt-wrap{background:#eef1f5;border-radius:16px;padding:12px;max-height:60vh;overflow:auto}
 .rcpt{background:#fff;color:#111;max-width:340px;margin:0 auto;padding:16px;text-align:right;border-radius:10px}
-.rcpt .rl{display:block;width:64px;height:64px;margin:0 auto 6px;border-radius:14px}
+.rcpt .rl{display:block;width:170px;height:auto;margin:0 auto 8px}
+.rcpt{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .rcpt h3{text-align:center;font-size:18px;margin:0 0 10px;font-weight:800}
 .rcpt .ttl{border:2px solid #111;border-radius:12px;text-align:center;padding:8px;font-weight:800}
 .rcpt .no{text-align:center;font-weight:800;font-size:20px;margin:8px 0 10px}
@@ -274,4 +275,19 @@ a.btn{text-decoration:none}
   body.printing #print-root{display:block}
   body.printing .rcpt{max-width:80mm;padding:0}
   @page{margin:6mm}
+}
+
+/* ===== جرس الإشعارات + عنوان الوصل المختصر ===== */
+.bell{position:relative;display:inline-grid;place-items:center;width:42px;height:42px;border-radius:14px;background:var(--accent-soft);color:var(--accent-text);border:0}
+.bell .ic{width:22px;height:22px}
+.bell .badge{position:absolute;top:-4px;inset-inline-start:auto;inset-inline-end:-4px;margin:0}
+.bell .badge[hidden]{display:none}
+.dot{display:inline-block;width:9px;height:9px;border-radius:99px;background:var(--red);vertical-align:middle;margin-inline-start:6px}
+.rcpt h3.rh{font-size:20px;margin:0 0 10px;color:#111}
+@media (max-width:480px){
+  .topbar{gap:6px}
+  .topbar .grp{gap:6px}
+  .topbar .link{white-space:nowrap;font-size:14px;padding:6px 0}
+  .topbar .rolechip{padding:8px 10px;gap:6px;font-size:14px}
+  .bell{width:38px;height:38px}
 }

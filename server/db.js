@@ -47,7 +47,14 @@ function ddl() {
     `CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT NOT NULL)`,
     `CREATE TABLE IF NOT EXISTS expenses(
       id ${pk}, amount BIGINT NOT NULL, category TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT '',
-      at BIGINT NOT NULL, created_at BIGINT NOT NULL)`
+      at BIGINT NOT NULL, created_at BIGINT NOT NULL)`,
+    `CREATE TABLE IF NOT EXISTS vouchers(
+      id ${pk}, num INTEGER NOT NULL, kind TEXT NOT NULL, party_type TEXT NOT NULL DEFAULT 'other',
+      party_id INTEGER, party_name TEXT NOT NULL DEFAULT '', amount BIGINT NOT NULL,
+      note TEXT NOT NULL DEFAULT '', ref TEXT NOT NULL DEFAULT '', at BIGINT NOT NULL, created_at BIGINT NOT NULL)`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS vouchers_num_idx ON vouchers(num)`,
+    `CREATE INDEX IF NOT EXISTS vouchers_at_idx ON vouchers(at)`,
+    `CREATE INDEX IF NOT EXISTS vouchers_party_idx ON vouchers(party_type, party_id)`
   ];
 }
 
@@ -68,6 +75,19 @@ async function init() {
     sqlite.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;');
   }
   for (const s of ddl()) await query(s);
+  // ترقية قواعد البيانات القديمة (آمنة عند التكرار)
+  await addColumn('users', 'discount', 'INTEGER NOT NULL DEFAULT 0');
+  await addColumn('orders', 'discount', 'INTEGER NOT NULL DEFAULT 0');
+  for (const s of [
+    'CREATE INDEX IF NOT EXISTS orders_created_idx ON orders(created_at)',
+    'CREATE INDEX IF NOT EXISTS orders_phone_idx ON orders(customer_phone)',
+    'CREATE INDEX IF NOT EXISTS expenses_at_idx ON expenses(at)'
+  ]) await query(s);
+}
+
+async function addColumn(table, col, def) {
+  try { await query(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`); }
+  catch (e) { if (!/duplicate|already exists/i.test(String(e.message))) throw e; }
 }
 
 function toSqlite(sql, params) {

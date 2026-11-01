@@ -23,12 +23,15 @@ const int = (v) => { const n = Math.round(Number(nd(v).replace(/[,\s]/g, ''))); 
 const dayStart = (t) => Math.floor((t + OFF) / DAY) * DAY - OFF;
 const weekStart = (t) => { const ds = dayStart(t); const dow = new Date(ds + OFF).getUTCDay(); return ds - ((dow + 1) % 7) * DAY; };
 const monthStart = (t) => { const d = new Date(t + OFF); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1) - OFF; };
+const yearStart = (t) => { const d = new Date(t + OFF); return Date.UTC(d.getUTCFullYear(), 0, 1) - OFF; };
+const sumOf = (a, k) => a.reduce((s, o) => s + (Number(o[k]) || 0), 0);
+const isRet = (o) => o.status === 'returned' || o.status === 'partial';
 
 const STATUSES = ['pending', 'picking_up', 'on_the_way', 'delivered', 'no_answer', 'problem', 'other', 'returned', 'partial', 'cancelled'];
 const DRIVER_STATUSES = ['picking_up', 'on_the_way', 'delivered', 'no_answer', 'problem', 'other', 'returned', 'partial'];
 const DONE = ['delivered', 'partial'];
 
-const DEF_SETTINGS = { bikeSame: 3000, bikeOther: 5000, carSame: 5000, carOther: 8000, feeSame: 500, feeOther: 1000, support: '' };
+const DEF_SETTINGS = { bikeSame: 3000, bikeOther: 5000, carSame: 5000, carOther: 8000, feeSame: 500, feeOther: 1000, lateMin: 45, support: '' };
 
 async function getSettings() {
   const r = await q(`SELECT value FROM settings WHERE key='main'`);
@@ -39,7 +42,7 @@ async function getSettings() {
 
 const pub = (u) => ({
   id: u.id, role: u.role, name: u.name, phone: u.phone, active: !!u.active,
-  area: u.area, vehicle: u.vehicle, balance: u.balance, receiving: !!u.receiving, createdAt: u.created_at
+  area: u.area, vehicle: u.vehicle, balance: u.balance, receiving: !!u.receiving, discount: u.discount || 0, createdAt: u.created_at
 });
 
 const ord = (r) => ({
@@ -48,7 +51,7 @@ const ord = (r) => ({
   product: r.product, qty: r.qty, vehicle: r.vehicle, sameArea: !!r.same_area, note: r.note,
   productPrice: r.product_price, deliveryPrice: r.delivery_price, total: r.total, status: r.status,
   driverId: r.driver_id, driverName: r.driver_name, fee: r.fee, createdAt: r.created_at, updatedAt: r.updated_at,
-  acceptedAt: r.accepted_at, deliveredAt: r.delivered_at, log: safeJson(r.log, [])
+  acceptedAt: r.accepted_at, deliveredAt: r.delivered_at, discount: r.discount || 0, log: safeJson(r.log, [])
 });
 
 function safeJson(s, d) { try { return JSON.parse(s); } catch { return d; } }
@@ -176,12 +179,35 @@ route('POST', '/api/orders/:id/messages', async (c) => {
   return { message: { id: m.id, userId: m.user_id, role: m.role, name: m.name, text: m.text, at: m.at } };
 });
 
+/* ---------- إشعارات المحادثة: رسائل وصلت للمستخدم من الطرف الآخر في طلباته ---------- */
+route('GET', '/api/notifications', { roles: ['merchant', 'driver'] }, async (c) => {
+  const col = c.user.role === 'driver' ? 'o.driver_id' : 'o.merchant_id';
+  const hasAfter = c.query.after !== undefined && c.query.after !== '';
+  const after = Number(c.query.after) || 0;
+  const base = `FROM messages m JOIN orders o ON o.id=m.order_id WHERE ${col}=$1 AND m.user_id<>$1`;
+  if (!hasAfter) {
+    const mx = await q(`SELECT COALESCE(MAX(m.id),0) AS n ${base}`, [c.user.id]);
+    return { items: [], last: Number(mx.rows[0].n) || 0 };
+  }
+  const r = await q(`SELECT m.id,m.order_id,m.role,m.name,m.text,m.at,o.num ${base} AND m.id>$2 ORDER BY m.id ASC LIMIT 50`, [c.user.id, after]);
+  const items = r.rows.map((m) => ({ id: m.id, orderId: m.order_id, orderNo: m.num, role: m.role, name: m.name, text: m.text, at: m.at }));
+  return { items, last: items.length ? items[items.length - 1].id : after };
+});
+
 /* ---------- التاجر ---------- */
 const MERCHANT = { roles: ['merchant'] };
 
 route('GET', '/api/merchant/home', MERCHANT, async (c) => {
   const r = await q('SELECT * FROM orders WHERE merchant_id=$1 ORDER BY created_at DESC LIMIT 300', [c.user.id]);
   return { me: pub(c.user), settings: await getSettings(), orders: r.rows.map(ord) };
+});
+
+// تقرير التاجر لفترة محددة (للتصدير): كل طلبات الفترة بدون حد الـ 300
+route('GET', '/api/merchant/report', MERCHANT, async (c) => {
+  const from = Number(c.query.from) || 0;
+  const to = Number(c.query.to) || Date.now() + DAY;
+  const r = await q('SELECT * FROM orders WHERE merchant_id=$1 AND created_at>=$2 AND created_at<$3 ORDER BY created_at ASC LIMIT 5000', [c.user.id, from, to]);
+  return { me: pub(c.user), orders: r.rows.map(ord) };
 });
 
 route('POST', '/api/merchant/orders', MERCHANT, async (c) => {
@@ -199,7 +225,9 @@ route('POST', '/api/merchant/orders', MERCHANT, async (c) => {
   const s = await getSettings();
   const auto = normArea(customerArea) === normArea(c.user.area);
   const same = b.zone === 'same' ? true : b.zone === 'other' ? false : auto;
-  const deliveryPrice = s[vehicle + (same ? 'Same' : 'Other')];
+  const base = s[vehicle + (same ? 'Same' : 'Other')];
+  const disc = Math.min(base, Math.max(0, Number(c.user.discount) || 0)); // خصم المتجر الكثير الطلبات
+  const deliveryPrice = base - disc;
   const now = Date.now();
   for (let i = 0; i < 5; i++) {
     const m = await q('SELECT COALESCE(MAX(num),1042)+1 AS n FROM orders');
@@ -207,7 +235,7 @@ route('POST', '/api/merchant/orders', MERCHANT, async (c) => {
       const row = await db.insert('orders', {
         num: m.rows[0].n, merchant_id: c.user.id, merchant_name: c.user.name, merchant_area: c.user.area, merchant_phone: c.user.phone,
         customer_area: customerArea, customer_phone: customerPhone, product, qty, vehicle, same_area: same ? 1 : 0,
-        note: clean(b.note, 200), product_price: productPrice, delivery_price: deliveryPrice, total: productPrice + deliveryPrice,
+        note: clean(b.note, 200), product_price: productPrice, delivery_price: deliveryPrice, total: productPrice + deliveryPrice, discount: disc,
         status: 'pending', driver_id: null, driver_name: '', fee: 0, created_at: now, updated_at: now,
         accepted_at: null, delivered_at: null, log: JSON.stringify([{ s: 'pending', at: now }])
       });
@@ -260,6 +288,14 @@ route('GET', '/api/driver/home', DRIVER, async (c) => {
   return {
     me: pub(c.user), settings: await getSettings(), available: avail.rows.map(ord), orders: mine.rows.map(ord), wallet: await walletFor(c.user)
   };
+});
+
+// تقرير السائق لفترة محددة (للتصدير): الطلبات التي قبلها السائق خلال الفترة
+route('GET', '/api/driver/report', DRIVER, async (c) => {
+  const from = Number(c.query.from) || 0;
+  const to = Number(c.query.to) || Date.now() + DAY;
+  const r = await q('SELECT * FROM orders WHERE driver_id=$1 AND COALESCE(accepted_at,created_at)>=$2 AND COALESCE(accepted_at,created_at)<$3 ORDER BY COALESCE(accepted_at,created_at) ASC LIMIT 5000', [c.user.id, from, to]);
+  return { me: pub(c.user), orders: r.rows.map(ord) };
 });
 
 route('PUT', '/api/driver/receiving', DRIVER, async (c) => {
@@ -351,10 +387,16 @@ route('GET', '/api/admin/overview', ADMIN, async () => {
 });
 
 route('GET', '/api/admin/orders', ADMIN, async (c) => {
-  const st = c.query.status;
-  const r = STATUSES.includes(st)
-    ? await q('SELECT * FROM orders WHERE status=$1 ORDER BY created_at DESC LIMIT 300', [st])
-    : await q('SELECT * FROM orders ORDER BY created_at DESC LIMIT 300');
+  const w = [], p = [];
+  const add = (sql, v) => { p.push(v); w.push(sql.replace('?', '$' + p.length)); };
+  if (STATUSES.includes(c.query.status)) add('status=?', c.query.status);
+  if (Number(c.query.from)) add('created_at>=?', Number(c.query.from));
+  if (Number(c.query.to)) add('created_at<?', Number(c.query.to));
+  if (Number(c.query.merchantId)) add('merchant_id=?', Number(c.query.merchantId));
+  if (Number(c.query.driverId)) add('driver_id=?', Number(c.query.driverId));
+  if (c.query.phone) add('customer_phone=?', normPhone(c.query.phone));
+  const limit = Math.min(5000, Math.max(1, Number(c.query.limit) || 300));
+  const r = await q(`SELECT * FROM orders ${w.length ? 'WHERE ' + w.join(' AND ') : ''} ORDER BY created_at DESC LIMIT ${limit}`, p);
   return { orders: r.rows.map(ord) };
 });
 
@@ -407,7 +449,7 @@ route('POST', '/api/admin/users', ADMIN, async (c) => {
   if (ex.rows.length) fail('رقم الهاتف مسجّل مسبقاً', 409);
   const u = await db.insert('users', {
     role, name, phone, pass_hash: await hashPassword(password), active: 1, area: clean(b.area, 60),
-    vehicle: b.vehicle === 'car' ? 'car' : 'bike', balance: 0, receiving: 1, created_at: Date.now()
+    vehicle: b.vehicle === 'car' ? 'car' : 'bike', balance: 0, receiving: 1, discount: role === 'merchant' ? Math.max(0, int(b.discount) || 0) : 0, created_at: Date.now()
   });
   return { user: pub(u) };
 });
@@ -428,6 +470,11 @@ route('PUT', '/api/admin/users/:id', ADMIN, async (c) => {
   if (b.area !== undefined) patch.area = clean(b.area, 60);
   if (b.vehicle !== undefined) patch.vehicle = b.vehicle === 'car' ? 'car' : 'bike';
   if (b.active !== undefined) patch.active = b.active ? 1 : 0;
+  if (b.discount !== undefined && u.role === 'merchant') {
+    const v = int(b.discount);
+    if (!Number.isFinite(v) || v < 0 || v > 1000000) fail('قيمة الخصم غير صحيحة');
+    patch.discount = v;
+  }
   if (b.password) {
     if (String(b.password).length < 6) fail('كلمة المرور لا تقل عن 6 أحرف');
     patch.pass_hash = await hashPassword(String(b.password));
@@ -476,7 +523,7 @@ route('DELETE', '/api/admin/cards/:number', ADMIN, async (c) => {
 
 route('PUT', '/api/admin/settings', ADMIN, async (c) => {
   const next = { ...(await getSettings()) };
-  for (const k of ['bikeSame', 'bikeOther', 'carSame', 'carOther', 'feeSame', 'feeOther']) {
+  for (const k of ['bikeSame', 'bikeOther', 'carSame', 'carOther', 'feeSame', 'feeOther', 'lateMin']) {
     if (c.body[k] !== undefined) {
       const v = int(c.body[k]);
       if (!Number.isFinite(v) || v < 0 || v > 10000000) fail('قيمة غير صحيحة: ' + k);
@@ -491,31 +538,61 @@ route('PUT', '/api/admin/settings', ADMIN, async (c) => {
 route('GET', '/api/admin/stats', ADMIN, async (c) => {
   const from = Number(c.query.from) || 0;
   const to = Number(c.query.to) || Date.now() + DAY;
+  const now = Date.now();
+  const set = await getSettings();
+  const lateMs = (Number(set.lateMin) || 45) * 60000;
   const os = (await q('SELECT * FROM orders WHERE created_at>=$1 AND created_at<$2', [from, to])).rows;
   const ex = (await q('SELECT * FROM expenses WHERE at>=$1 AND at<$2 ORDER BY at DESC', [from, to])).rows;
   const sc = async (sql) => Number((await q(sql, [from, to])).rows[0].n);
   const fees = await sc('SELECT COALESCE(SUM(fee),0) AS n FROM orders WHERE accepted_at>=$1 AND accepted_at<$2');
   const cards = await sc(`SELECT COALESCE(SUM(amount),0) AS n FROM txs WHERE kind='charge' AND at>=$1 AND at<$2`);
   const users = (await q(`SELECT * FROM users WHERE role IN ('merchant','driver') AND phone NOT LIKE 'deleted-%' ORDER BY created_at DESC`)).rows;
-  const sum = (a, k) => a.reduce((s, o) => s + (Number(o[k]) || 0), 0);
+  const live = (await q(`SELECT * FROM orders WHERE status IN ('picking_up','on_the_way')`)).rows;
+  const stale = (await q(`SELECT * FROM orders WHERE status='pending' AND created_at<$1`, [now - 10 * 60000])).rows;
+  const goodsAll = (await q(`SELECT merchant_id AS id, COALESCE(SUM(product_price),0) AS n FROM orders WHERE status IN ('delivered','partial') GROUP BY merchant_id`)).rows;
+  const vAll = (await q(`SELECT party_id AS id, kind, COALESCE(SUM(amount),0) AS n FROM vouchers WHERE party_type='merchant' GROUP BY party_id, kind`)).rows;
+  const owed = {};
+  goodsAll.forEach((r) => { owed[r.id] = (owed[r.id] || 0) + Number(r.n); });
+  vAll.forEach((r) => { owed[r.id] = (owed[r.id] || 0) + (r.kind === 'out' ? -1 : 1) * Number(r.n); });
   const done = os.filter((o) => DONE.includes(o.status));
   const counts = {};
   os.forEach((o) => { counts[o.status] = (counts[o.status] || 0) + 1; });
   const days = {};
   os.forEach((o) => { const k = dayStart(o.created_at); days[k] = days[k] || { t: k, n: 0, d: 0 }; days[k].n++; if (DONE.includes(o.status)) days[k].d++; });
-  const expTotal = sum(ex, 'amount');
+  const expTotal = sumOf(ex, 'amount');
   const merchants = users.filter((u) => u.role === 'merchant').map((u) => {
-    const m = os.filter((o) => o.merchant_id === u.id); const d = m.filter((o) => DONE.includes(o.status));
-    return { ...pub(u), orders: m.length, delivered: d.length, goods: sum(d, 'product_price'), delivery: sum(d, 'delivery_price') };
+    const m = os.filter((o) => o.merchant_id === u.id); const d = m.filter((o) => DONE.includes(o.status)); const r = m.filter(isRet);
+    return {
+      ...pub(u), orders: m.length, delivered: d.length, returned: r.length, returnedValue: sumOf(r, 'product_price'),
+      cancelled: m.filter((o) => o.status === 'cancelled').length, open: m.filter((o) => ['pending', 'picking_up', 'on_the_way'].includes(o.status)).length,
+      goods: sumOf(d, 'product_price'), delivery: sumOf(d, 'delivery_price'), discountTotal: sumOf(d, 'discount'),
+      owed: owed[u.id] || 0, lastAt: m.reduce((a, o) => Math.max(a, o.created_at), 0)
+    };
   });
   const drivers = users.filter((u) => u.role === 'driver').map((u) => {
-    const m = os.filter((o) => o.driver_id === u.id); const d = m.filter((o) => DONE.includes(o.status));
-    return { ...pub(u), orders: m.length, delivered: d.length, fees: sum(m, 'fee'), collected: sum(d, 'total') };
+    const m = os.filter((o) => o.driver_id === u.id); const d = m.filter((o) => DONE.includes(o.status)); const r = m.filter(isRet);
+    const mine = live.filter((o) => o.driver_id === u.id);
+    return {
+      ...pub(u), orders: m.length, delivered: d.length, returned: r.length, fees: sumOf(m, 'fee'), collected: sumOf(d, 'total'),
+      earned: sumOf(d, 'delivery_price') - sumOf(d, 'fee'), active: mine.length,
+      late: mine.filter((o) => o.accepted_at && now - o.accepted_at > lateMs).length,
+      problems: m.filter((o) => ['no_answer', 'problem', 'other'].includes(o.status)).length,
+      lastAt: m.reduce((a, o) => Math.max(a, o.updated_at), 0)
+    };
+  });
+  const cm = {};
+  os.forEach((o) => {
+    const x = cm[o.customer_phone] || (cm[o.customer_phone] = { phone: o.customer_phone, area: o.customer_area, orders: 0, delivered: 0, returned: 0, total: 0, lastAt: 0 });
+    x.orders++; if (DONE.includes(o.status)) { x.delivered++; x.total += o.total; } if (isRet(o)) x.returned++;
+    x.lastAt = Math.max(x.lastAt, o.created_at);
   });
   return {
-    total: os.length, counts, delivered: done.length, goods: sum(done, 'product_price'), delivery: sum(done, 'delivery_price'),
+    total: os.length, counts, delivered: done.length, goods: sumOf(done, 'product_price'), delivery: sumOf(done, 'delivery_price'),
     fees, cards, expenses: expTotal, net: fees - expTotal, days: Object.values(days).sort((a, b) => a.t - b.t),
-    expensesList: ex.map((e) => ({ id: e.id, amount: e.amount, category: e.category, note: e.note, at: e.at })), merchants, drivers
+    expensesList: ex.map((e) => ({ id: e.id, amount: e.amount, category: e.category, note: e.note, at: e.at })), merchants, drivers,
+    customers: Object.values(cm).sort((a, b) => b.orders - a.orders).slice(0, 1000),
+    lateOrders: live.filter((o) => o.accepted_at && now - o.accepted_at > lateMs).map(ord),
+    staleOrders: stale.map(ord), lateMin: Number(set.lateMin) || 45, now
   };
 });
 
@@ -530,6 +607,137 @@ route('DELETE', '/api/admin/expenses/:id', ADMIN, async (c) => {
   const r = await q('DELETE FROM expenses WHERE id=$1', [Number(c.params.id)]);
   if (!r.count) fail('المصروف غير موجود', 404);
   return { ok: true };
+});
+
+
+/* ---------- المالية: الدخل اليومي/الأسبوعي/الشهري/السنوي ---------- */
+route('GET', '/api/admin/finance', ADMIN, async () => {
+  const now = Date.now();
+  const today = dayStart(now), week = weekStart(now), month = monthStart(now), year = yearStart(now);
+  const yd = new Date(now + OFF);
+  const m12 = Date.UTC(yd.getUTCFullYear(), yd.getUTCMonth() - 11, 1) - OFF;
+  const since = Math.min(year, m12, today - 29 * DAY);
+  // الرسوم المخصومة من الكباتن لحظة قبول الطلب (تُصفَّر عند إرجاع الطلب للسائقين)
+  const fr = (await q('SELECT fee, accepted_at AS t FROM orders WHERE accepted_at>=$1 AND fee>0', [since])).rows;
+  // مبيعات الكروت + الشحن اليدوي (الموجب) وسحب الإدارة (السالب)
+  const cr = (await q(`SELECT amount, kind, at AS t FROM txs WHERE kind IN ('charge','admin') AND at>=$1`, [since])).rows;
+  const er = (await q('SELECT amount, category, at AS t FROM expenses WHERE at>=$1', [since])).rows;
+  const agg = (a, b = Infinity) => {
+    const f = fr.filter((r) => r.t >= a && r.t < b), c = cr.filter((r) => r.t >= a && r.t < b), e = er.filter((r) => r.t >= a && r.t < b);
+    const byCat = {}; e.forEach((x) => { byCat[x.category] = (byCat[x.category] || 0) + Number(x.amount); });
+    return { fees: sumOf(f, 'fee'), orders: f.length, cards: sumOf(c, 'amount'), cardCount: c.filter((x) => x.kind === 'charge').length, expenses: sumOf(e, 'amount'), byCat };
+  };
+  const daily = [];
+  for (let i = 29; i >= 0; i--) { const t = today - i * DAY; daily.push({ t, ...agg(t, t + DAY) }); }
+  const monthly = [];
+  for (let i = 11; i >= 0; i--) {
+    const t = Date.UTC(yd.getUTCFullYear(), yd.getUTCMonth() - i, 1) - OFF;
+    const t2 = Date.UTC(yd.getUTCFullYear(), yd.getUTCMonth() - i + 1, 1) - OFF;
+    monthly.push({ t, ...agg(t, t2) });
+  }
+  const one = async (sql) => Number((await q(sql)).rows[0].n);
+  const all = {
+    fees: await one('SELECT COALESCE(SUM(fee),0) AS n FROM orders WHERE fee>0'),
+    cards: await one(`SELECT COALESCE(SUM(amount),0) AS n FROM txs WHERE kind IN ('charge','admin')`),
+    expenses: await one('SELECT COALESCE(SUM(amount),0) AS n FROM expenses'),
+    balances: await one(`SELECT COALESCE(SUM(balance),0) AS n FROM users WHERE role='driver'`)
+  };
+  return { periods: { today: agg(today), week: agg(week), month: agg(month), year: agg(year) }, daily, monthly, all, now };
+});
+
+/* ---------- سندات القبض والصرف ---------- */
+const vch = (v) => ({ id: v.id, no: v.num, kind: v.kind, partyType: v.party_type, partyId: v.party_id, partyName: v.party_name, amount: v.amount, note: v.note, ref: v.ref, at: v.at, createdAt: v.created_at });
+
+route('GET', '/api/admin/vouchers', ADMIN, async (c) => {
+  const from = Number(c.query.from) || 0;
+  const to = Number(c.query.to) || Date.now() + DAY;
+  const r = await q('SELECT * FROM vouchers WHERE at>=$1 AND at<$2 ORDER BY at DESC, id DESC LIMIT 3000', [from, to]);
+  return { vouchers: r.rows.map(vch) };
+});
+
+route('POST', '/api/admin/vouchers', ADMIN, async (c) => {
+  const b = c.body;
+  const kind = b.kind === 'out' ? 'out' : b.kind === 'in' ? 'in' : fail('اختر نوع السند (قبض أو صرف)');
+  const amount = int(b.amount);
+  if (!Number.isFinite(amount) || amount <= 0 || amount > 100000000000) fail('اكتب مبلغاً صحيحاً');
+  const partyType = ['merchant', 'driver', 'customer', 'other'].includes(b.partyType) ? b.partyType : 'other';
+  let partyId = null, partyName = clean(b.partyName, 80);
+  if (partyType === 'merchant' || partyType === 'driver') {
+    const u = (await q('SELECT * FROM users WHERE id=$1 AND role=$2', [Number(b.partyId), partyType])).rows[0];
+    if (!u) fail('الطرف المختار غير موجود', 404);
+    partyId = u.id; partyName = u.name;
+  }
+  if (!partyName) fail('اكتب اسم الطرف');
+  const now = Date.now();
+  for (let i = 0; i < 5; i++) {
+    const m = await q('SELECT COALESCE(MAX(num),0)+1 AS n FROM vouchers');
+    try {
+      const row = await db.insert('vouchers', {
+        num: m.rows[0].n, kind, party_type: partyType, party_id: partyId, party_name: partyName, amount,
+        note: clean(b.note, 300), ref: clean(b.ref, 60), at: Number(b.at) || now, created_at: now
+      });
+      return { voucher: vch(row) };
+    } catch (e) { if (!/unique|duplicate/i.test(String(e.message))) throw e; }
+  }
+  fail('تعذّر إنشاء السند، حاول مرة أخرى', 503);
+});
+
+route('DELETE', '/api/admin/vouchers/:id', ADMIN, async (c) => {
+  const r = await q('DELETE FROM vouchers WHERE id=$1', [Number(c.params.id)]);
+  if (!r.count) fail('السند غير موجود', 404);
+  return { ok: true };
+});
+
+/* ---------- كشف حساب (متجر / مندوب / عميل) ---------- */
+route('GET', '/api/admin/statement', ADMIN, async (c) => {
+  const type = ['merchant', 'driver', 'customer'].includes(c.query.type) ? c.query.type : fail('نوع الكشف غير صحيح');
+  const from = Number(c.query.from) || 0;
+  const to = Number(c.query.to) || Date.now() + DAY;
+  const now = Date.now();
+  const set = await getSettings();
+  const lateMs = (Number(set.lateMin) || 45) * 60000;
+  let party, os, vs = [], txs = [];
+  if (type === 'customer') {
+    const phone = normPhone(c.query.phone);
+    if (!phone) fail('رقم العميل مطلوب');
+    os = (await q('SELECT * FROM orders WHERE customer_phone=$1 AND created_at>=$2 AND created_at<$3 ORDER BY created_at DESC', [phone, from, to])).rows;
+    party = { name: os[0] ? 'عميل ' + os[0].customer_area : 'عميل', phone, area: os[0] ? os[0].customer_area : '' };
+  } else {
+    const u = (await q('SELECT * FROM users WHERE id=$1 AND role=$2', [Number(c.query.id), type])).rows[0];
+    if (!u) fail('الحساب غير موجود', 404);
+    party = pub(u);
+    const col = type === 'merchant' ? 'merchant_id' : 'driver_id';
+    os = (await q(`SELECT * FROM orders WHERE ${col}=$1 AND created_at>=$2 AND created_at<$3 ORDER BY created_at DESC`, [u.id, from, to])).rows;
+    if (type === 'merchant') vs = (await q(`SELECT * FROM vouchers WHERE party_type='merchant' AND party_id=$1 AND at>=$2 AND at<$3 ORDER BY at DESC`, [u.id, from, to])).rows;
+    if (type === 'driver') txs = (await q('SELECT * FROM txs WHERE driver_id=$1 AND at>=$2 AND at<$3 ORDER BY at DESC LIMIT 1000', [u.id, from, to])).rows;
+  }
+  const done = os.filter((o) => DONE.includes(o.status)), ret = os.filter(isRet);
+  const summary = {
+    orders: os.length, delivered: done.length, returned: ret.length, returnedValue: sumOf(ret, 'product_price'),
+    cancelled: os.filter((o) => o.status === 'cancelled').length,
+    open: os.filter((o) => ['pending', 'picking_up', 'on_the_way'].includes(o.status)).length,
+    goods: sumOf(done, 'product_price'), delivery: sumOf(done, 'delivery_price'), total: sumOf(done, 'total'), discountTotal: sumOf(done, 'discount')
+  };
+  if (type === 'merchant') {
+    const g = Number((await q(`SELECT COALESCE(SUM(product_price),0) AS n FROM orders WHERE merchant_id=$1 AND status IN ('delivered','partial')`, [party.id])).rows[0].n);
+    const vv = (await q(`SELECT kind, COALESCE(SUM(amount),0) AS n FROM vouchers WHERE party_type='merchant' AND party_id=$1 GROUP BY kind`, [party.id])).rows;
+    const out = Number((vv.find((r) => r.kind === 'out') || {}).n || 0), inn = Number((vv.find((r) => r.kind === 'in') || {}).n || 0);
+    summary.paid = sumOf(vs.filter((v) => v.kind === 'out'), 'amount');
+    summary.received = sumOf(vs.filter((v) => v.kind === 'in'), 'amount');
+    summary.owedPeriod = summary.goods - summary.paid + summary.received;
+    summary.owedAll = g - out + inn;
+  }
+  if (type === 'driver') {
+    const mine = os.filter((o) => ['picking_up', 'on_the_way'].includes(o.status));
+    summary.fees = sumOf(os, 'fee'); summary.collected = summary.total; summary.earned = summary.delivery - sumOf(done, 'fee');
+    summary.balance = party.balance; summary.active = mine.length;
+    summary.late = mine.filter((o) => o.accepted_at && now - o.accepted_at > lateMs).length;
+    summary.problems = os.filter((o) => ['no_answer', 'problem', 'other'].includes(o.status)).length;
+  }
+  return {
+    type, party, from, to, summary, orders: os.map(ord), vouchers: vs.map(vch),
+    txs: txs.map((t) => ({ id: t.id, amount: t.amount, kind: t.kind, label: t.label, orderNo: t.order_num, at: t.at }))
+  };
 });
 
 module.exports = { dispatch, HttpError, getSettings };

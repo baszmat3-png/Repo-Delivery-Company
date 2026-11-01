@@ -60,10 +60,14 @@ const IC = {
   trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
   copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 00-1-1H5a1 1 0 00-1 1v10a1 1 0 001 1h3"/>',
   shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',
+  bell: '<path d="M6 17V11a6 6 0 0112 0v6l1.5 2h-15z"/><path d="M10 21h4"/>',
+  wa: '<path d="M4 20l1.3-4.2A8 8 0 1112 20a8 8 0 01-3.8-1z"/><path d="M9 9c.5 3 2.5 5 6 6l1-1.5-2-1-1 .8c-1-.5-1.8-1.3-2.3-2.3l.8-1-1-2z"/>',
+  dl: '<path d="M12 4v11M7 11l5 5 5-5M5 20h14"/>',
   support: '<path d="M4 13v-1a8 8 0 0116 0v1"/><rect x="3" y="13" width="4" height="6" rx="1.5"/><rect x="17" y="13" width="4" height="6" rx="1.5"/>'
 };
 const ico = (n) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${IC[n] || ''}</svg>`;
 
+const RIO_MARK = '<svg class="rl" viewBox="0 0 300 190" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ريو للتوصيل أسرع"><rect width="300" height="190" rx="30" fill="#ffd21f"/><g fill="#171200"><rect x="206" y="58" width="72" height="13" rx="6"/><rect x="216" y="86" width="62" height="13" rx="6"/><rect x="206" y="114" width="72" height="13" rx="6"/></g><text x="112" y="122" text-anchor="middle" font-family="Cairo,Tahoma,sans-serif" font-weight="900" font-size="96" fill="#171200" transform="skewX(-6)" style="transform-box:fill-box">ريوو</text><text x="104" y="160" text-anchor="middle" font-family="Cairo,Tahoma,sans-serif" font-weight="700" font-size="22" fill="#5c4d00">للتوصيل أسرع</text></svg>';
 const logo = (cls = '') => `<span class="logo ${cls}" aria-label="ريو للتوصيل أسرع"><span class="logo-lines"><i></i><i></i><i></i></span><span class="logo-col"><span class="logo-word">ريوو</span><span class="logo-sub">للتوصيل أسرع</span></span></span>`;
 
 const ST = {
@@ -78,7 +82,7 @@ const vehName = (v) => (v === 'car' ? 'سيارة' : 'دراجة');
 /* ============ الحالة ============ */
 const S = {
   token: store.get(TOKEN_KEY), user: null, tab: '', data: null, loading: false, error: '',
-  sheet: null, menu: null, armed: null, filter: 'all', walletTab: 'log', ordersTab: 'current', adminFilter: 'all', cardsBatch: null
+  sheet: null, menu: null, armed: null, filter: 'all', walletTab: 'log', ordersTab: 'current', adminFilter: 'all', cardsBatch: null, expRange: 'month'
 };
 let lastSig = '';
 let chatTimer = null;
@@ -163,12 +167,25 @@ function go(tab) {
   refresh();
 }
 
-function setUser(u) { S.user = u; }
+let es = null, liveT = null;
+function connectLive() {
+  if (es || !S.token || typeof EventSource === 'undefined') return;
+  es = new EventSource(API + '/api/stream?token=' + encodeURIComponent(S.token));
+  es.addEventListener('change', () => { clearTimeout(liveT); liveT = setTimeout(liveRefresh, 300); setTimeout(checkNotifs, 200); });
+}
+function disconnectLive() { if (es) { es.close(); es = null; } }
+function liveRefresh() {
+  if (!S.user || document.hidden) return;
+  const a = document.activeElement;
+  if (S.sheet || S.menu || (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))) { S.dirty = true; return; }
+  refresh();
+}
+function setUser(u) { S.user = u; connectLive(); setTimeout(checkNotifs, 600); }
 function logout() {
   S.token = null; S.user = null; S.data = null; S.sheet = null; S.menu = null; lastSig = '';
   store.del(TOKEN_KEY);
   history.replaceState(null, '', location.pathname);
-  stopChat();
+  stopChat(); disconnectLive();
   render();
 }
 
@@ -191,8 +208,10 @@ function shell() {
     const b = badge(id);
     return `<button data-act="tab" data-tab="${id}" ${S.tab === id ? 'aria-current="page"' : ''}>${ico(ic)}<span>${label}</span>${b ? `<span class="badge">${b}</span>` : ''}</button>`;
   }).join('');
+  const un = unreadCount();
+  const bell = role === 'admin' ? '' : `<button class="bell" id="bell" data-act="notifs" aria-label="الإشعارات">${ico('bell')}<span class="badge" id="bell-n" ${un ? '' : 'hidden'}>${un}</span></button>`;
   const fab = role === 'merchant' && S.tab !== 'me' ? `<button class="btn fab" data-act="new-order">${ico('plus')} إنشاء طلب</button>` : '';
-  return `<header class="topbar"><div class="grp">${logo()}<span class="rolechip">${ico(ROLE_ICON[role])}${ROLE_NAME[role]}</span></div><button class="link" data-act="logout">تسجيل الخروج</button></header>
+  return `<header class="topbar"><div class="grp">${logo()}<span class="rolechip">${ico(ROLE_ICON[role])}${ROLE_NAME[role]}</span></div><div class="grp">${bell}<button class="link" data-act="logout">تسجيل الخروج</button></div></header>
 <div class="shell"><nav class="nav" aria-label="التنقل">${nav}</nav><main class="main"><div class="col ${role === 'admin' ? 'wide' : ''}">${view()}</div></main></div>${fab}`;
 }
 
@@ -227,12 +246,6 @@ function loginView() {
       <p class="hint" id="l-err" style="color:var(--red)" role="alert"></p>
       <button class="btn block" type="submit" id="l-btn">دخول</button>
     </form>
-    <div class="roles">
-      <div class="role"><span class="ico">${ico('store')}</span><span><b>تاجر</b><small>تابع إحصائيات طلباتك وأنشئ طلبات جديدة</small></span></div>
-      <div class="role"><span class="ico">${ico('pin')}</span><span><b>سائق</b><small>اشحن محفظتك واقبل الطلبات وسلّمها</small></span></div>
-      <div class="role"><span class="ico">${ico('grid')}</span><span><b>مدير</b><small>لوحة تحكم بالطلبات والتجار والسائقين وكروت الرصيد</small></span></div>
-    </div>
-    <p class="fine">الحسابات يُنشئها المدير. <a href="privacy.html" class="link">سياسة الخصوصية</a> · <a href="delete-account.html" class="link">حذف الحساب</a></p>
   </div></div>`;
 }
 
@@ -274,6 +287,7 @@ const VIEWS = {
       ${tile('تم الإرجاع', '', countBy(o, ['returned', 'partial']), 'var(--blue)')}
     </div>
     <button class="btn ghost block" style="margin-top:14px" data-act="tab" data-tab="orders">عرض كل الطلبات (${o.length})</button>
+    ${exportCard('تصدير الحساب', 'الجدول يشمل كل طلب بحالته وتفاصيله ومجموع حسابه، ويُخصم الراجع من الإجمالي الكلي. الوصل المختصر يعرض عدد الطلبات والصافي ناقص كلف التوصيل.')}
     <h2 class="sec">طلبات مسجلة (${pend.length})</h2>
     <div class="stack">${pend.length ? pend.map((x) => merchantOrderCard(x, true)).join('') : emptyBox('لا توجد طلبات بانتظار سائق', 'اضغط «إنشاء طلب» لإرسال طلب جديد للسائقين.')}</div>`;
   },
@@ -323,7 +337,7 @@ const VIEWS = {
       body = w.txs.length ? `<div class="card">${w.txs.map((t) => `<div class="tx"><div><div>${esc(t.label || (t.kind === 'fee' ? 'رسوم التطبيق' : 'عملية'))}${t.orderNo ? ` (طلب #${t.orderNo})` : ''}</div><small class="muted">${ago(t.at)}</small></div><span class="${t.amount < 0 ? 'neg' : 'pos'}">${t.amount < 0 ? '−' : '+'}${money(Math.abs(t.amount))}</span></div>`).join('')}</div>` : emptyBox('لا توجد عمليات بعد');
     } else {
       const max = Math.max(1, ...w.days.map((d) => d.net));
-      body = `<div class="card"><div class="lbl">صافي ربحك آخر 7 أيام</div><div class="bars">${w.days.map((d) => `<div><em>${d.net ? nf.format(d.net) : ''}</em><div class="b" style="height:${Math.max(3, Math.round(d.net / max * 110))}px"></div><span>${DAYS[new Date(d.t + OFF).getUTCDay()]}</span></div>`).join('')}</div></div>`;
+      body = exportCard('تصدير الإحصائيات', 'يشمل الطلبات المسلّمة وعمولة التطبيق وربحك الصافي والمبلغ المستحق للشركة.') + `<div class="card"><div class="lbl">صافي ربحك آخر 7 أيام</div><div class="bars">${w.days.map((d) => `<div><em>${d.net ? nf.format(d.net) : ''}</em><div class="b" style="height:${Math.max(3, Math.round(d.net / max * 110))}px"></div><span>${DAYS[new Date(d.t + OFF).getUTCDay()]}</span></div>`).join('')}</div></div>`;
     }
     return `${head('المحفظة')}
     <div class="stack">
@@ -343,7 +357,7 @@ const VIEWS = {
     ${li('card', 'شحن الرصيد', 'عبّي محفظتك ببطاقة رصيد', 'charge')}
     ${li('user', 'بياناتي', 'الاسم ورقم الهاتف' + (me.vehicle ? ' · ' + vehName(me.vehicle) : ''), 'edit-me')}
     ${li('lock', 'الأمان والخصوصية', 'تحديث كلمة المرور', 'password')}
-    ${li('stats', 'إحصائيات الطلبات', `طلباتك المسلّمة اليوم ${w.today.n} وصافي ربحك ${nf.format(w.today.net)} د.ع`, 'tab-wallet')}
+    ${li('stats', 'إحصائيات الطلبات وتصديرها', `طلباتك المسلّمة اليوم ${w.today.n} وصافي ربحك ${nf.format(w.today.net)} د.ع`, 'tab-wallet')}
     ${accountLinks(S.data.settings)}`;
   }
 };
@@ -355,10 +369,13 @@ function profileHead(me) {
   return `<div style="text-align:center;margin-top:8px"><div class="avatar">${esc((me.name || '؟').trim().charAt(0))}</div><h1 style="font-size:24px">${esc(me.name)}</h1><p class="muted">${ROLE_NAME[me.role]}</p></div><div style="height:16px"></div>`;
 }
 function accountLinks(settings) {
-  return `<h2 class="sec">الدعم والسياسات</h2>
-  ${settings.support ? `<a class="list-item" href="tel:${esc(settings.support)}" style="color:inherit;text-decoration:none">${ico('support')}<span class="grow"><b>التواصل مع الدعم</b><small dir="ltr" style="text-align:right">${esc(fmtPhone(settings.support))}</small></span><span class="chev">${ico('chev')}</span></a>` : ''}
-  <a class="list-item" href="privacy.html" style="color:inherit;text-decoration:none">${ico('shield')}<span class="grow"><b>سياسة الخصوصية</b><small>كيف نحمي بياناتك</small></span><span class="chev">${ico('chev')}</span></a>
-  ${li('trash', 'حذف الحساب', 'إلغاء حسابك وحذف بياناتك الشخصية', 'delete-me')}
+  const sp = settings.support;
+  const msg = encodeURIComponent(`مرحباً، أحتاج مساعدة في تطبيق ريو\nالاسم: ${S.user.name}\nالهاتف: ${S.user.phone}`);
+  const perm = typeof Notification !== 'undefined' ? Notification.permission : 'unsupported';
+  const notifItem = perm === 'unsupported' ? '' : li('bell', 'إشعارات المحادثة', perm === 'granted' ? 'مفعّلة — يصلك تنبيه بصوت عند وصول رسالة' : perm === 'denied' ? 'محظورة من إعدادات المتصفح' : 'اضغط لتفعيل التنبيهات', 'enable-notifs');
+  return `${notifItem ? '<h2 class="sec">التنبيهات</h2>' + notifItem : ''}<h2 class="sec">الدعم والسياسات</h2>
+  ${sp ? `<a class="list-item" href="https://wa.me/${waNumber(sp)}?text=${msg}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${ico('wa')}<span class="grow"><b>التواصل مع الدعم</b><small dir="ltr" style="text-align:right">${esc(fmtPhone(sp))} · واتساب</small></span><span class="chev">${ico('chev')}</span></a>
+  <a class="list-item" href="tel:${esc(sp)}" style="color:inherit;text-decoration:none">${ico('support')}<span class="grow"><b>اتصال بالدعم</b><small dir="ltr" style="text-align:right">${esc(fmtPhone(sp))}</small></span><span class="chev">${ico('chev')}</span></a>` : ''}
   <button class="btn ghost block" data-act="logout">${ico('out')} تسجيل الخروج</button>`;
 }
 function profileView(me, settings) {
@@ -384,7 +401,7 @@ function driverOrderCard(o) {
       ${o.note ? `<div class="full"><dt>ملاحظة</dt><dd>${esc(o.note)}</dd></div>` : ''}
     </dl>
     ${o.status === 'picking_up' ? `<div class="notice">ادفع للتاجر ${money(o.productPrice)} عند الاستلام، وبعدها غيّر الحالة إلى «في الطريق للزبون».</div>` : ''}
-    <button class="btn ghost block" data-act="chat" data-id="${o.id}">${ico('chat')} محادثة</button>
+    <div class="row wrapx"><button class="btn ghost grow" data-act="chat" data-id="${o.id}">${ico('chat')} محادثة</button><button class="btn ghost grow" data-act="receipt" data-id="${o.id}">وصل</button><a class="btn wa grow" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a></div>
     <hr class="rule" style="margin:0">
     <dl class="kv"><div><dt>المتجر</dt><dd>${esc(o.merchantName)}</dd></div><div><dt>العنوان</dt><dd>${esc(o.merchantArea)}</dd></div><div class="full"><dt>هاتف المتجر</dt><dd>${telLink(o.merchantPhone)}</dd></div></dl>
   </article>`;
@@ -487,7 +504,7 @@ function waLink(o) {
 }
 function receiptModel(o) {
   return {
-    no: o.no,
+    title: 'وصل توصيل', no: o.no,
     sections: [
       { rows: [['التاريخ', fmtDT(o.createdAt)], ['الحالة', (ST[o.status] || [o.status])[0]], ['التاجر', o.merchantName]] },
       { rows: [['رقم الزبون', o.customerPhone], ['المنطقة', o.customerArea]] },
@@ -498,8 +515,8 @@ function receiptModel(o) {
     ]
   };
 }
-function receiptHtml(o) {
-  const m = receiptModel(o);
+const receiptHtml = (o) => modelHtml(receiptModel(o));
+function modelHtml(m) {
   const body = m.sections.map((sec, i) => {
     const inner = sec.box
       ? `<div class="box"><span>${esc(sec.box[0])}</span><span dir="ltr">${esc(sec.box[1])}</span></div>`
@@ -507,14 +524,13 @@ function receiptHtml(o) {
     const nextIsBox = m.sections[i + 1] && m.sections[i + 1].box;
     return inner + (i < m.sections.length - 1 && !sec.box && !nextIsBox ? '<hr>' : '');
   }).join('');
-  return `<div class="rcpt"><img class="rl" src="/icons/icon-192.png" alt=""><h3>ريو للتوصيل أسرع</h3><div class="ttl">وصل توصيل</div><div class="no">#${o.no}</div>${body}</div>`;
+  return `<div class="rcpt">${RIO_MARK}<h3>ريو للتوصيل أسرع</h3>${m.heading ? `<h3 class="rh">${esc(m.heading)}</h3>` : ''}<div class="ttl">${esc(m.title)}</div>${m.no ? `<div class="no">#${esc(m.no)}</div>` : '<div style="height:10px"></div>'}${body}</div>`;
 }
-async function receiptCanvas(o) {
-  const m = receiptModel(o);
-  try { await document.fonts.load('700 24px Cairo'); await document.fonts.load('500 22px "IBM Plex Sans Arabic"'); } catch { /* ignore */ }
-  const logo = await new Promise((res) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = '/icons/icon-192.png'; });
+const receiptCanvas = (o) => modelCanvas(receiptModel(o));
+async function modelCanvas(m) {
+  try { await document.fonts.load('900 60px Cairo'); await document.fonts.load('700 24px Cairo'); await document.fonts.load('500 22px "IBM Plex Sans Arabic"'); } catch { /* ignore */ }
   const W = 640, SC = 2, PAD = 30, ROW = 54;
-  let H = 300;
+  let H = 360 + (m.heading ? 48 : 0) - (m.no ? 0 : 48);
   m.sections.forEach((sec) => { H += sec.box ? 96 : sec.rows.length * ROW + 26; });
   H += 40;
   const c = document.createElement('canvas');
@@ -526,15 +542,23 @@ async function receiptCanvas(o) {
   x.fillStyle = '#fff'; x.fillRect(0, 0, W, H);
   x.direction = 'rtl'; x.textBaseline = 'middle'; x.fillStyle = '#111';
   let y = 28;
-  if (logo) { x.drawImage(logo, W / 2 - 40, y, 80, 80); }
-  y += 112;
+  { // الشعار: خلفية صفراء + كلمة ريو + خطوط السرعة
+    const lw = 240, lh = 152, lx = W / 2 - lw / 2;
+    x.fillStyle = '#ffd21f'; rr(lx, y, lw, lh, 24); x.fill();
+    x.fillStyle = '#171200';
+    [[0.69, 0.30, 0.24], [0.72, 0.45, 0.2], [0.69, 0.60, 0.24]].forEach(([fx, fy, fw]) => { rr(lx + lw * fx, y + lh * fy - 5, lw * fw, 10, 5); x.fill(); });
+    x.textAlign = 'center'; x.font = `900 78px ${FF}`; x.fillText('ريوو', lx + lw * 0.37, y + lh * 0.55);
+    x.fillStyle = '#5c4d00'; x.font = `700 18px ${FF}`; x.fillText('للتوصيل أسرع', lx + lw * 0.35, y + lh * 0.84);
+    x.fillStyle = '#111';
+  }
+  y += lh0() + 24;
   x.textAlign = 'center'; x.font = `800 30px ${FF}`; x.fillText('ريو للتوصيل أسرع', W / 2, y);
-  y += 38;
+  y += m.heading ? 40 : 38;
+  if (m.heading) { x.font = `800 26px ${FF}`; x.fillText(m.heading, W / 2, y, W - 2 * PAD); y += 44; }
   x.lineWidth = 3; x.strokeStyle = '#111'; rr(PAD - 6, y, W - 2 * PAD + 12, 56, 16); x.stroke();
-  x.font = `800 24px ${FF}`; x.fillText('وصل توصيل', W / 2, y + 29);
+  x.font = `800 24px ${FF}`; x.fillText(m.title, W / 2, y + 29);
   y += 92;
-  x.font = `800 30px ${FF}`; x.fillText(`#${m.no}`, W / 2, y);
-  y += 38;
+  if (m.no) { x.font = `800 30px ${FF}`; x.fillText(`#${m.no}`, W / 2, y); y += 38; } else y -= 10;
   m.sections.forEach((sec, i) => {
     if (sec.box) {
       x.lineWidth = 3; rr(PAD - 6, y, W - 2 * PAD + 12, 72, 16); x.stroke();
@@ -558,38 +582,269 @@ async function receiptCanvas(o) {
   });
   return c;
 }
+const lh0 = () => 152;
 function canvasBlob(c) { return new Promise((res) => c.toBlob(res, 'image/png')); }
-async function downloadReceipt(o) {
-  const b = await canvasBlob(await receiptCanvas(o));
+async function downloadModel(m, name) {
+  const b = await canvasBlob(await modelCanvas(m));
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(b); a.download = `rio-receipt-${o.no}.png`;
+  a.href = URL.createObjectURL(b); a.download = name;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
-async function shareReceipt(o) {
+async function shareModel(m, name, title) {
   try {
-    const b = await canvasBlob(await receiptCanvas(o));
-    const file = new File([b], `rio-receipt-${o.no}.png`, { type: 'image/png' });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: `وصل #${o.no}` });
-    else await downloadReceipt(o);
+    const b = await canvasBlob(await modelCanvas(m));
+    const file = new File([b], name, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title });
+    else await downloadModel(m, name);
   } catch { /* أُلغيت المشاركة */ }
 }
-function printReceipt(o) {
+function printModel(m) {
   let root = document.getElementById('print-root');
   if (!root) { root = document.createElement('div'); root.id = 'print-root'; document.body.appendChild(root); }
-  root.innerHTML = receiptHtml(o);
+  root.innerHTML = modelHtml(m);
   document.body.classList.add('printing');
   const done = () => { document.body.classList.remove('printing'); window.removeEventListener('afterprint', done); };
   window.addEventListener('afterprint', done);
   setTimeout(() => window.print(), 80);
 }
+const downloadReceipt = (o) => downloadModel(receiptModel(o), `rio-receipt-${o.no}.png`);
+const shareReceipt = (o) => shareModel(receiptModel(o), `rio-receipt-${o.no}.png`, `وصل #${o.no}`);
+const printReceipt = (o) => printModel(receiptModel(o));
+
+/* ============ التقارير والتصدير (Excel / Word / وصل مختصر) ============ */
+const RANGES = [['today', 'اليوم'], ['week', 'آخر 7 أيام'], ['month', 'هذا الشهر'], ['all', 'الكل']];
+const DONE_ST = ['delivered', 'partial'];
+const sumK = (a, k) => a.reduce((t, o) => t + (Number(o[k]) || 0), 0);
+function rangeBounds(k) {
+  const n = Date.now(), ds = Math.floor((n + OFF) / 86400000) * 86400000 - OFF, d = new Date(n + OFF);
+  if (k === 'today') return [ds, ds + 86400000];
+  if (k === 'week') return [ds - 6 * 86400000, ds + 86400000];
+  if (k === 'month') return [Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1) - OFF, ds + 86400000];
+  return [0, ds + 86400000];
+}
+function periodText(k) { const [a, b] = rangeBounds(k); return k === 'all' ? 'كل الفترات' : `${fmtDT(a).slice(0, 10)} → ${fmtDT(b - 1).slice(0, 10)}`; }
+const kfmt = (k) => (k[2] === 'money' ? mny(k[1]) : String(k[1]));
+
+function merchantReport(orders, rk) {
+  const list = orders.filter((o) => o.status !== 'cancelled');
+  const counted = list.filter((o) => DONE_ST.includes(o.status) || o.status === 'returned');
+  const ret = counted.filter((o) => o.status === 'returned');
+  const ok = counted.filter((o) => o.status !== 'returned');
+  const gross = sumK(counted, 'total'), retAmt = sumK(ret, 'total'), net = gross - retAmt, delivery = sumK(ok, 'deliveryPrice'), due = net - delivery;
+  const open = list.length - counted.length;
+  const rows = list.map((o) => {
+    const isRet = o.status === 'returned', isOk = DONE_ST.includes(o.status);
+    return [o.no, fmtDT(o.createdAt), (ST[o.status] || [o.status])[0], o.customerArea, `${o.product} × ${o.qty}`, o.productPrice, o.deliveryPrice, o.total, isRet ? o.total : isOk ? 0 : '', isOk ? o.total : isRet ? 0 : ''];
+  });
+  const kpis = [
+    ['عدد الطلبات المنتهية (مسلّم + راجع)', counted.length, 'n'], ['الإجمالي الكلي', gross, 'money'], [`الراجع (${ret.length} طلب)`, retAmt, 'money'],
+    ['الصافي بعد خصم الراجع', net, 'money'], ['كلف التوصيل', delivery, 'money'], ['المستحق للتاجر (الصافي − كلف التوصيل)', due, 'money']
+  ];
+  if (open) kpis.push(['طلبات غير محتسبة (قيد التنفيذ / مشاكل)', open, 'n']);
+  const m = {
+    title: 'وصل ملخص الطلبات', heading: S.user.name,
+    sections: [
+      { rows: [['الفترة', periodText(rk)], ['التاريخ', fmtDT(Date.now())]] },
+      { rows: [['عدد الطلبات', String(counted.length)], ['منها راجع', String(ret.length)]] },
+      { rows: [['الإجمالي الكلي', mny(gross)], ['الراجع', '−' + mny(retAmt)]] },
+      { rows: [['الصافي', mny(net)], ['كلف التوصيل', '−' + mny(delivery)]] },
+      { box: ['المستحق للتاجر', mny(due)] }
+    ]
+  };
+  return {
+    kind: 'merchant', title: 'كشف حساب الطلبات', owner: S.user.name, period: periodText(rk), kpis, receipt: m,
+    head: ['#', 'التاريخ', 'الحالة', 'المنطقة', 'المنتج', 'سعر المنتج', 'التوصيل', 'الإجمالي', 'الراجع', 'الصافي'], rows,
+    foot: ['', '', '', '', 'المجموع (للمنتهي)', sumK(counted, 'productPrice'), sumK(counted, 'deliveryPrice'), gross, retAmt, net],
+    note: 'الراجع يُخصم من الإجمالي الكلي. الراجع الجزئي يُحتسب كطلب مسلّم. الطلبات غير المنتهية تظهر في الجدول ولا تدخل في المجاميع.'
+  };
+}
+
+function driverReport(orders, rk) {
+  const done = orders.filter((o) => DONE_ST.includes(o.status));
+  const collected = sumK(done, 'total'), paid = sumK(done, 'productPrice'), deliv = sumK(done, 'deliveryPrice'), fees = sumK(done, 'fee'), profit = deliv - fees;
+  const rows = orders.map((o) => {
+    const d = DONE_ST.includes(o.status);
+    return [o.no, fmtDT(o.acceptedAt || o.createdAt), (ST[o.status] || [o.status])[0], o.merchantName, o.customerArea, d ? o.total : '', d ? o.productPrice : '', d ? o.deliveryPrice : '', d ? o.fee : '', d ? o.deliveryPrice - o.fee : ''];
+  });
+  const kpis = [
+    ['عدد الطلبات المسلّمة', done.length, 'n'], ['المحصّل من الزبائن', collected, 'money'], ['المدفوع للتجار', paid, 'money'], ['أجور التوصيل', deliv, 'money'],
+    ['عمولة التطبيق', fees, 'money'], ['ربحك الصافي (التوصيل − العمولة)', profit, 'money'], ['المستحق للشركة (عمولة التطبيق)', fees, 'money']
+  ];
+  const m = {
+    title: 'وصل ملخص السائق', heading: S.user.name,
+    sections: [
+      { rows: [['الفترة', periodText(rk)], ['التاريخ', fmtDT(Date.now())]] },
+      { rows: [['الطلبات المسلّمة', String(done.length)], ['المحصّل من الزبائن', mny(collected)], ['المدفوع للتجار', mny(paid)]] },
+      { rows: [['أجور التوصيل', mny(deliv)], ['عمولة التطبيق', '−' + mny(fees)]] },
+      { box: ['ربحك الصافي', mny(profit)] },
+      { rows: [['المستحق للشركة', mny(fees)], ['حالة الدفع', 'مخصوم من المحفظة']] }
+    ]
+  };
+  return {
+    kind: 'driver', title: 'كشف إحصائيات السائق', owner: S.user.name, period: periodText(rk), kpis, receipt: m,
+    head: ['#', 'التاريخ', 'الحالة', 'المتجر', 'المنطقة', 'تحصيل من الزبون', 'دفعت للتاجر', 'التوصيل', 'عمولة التطبيق', 'ربحك'], rows,
+    foot: ['', '', '', '', 'المجموع (المسلّم)', collected, paid, deliv, fees, profit],
+    note: 'عمولة التطبيق تُخصم من محفظتك تلقائياً عند قبول الطلب. المجاميع تشمل الطلبات المسلّمة فقط.'
+  };
+}
+
+async function buildReport() {
+  const [from, to] = rangeBounds(S.expRange);
+  const isDriver = S.user.role === 'driver';
+  const r = await api('GET', `/api/${isDriver ? 'driver' : 'merchant'}/report?from=${from}&to=${to}`);
+  return isDriver ? driverReport(r.orders, S.expRange) : merchantReport(r.orders, S.expRange);
+}
+
+let libP = null;
+function loadLib() {
+  if (window.RL) return Promise.resolve(window.RL);
+  if (libP) return libP;
+  libP = new Promise((res, rej) => {
+    const sc = document.createElement('script');
+    sc.src = 'admin-lib.js';
+    sc.onload = () => res(window.RL);
+    sc.onerror = () => { libP = null; rej(new Error('تعذّر تحميل أدوات التصدير، تحقق من الاتصال')); };
+    document.head.appendChild(sc);
+  });
+  return libP;
+}
+const stampName = (rep) => `ريو-${rep.kind === 'driver' ? 'سائق' : 'تاجر'}-${fmtDT(Date.now()).slice(0, 10)}`;
+function saveBlob(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 8000);
+}
+async function exportReportXlsx(rep) {
+  const RL = await loadLib();
+  const rows = [['ريو للتوصيل أسرع'], [`${rep.title} — ${rep.owner}`], ['الفترة', rep.period], [], rep.head, ...rep.rows, rep.foot, [], ['الملخص'], ...rep.kpis.map((k) => [k[0], k[1]]), [], [rep.note]];
+  await RL.exportXlsx(stampName(rep), [{ name: 'التقرير', rows }]);
+}
+function reportWordHtml(rep) {
+  const td = (v, n) => `<td${n ? ' style="text-align:left;direction:ltr"' : ''}>${esc(typeof v === 'number' ? nf.format(v) : v)}</td>`;
+  const numCol = (i) => i >= 5;
+  return `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40" dir="rtl" lang="ar"><head><meta charset="utf-8"><title>${esc(rep.title)}</title>
+<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->
+<style>@page{size:A4 landscape;margin:1.2cm}body{font-family:Cairo,Tahoma,Arial,sans-serif;direction:rtl;font-size:11pt}h1{font-size:20pt;margin:0}h2{font-size:13pt;border-right:6px solid #ffd21f;padding-right:8px}table{border-collapse:collapse;width:100%;margin-bottom:12px}th{background:#111;color:#fff;padding:5px 7px;text-align:right}td{border:1px solid #bbb;padding:4px 7px}.k td{font-weight:bold}.hi td{background:#ffd21f;font-weight:bold}.t td{background:#fff3b0;font-weight:bold}</style></head><body dir="rtl">
+<h1>ريو للتوصيل أسرع</h1><h2>${esc(rep.title)} — ${esc(rep.owner)}</h2><p>الفترة: ${esc(rep.period)} &nbsp;|&nbsp; تاريخ الإصدار: ${esc(fmtDT(Date.now()))}</p>
+<table><tbody>${rep.kpis.map((k, i) => `<tr class="${i === rep.kpis.length - 1 || /الصافي|المستحق/.test(k[0]) ? 'hi' : 'k'}"><td>${esc(k[0])}</td><td style="text-align:left;direction:ltr">${esc(kfmt(k))}</td></tr>`).join('')}</tbody></table>
+<h2>تفاصيل الطلبات</h2><table><thead><tr>${rep.head.map((h) => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rep.rows.map((r) => `<tr>${r.map((c, i) => td(c, numCol(i) || i === 0)).join('')}</tr>`).join('')}</tbody><tfoot><tr class="t">${rep.foot.map((c, i) => td(c, numCol(i))).join('')}</tr></tfoot></table>
+<p style="color:#555">${esc(rep.note)}</p></body></html>`;
+}
+function exportReportWord(rep) { saveBlob(new Blob(['\ufeff', reportWordHtml(rep)], { type: 'application/msword' }), stampName(rep) + '.doc'); }
+
+function exportCard(title, hint) {
+  const chips = RANGES.map(([k, l]) => `<button class="chip" data-act="exp-range" data-k="${k}" aria-pressed="${S.expRange === k}">${l}</button>`).join('');
+  return `<h2 class="sec">${title}</h2><div class="card stack"><div class="lbl">الفترة</div><div class="chips" style="margin:0">${chips}</div>
+  <div class="row wrapx"><button class="btn ghost grow" data-act="exp-xlsx">${ico('dl')} Excel</button><button class="btn ghost grow" data-act="exp-word">${ico('dl')} Word</button><button class="btn grow" data-act="exp-receipt">وصل مختصر</button></div>
+  <p class="hint">${hint}</p></div>`;
+}
+
+/* ============ إشعارات المحادثة: جرس + صوت + إشعار نظام ============ */
+let nBusy = false, audioCtx = null, notifReg = null;
+const nKey = (k) => `rio_${k}_${S.user ? S.user.id : 0}`;
+function loadNotifs() { try { return JSON.parse(store.get(nKey('notifs')) || '[]'); } catch { return []; } }
+function saveNotifs(l) { store.set(nKey('notifs'), JSON.stringify(l.slice(0, 40))); }
+function unreadCount() { return S.user && S.user.role !== 'admin' ? loadNotifs().filter((n) => !n.read).length : 0; }
+function updateBell() {
+  const b = $('#bell-n'); if (!b) return;
+  const n = unreadCount(); b.textContent = n; b.hidden = !n;
+}
+function markRead(orderId) { const l = loadNotifs(); let ch = false; l.forEach((n) => { if (!n.read && (orderId == null || n.orderId === orderId)) { n.read = true; ch = true; } }); if (ch) { saveNotifs(l); updateBell(); } }
+function unlockAudio() {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    audioCtx = audioCtx || new AC();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  } catch { /* ignore */ }
+}
+function beep() {
+  try {
+    unlockAudio(); if (!audioCtx) return;
+    const t = audioCtx.currentTime;
+    [[880, 0], [1175, 0.2], [1568, 0.4]].forEach(([f, d]) => {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t + d); g.gain.exponentialRampToValueAtTime(0.4, t + d + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.32);
+      o.connect(g); g.connect(audioCtx.destination); o.start(t + d); o.stop(t + d + 0.35);
+    });
+    if (navigator.vibrate) navigator.vibrate([150, 80, 150]);
+  } catch { /* ignore */ }
+}
+function whenActive(reg) {
+  return new Promise((res) => {
+    if (reg.active) return res(reg);
+    const sw = reg.installing || reg.waiting;
+    if (!sw) return res(null);
+    sw.addEventListener('statechange', () => { if (sw.state === 'activated') res(reg); });
+    setTimeout(() => res(reg.active ? reg : null), 4000);
+  });
+}
+async function notifyReg() {
+  if (notifReg) return notifReg;
+  if (!('serviceWorker' in navigator)) return null;
+  try { const reg = await navigator.serviceWorker.register('notify-sw.js', { scope: './__notify/' }); notifReg = await whenActive(reg); return notifReg; } catch { return null; }
+}
+async function systemNotify(m) {
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+  const opts = { body: m.text, tag: 'rio-chat-' + m.orderId, renotify: true, vibrate: [200, 100, 200], dir: 'rtl', lang: 'ar', data: { orderId: m.orderId, orderNo: m.orderNo } };
+  const title = `${m.name} · طلب #${m.orderNo}`;
+  try {
+    const reg = await notifyReg();
+    if (reg) { await reg.showNotification(title, opts); return; }
+    const n = new Notification(title, opts);
+    n.onclick = () => { window.focus(); openChatFor(m.orderId, m.orderNo); n.close(); };
+  } catch { /* بعض المتصفحات لا تدعم الإشعارات */ }
+}
+async function checkNotifs() {
+  if (!S.user || S.user.role === 'admin' || nBusy) return;
+  nBusy = true;
+  try {
+    const last = store.get(nKey('nlast'));
+    const r = await api('GET', '/api/notifications' + (last !== null ? `?after=${last}` : ''));
+    store.set(nKey('nlast'), String(r.last));
+    if (!r.items.length) return;
+    const openId = S.sheet && S.sheet.type === 'chat' && !document.hidden ? S.sheet.id : null;
+    const fresh = r.items.map((m) => ({ ...m, read: openId === m.orderId }));
+    saveNotifs([...fresh.slice().reverse(), ...loadNotifs()]);
+    updateBell();
+    const unread = fresh.filter((m) => !m.read);
+    if (!unread.length) return;
+    const m = unread[unread.length - 1];
+    if (document.hidden) systemNotify(m);
+    else { beep(); toast(`رسالة جديدة من ${m.name} (طلب #${m.orderNo})`); }
+  } catch { /* ignore */ } finally { nBusy = false; }
+}
+function openChatFor(id, no) {
+  id = Number(id); if (!id || !S.user) return;
+  markRead(id);
+  S.sheet = null;
+  openSheet({ type: 'chat', id, no: no || id, msgs: [], loaded: false });
+  startChat();
+}
+function openPendingChat() {
+  try {
+    const p = new URLSearchParams(location.search);
+    const id = p.get('chat');
+    if (id) { history.replaceState(null, '', location.pathname + location.hash); openChatFor(id, p.get('no')); }
+  } catch { /* ignore */ }
+}
+async function askNotifPermission() {
+  if (typeof Notification === 'undefined') return;
+  try { const r = await Notification.requestPermission(); if (r === 'granted') { notifyReg(); toast('تم تفعيل الإشعارات'); } else if (r === 'denied') toast('الإشعارات محظورة من إعدادات المتصفح', true); } catch { /* ignore */ }
+  if (S.user && S.tab === 'me') render();
+}
+if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', (e) => { const d = e.data || {}; if (d.type === 'open-chat') openChatFor(d.orderId, d.orderNo); });
+setInterval(checkNotifs, 15000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkNotifs(); });
 
 /* ============ النوافذ المنبثقة ============ */
 function sheetShell(title, body) {
   return `<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="sheet-h"><h2>${title}</h2><button class="x" data-act="close-sheet" aria-label="إغلاق">${ico('x')}</button></div>${body}</div>`;
 }
 function openSheet(s) { S.sheet = s; render(); setTimeout(() => { const f = $('.sheet [autofocus], .sheet input:not([type=hidden]), .sheet textarea'); if (f) f.focus(); }, 60); }
-function closeSheet() { S.sheet = null; stopChat(); render(); }
+function closeSheet() { S.sheet = null; stopChat(); render(); if (S.dirty) { S.dirty = false; refresh(); } }
 
 const field = (id, label, inner, hint) => `<div class="field"><label for="${id}">${label}</label>${inner}${hint ? `<span class="hint">${hint}</span>` : ''}</div>`;
 
@@ -638,6 +893,21 @@ const SHEETS = {
       <a class="btn wa" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a>
     </div>`];
   },
+  'report-receipt'(s) {
+    const m = s.rep.receipt;
+    return ['وصل مختصر', `<div class="rcpt-wrap">${modelHtml(m)}</div>
+    <div class="row wrapx" style="margin-top:14px;justify-content:center">
+      <button class="btn" data-act="rr-print">طباعة</button>
+      <button class="btn ghost" data-act="rr-png">تنزيل صورة PNG</button>
+      ${navigator.share ? `<button class="btn ghost" data-act="rr-share">مشاركة</button>` : ''}
+    </div>`];
+  },
+  notifs(s) {
+    const list = loadNotifs();
+    const fresh = s.fresh || [];
+    const body = list.length ? list.map((n) => `<button class="list-item" data-act="open-notif" data-id="${n.orderId}" data-no="${n.orderNo}">${ico('chat')}<span class="grow"><b>${esc(n.name)} · طلب #${n.orderNo}${fresh.includes(n.id) ? ' <span class="dot" aria-label="جديد"></span>' : ''}</b><small>${esc(n.text)} · ${ago(n.at)}</small></span><span class="chev">${ico('chev')}</span></button>`).join('') + `<button class="btn ghost block" data-act="clear-notifs">مسح الكل</button>` : '<p class="muted" style="text-align:center;margin:20px 0">لا توجد إشعارات بعد. ستظهر هنا رسائل المحادثة.</p>';
+    return ['الإشعارات', body];
+  },
   chat(s) {
     return [`محادثة طلب #${s.no}`, `<div class="chat" id="chat-box">${chatHtml(s.msgs)}</div><form class="row" data-form="chat"><input class="in grow" id="chat-in" name="text" maxlength="500" placeholder="اكتب رسالة…" autocomplete="off" aria-label="رسالة"><button class="btn" type="submit">إرسال</button></form>`];
   },
@@ -683,6 +953,7 @@ const SHEETS = {
       ${field('e-name', 'الاسم', `<input class="in" id="e-name" name="name" value="${esc(u.name)}" required>`)}
       ${field('e-phone', 'رقم الهاتف', `<input class="in mono" id="e-phone" name="phone" value="${esc(u.phone)}" inputmode="tel" required>`)}
       ${u.role === 'merchant' ? field('e-area', 'المنطقة', `<input class="in" id="e-area" name="area" value="${esc(u.area)}" required>`) : `<div class="field"><span class="lbl">المركبة</span><div class="seg"><button type="button" data-act="eu-veh" data-v="bike" aria-pressed="${(s.vehicle || u.vehicle) === 'bike'}">${ico('bike')} دراجة</button><button type="button" data-act="eu-veh" data-v="car" aria-pressed="${(s.vehicle || u.vehicle) === 'car'}">${ico('car')} سيارة</button></div></div>`}
+      ${u.role === 'merchant' ? field('e-disc', 'خصم على كل طلب (د.ع)', `<input class="in" id="e-disc" name="discount" inputmode="numeric" value="${u.discount || 0}">`, 'يُخصم من أجرة التوصيل لطلبات هذا المتجر') : ''}
       ${field('e-pass', 'كلمة مرور جديدة (اتركها فارغة بدون تغيير)', '<input class="in" id="e-pass" name="password" minlength="6" autocomplete="off">')}
       <p class="hint" id="e-err" style="color:var(--red)" role="alert"></p><button class="btn block" type="submit">حفظ</button></form>`];
   },
@@ -704,7 +975,7 @@ function updateOrderForm() {
   const f = s.form;
   const st = S.data.settings;
   if (!f.zoneManual) f.zone = f.customerArea.trim() && normArea(f.customerArea) === normArea(S.user.area) ? 'same' : 'other';
-  const p = (z) => st[f.vehicle + (z === 'same' ? 'Same' : 'Other')];
+  const p = (z) => Math.max(0, st[f.vehicle + (z === 'same' ? 'Same' : 'Other')] - (S.user.discount || 0));
   $('#o-zone').innerHTML = ['same', 'other'].map((z) => `<button type="button" data-act="zone" data-z="${z}" aria-pressed="${f.zone === z}">${money(p(z))}<small>${z === 'same' ? 'نفس المنطقة' : 'منطقة ثانية'}</small></button>`).join('');
   const price = Number(digits(f.productPrice).replace(/[,\s]/g, '')) || 0;
   $('#o-total').innerHTML = money(price + p(f.zone));
@@ -732,7 +1003,7 @@ function stopChat() { if (chatTimer) { clearInterval(chatTimer); chatTimer = nul
 /* ============ الأحداث ============ */
 const ACTIONS = {
   tab: (el) => go(el.dataset.tab),
-  'tab-wallet': () => go('wallet'),
+  'tab-wallet': () => { S.walletTab = 'rep'; go('wallet'); },
   logout: () => logout(),
   retry: () => refresh(true),
   filter: (el) => { S.filter = el.dataset.f; render(); },
@@ -760,8 +1031,20 @@ const ACTIONS = {
   'me-veh': (el) => { S.sheet.vehicle = el.dataset.v; syncVeh(el); },
   'nu-veh': (el) => { S.sheet.vehicle = el.dataset.v; syncVeh(el); },
   'eu-veh': (el) => { S.sheet.vehicle = el.dataset.v; syncVeh(el); },
+  'exp-range': (el) => { S.expRange = el.dataset.k; render(); },
+  async 'exp-xlsx'() { const rep = await act(buildReport); if (rep) await act(() => exportReportXlsx(rep), 'تم تجهيز ملف Excel'); },
+  async 'exp-word'() { const rep = await act(buildReport); if (rep) { exportReportWord(rep); toast('تم تجهيز ملف Word'); } },
+  async 'exp-receipt'() { const rep = await act(buildReport); if (rep) openSheet({ type: 'report-receipt', rep }); },
+  'rr-print': () => printModel(S.sheet.rep.receipt),
+  'rr-png': () => downloadModel(S.sheet.rep.receipt, `rio-summary-${fmtDT(Date.now()).slice(0, 10)}.png`),
+  'rr-share': () => shareModel(S.sheet.rep.receipt, `rio-summary-${fmtDT(Date.now()).slice(0, 10)}.png`, 'وصل مختصر'),
+  notifs: () => { const fresh = loadNotifs().filter((n) => !n.read).map((n) => n.id); markRead(null); openSheet({ type: 'notifs', fresh }); },
+  'open-notif': (el) => openChatFor(el.dataset.id, el.dataset.no),
+  'clear-notifs': () => { saveNotifs([]); updateBell(); render(); },
+  'enable-notifs': () => askNotifPermission(),
   async chat(el) {
     const id = Number(el.dataset.id);
+    markRead(id);
     const all = [...(S.data.orders || []), ...(S.data.attention || [])];
     const o = all.find((x) => x.id === id);
     openSheet({ type: 'chat', id, no: o ? o.no : id, msgs: [], loaded: false });
@@ -807,6 +1090,8 @@ const ACTIONS = {
 function syncVeh(el) { el.parentElement.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === el))); }
 
 document.addEventListener('click', (e) => {
+  unlockAudio();
+  if (S.user && S.user.role !== 'admin' && typeof Notification !== 'undefined' && Notification.permission === 'default' && !store.get('rio_asked')) { store.set('rio_asked', '1'); askNotifPermission(); }
   const el = e.target.closest('[data-act]');
   if (S.menu && !(el && el.dataset.act === 'menu') && !e.target.closest('.menu')) { S.menu = null; if (!el) render(); }
   if (!el) return;
@@ -842,6 +1127,7 @@ const FORMS = {
     if (ADMIN_ONLY && r.user.role !== 'admin') throw new Error('هذه اللوحة للمدير فقط');
     S.token = r.token; store.set(TOKEN_KEY, r.token); setUser(r.user);
     go(S.tab && TABS[r.user.role].some((t) => t[0] === S.tab) ? S.tab : defaultTab());
+    openPendingChat();
     void err;
   },
   async 'new-order'(f) {
@@ -875,6 +1161,7 @@ const FORMS = {
   },
   async 'edit-user'(f) {
     const body = { name: f.name.value, phone: f.phone.value };
+    if (f.discount) body.discount = f.discount.value;
     if (f.area) body.area = f.area.value; else body.vehicle = S.sheet.vehicle || S.data.users.find((x) => x.id === S.sheet.id).vehicle;
     if (f.password.value) body.password = f.password.value;
     await api('PUT', `/api/admin/users/${S.sheet.id}`, body);
@@ -935,6 +1222,7 @@ async function boot() {
       setUser(r.user);
       const ok = TABS[r.user.role].some((t) => t[0] === wanted);
       go(ok ? wanted : defaultTab());
+      openPendingChat();
       return;
     } catch { /* يظهر تسجيل الدخول */ }
   }

@@ -5,6 +5,30 @@ const path = require('path');
 const db = require('./db');
 const { dispatch, HttpError } = require('./routes');
 const { seedAdmin, seedDemo } = require('./seed');
+const { verify } = require('./auth');
+
+/* ---- المزامنة الفورية (Server-Sent Events): الخادم يرسل إشارة «تغيّر» فقط، وكل جهاز يعيد جلب بياناته المصرّح بها ---- */
+const clients = new Set();
+let pingTimer = null;
+function broadcast() {
+  if (pingTimer) return;
+  pingTimer = setTimeout(() => {
+    pingTimer = null;
+    for (const c of clients) { try { c.write(`event: change\ndata: ${Date.now()}\n\n`); } catch { clients.delete(c); } }
+  }, 120);
+}
+function openStream(req, res, url) {
+  const p = verify(url.searchParams.get('token') || '');
+  if (!p) return send(res, 401, { error: 'انتهت الجلسة' });
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive',
+    'X-Accel-Buffering': 'no', 'Access-Control-Allow-Origin': '*'
+  });
+  res.write('retry: 2500\n\n: connected\n\n');
+  clients.add(res);
+  const hb = setInterval(() => { try { res.write(': ping\n\n'); } catch { /* ignore */ } }, 20000);
+  req.on('close', () => { clearInterval(hb); clients.delete(res); });
+}
 
 const WEB = path.join(__dirname, '..', 'web');
 const PORT = Number(process.env.PORT) || 3000;
@@ -57,7 +81,7 @@ function serveStatic(req, res, pathname) {
       return fs.readFile(path.join(WEB, 'index.html'), (e2, b2) => (e2 ? send(res, 404, 'Not found', { 'Content-Type': 'text/plain' }) : send(res, 200, b2, { 'Content-Type': MIME['.html'] })));
     }
     const ext = path.extname(file).toLowerCase();
-    const noCache = rel === '/sw.js' || rel === '/index.html' || rel === '/config.js';
+    const noCache = ['/sw.js', '/index.html', '/admin.html', '/admin.js', '/admin-lib.js', '/notify-sw.js', '/admin.css', '/config.js', '/app.js', '/style.css'].includes(rel);
     send(res, 200, buf, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': noCache ? 'no-cache' : 'public, max-age=3600' });
   });
 }
@@ -67,10 +91,12 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'OPTIONS') return send(res, 204, '');
     const url = new URL(req.url, 'http://localhost');
     if (url.pathname === '/healthz') return send(res, 200, { ok: true });
+    if (url.pathname === '/api/stream' && req.method === 'GET') return openStream(req, res, url);
     if (url.pathname.startsWith('/api/')) {
       const body = ['POST', 'PUT', 'DELETE'].includes(req.method) ? await readBody(req) : null;
       const out = await dispatch(req, body, url);
       if (out === undefined) return send(res, 404, { error: 'المسار غير موجود' });
+      if (req.method !== 'GET') broadcast();
       return send(res, 200, out, { 'Cache-Control': 'no-store' });
     }
     if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'Method Not Allowed', { 'Content-Type': 'text/plain' });
