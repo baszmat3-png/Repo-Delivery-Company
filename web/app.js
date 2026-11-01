@@ -100,7 +100,7 @@ async function api(method, path, body) {
     });
   } catch { throw new Error('لا يوجد اتصال بالخادم، تحقق من الإنترنت'); }
   let j = {};
-  try { j = await r.json(); } catch { /* ignore */ }
+  try { j = await r.json(); } catch { if (r.ok) throw new Error('الخادم لا يردّ بشكل صحيح. تأكد أن window.RIO_API في config.js يشير إلى رابط الخادم'); }
   if (r.status === 401 && S.token && path !== '/api/login') { logout(); throw new Error(j.error || 'انتهت الجلسة، سجّل الدخول مرة أخرى'); }
   if (!r.ok) throw new Error(j.error || 'حدث خطأ غير متوقع');
   return j;
