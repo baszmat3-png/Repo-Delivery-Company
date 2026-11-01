@@ -48,6 +48,7 @@ function readBody(req) {
 function serveStatic(req, res, pathname) {
   let rel = decodeURIComponent(pathname);
   if (rel === '/' || rel === '') rel = '/index.html';
+  if (rel === '/admin' || rel === '/admin/') rel = '/admin.html';
   const file = path.normalize(path.join(WEB, rel));
   if (!file.startsWith(WEB)) return send(res, 403, 'forbidden', { 'Content-Type': 'text/plain' });
   fs.readFile(file, (err, buf) => {
