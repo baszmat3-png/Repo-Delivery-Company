@@ -22,7 +22,7 @@ const ico = (n) => `<svg viewBox="0 0 24 24" aria-hidden="true">${IC[n] || ''}</
 /* ---------------- الحالة ---------------- */
 let T = ls.get(KEY) || '', P = ls.get('rio_page') || 'home', R = ls.get('rio_range') || 'month', CF = ls.get('rio_cf') || '', CT = ls.get('rio_ct') || '';
 let BASIS = ls.get('rio_basis') || 'fees', SORT = ls.get('rio_sort') || 'orders', FP = 'month', VK = 'in', Q = '', FS = 'all', FM = 0;
-let D = null, O = [], FN = null, V = [], CARDS = [], SET = null, BATCH = null, E = '', M = null, LIVE = false, DIRTY = false, loading = false;
+let MENU = false, D = null, O = [], FN = null, V = [], CARDS = [], SET = null, BATCH = null, E = '', M = null, LIVE = false, DIRTY = false, loading = false;
 if (!PAGES.some((x) => x[0] === P)) P = 'home';
 
 function range() {
@@ -87,7 +87,7 @@ function disconnect() { if (es) { es.close(); es = null; } LIVE = false; }
 function setLive() { document.querySelectorAll('.live').forEach((e) => { e.classList.toggle('on', LIVE); const s = e.querySelector('span'); if (s) s.textContent = LIVE ? 'مزامنة فورية' : 'غير متصل — تحديث دوري'; }); }
 setInterval(() => { if (T && !document.hidden && !LIVE) load(true); }, 20000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden && T) load(true); });
-function logout() { T = ''; ls.del(KEY); disconnect(); D = null; M = null; draw(); drawModal(); }
+function logout() { MENU = false; T = ''; ls.del(KEY); disconnect(); D = null; M = null; draw(); drawModal(); }
 
 /* ---------------- أدوات عرض ---------------- */
 const kpi = (l, v, c, sub) => `<div class="kpi ${c || ''}"><small>${l}</small><b>${v}</b>${sub ? `<em>${sub}</em>` : ''}</div>`;
@@ -153,7 +153,7 @@ function draw() {
   };
   const title = PAGES.find((x) => x[0] === P)[1];
   const rng = ['today', 'week', 'month', 'year', 'all', 'custom'].map((k) => `<option value="${k}" ${R === k ? 'selected' : ''}>${RN[k]}</option>`).join('');
-  r.innerHTML = `<div class="app"><aside class="side"><div class="brand">${LOGO}<div><b>لوحة الإدارة</b><small>ريو للتوصيل أسرع</small></div></div>
+  r.innerHTML = `<div class="app${MENU ? ' open' : ''}"><div class="mbar"><button class="mb" data-a="menu" aria-label="القائمة" aria-expanded="${MENU}"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><b>${title}</b>${LOGO}</div><div class="ov" data-a="menu-x"></div><aside class="side"><div class="brand">${LOGO}<div><b>لوحة الإدارة</b><small>ريو للتوصيل أسرع</small></div></div>
   <nav class="nav" aria-label="التنقل">${PAGES.map(([k, l, i]) => `<button data-a="page" data-k="${k}" class="${P === k ? 'on' : ''}" ${P === k ? 'aria-current="page"' : ''}>${ico(i)}<span>${l}</span>${badge(k)}</button>`).join('')}</nav>
   <div class="foot"><div class="live ${LIVE ? 'on' : ''}"><i></i><span>${LIVE ? 'مزامنة فورية' : 'غير متصل — تحديث دوري'}</span></div><br><button data-a="logout">تسجيل الخروج</button></div></aside>
   <main class="main"><div class="top"><div><h2>${title}</h2><div class="sub">${esc(rangeLabel())}</div></div>
@@ -536,7 +536,9 @@ const doPdf = (kind) => { const e = listExports(kind); printDoc(e.name, docA4({ 
 
 /* ---------------- الأحداث ---------------- */
 const clickActs = {
-  page(el) { P = el.dataset.k; ls.set('rio_page', P); Q = ''; FS = 'all'; FM = 0; load(); },
+  menu() { MENU = !MENU; draw(); },
+  'menu-x'() { MENU = false; draw(); },
+  page(el) { MENU = false; P = el.dataset.k; ls.set('rio_page', P); Q = ''; FS = 'all'; FM = 0; load(); },
   logout() { logout(); },
   'batch-x'() { BATCH = null; draw(); },
   async 'del-card'(el) { if (confirm('حذف هذا الكرت؟') && await act(() => api('DELETE', '/api/admin/cards/' + el.dataset.n), 'تم الحذف')) load(); },
