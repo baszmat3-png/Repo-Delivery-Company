@@ -2,6 +2,8 @@
 (() => {
 /* ============ أدوات عامة ============ */
 const API = String(window.RIO_API || '').replace(/\/$/, '');
+const ADMIN_ONLY = !!window.RIO_ADMIN_ONLY;
+const TOKEN_KEY = ADMIN_ONLY ? 'rio_admin_token' : 'rio_token';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const nf = new Intl.NumberFormat('en-US');
@@ -75,7 +77,7 @@ const vehName = (v) => (v === 'car' ? 'سيارة' : 'دراجة');
 
 /* ============ الحالة ============ */
 const S = {
-  token: store.get('rio_token'), user: null, tab: '', data: null, loading: false, error: '',
+  token: store.get(TOKEN_KEY), user: null, tab: '', data: null, loading: false, error: '',
   sheet: null, menu: null, armed: null, filter: 'all', walletTab: 'log', ordersTab: 'current', adminFilter: 'all', cardsBatch: null
 };
 let lastSig = '';
@@ -100,7 +102,7 @@ async function api(method, path, body) {
     });
   } catch { throw new Error('لا يوجد اتصال بالخادم، تحقق من الإنترنت'); }
   let j = {};
-  try { j = await r.json(); } catch { if (r.ok) throw new Error('الخادم لا يردّ بشكل صحيح. تأكد أن window.RIO_API في config.js يشير إلى رابط الخادم'); }
+  try { j = await r.json(); } catch { /* ignore */ }
   if (r.status === 401 && S.token && path !== '/api/login') { logout(); throw new Error(j.error || 'انتهت الجلسة، سجّل الدخول مرة أخرى'); }
   if (!r.ok) throw new Error(j.error || 'حدث خطأ غير متوقع');
   return j;
@@ -164,7 +166,7 @@ function go(tab) {
 function setUser(u) { S.user = u; }
 function logout() {
   S.token = null; S.user = null; S.data = null; S.sheet = null; S.menu = null; lastSig = '';
-  store.del('rio_token');
+  store.del(TOKEN_KEY);
   history.replaceState(null, '', location.pathname);
   stopChat();
   render();
@@ -206,6 +208,14 @@ const emptyBox = (t, s) => `<div class="empty"><b>${t}</b>${s || ''}</div>`;
 
 /* ============ تسجيل الدخول ============ */
 function loginView() {
+  if (ADMIN_ONLY) return `<div class="land"><div class="hero">${logo('big dark')}</div><div class="stack">
+    <form class="card stack" data-form="login" autocomplete="on">
+      <h2 style="font-size:20px">لوحة تحكم المدير</h2>
+      <div class="field"><label for="l-phone">رقم الهاتف</label><input class="in mono" id="l-phone" name="phone" inputmode="tel" autocomplete="username" placeholder="07XX XXX XXXX" required></div>
+      <div class="field"><label for="l-pass">كلمة المرور</label><input class="in" id="l-pass" name="password" type="password" autocomplete="current-password" required></div>
+      <p class="hint" id="l-err" style="color:var(--red)" role="alert"></p>
+      <button class="btn block" type="submit" id="l-btn">دخول</button>
+    </form></div></div>`;
   return `<div class="land">
   <div class="intro"><h1>بضائعك توصل أسرع</h1><p class="lead">التاجر يجهّز الطلب ويرفعه، والسائق يستلمه من التاجر ويوصله للزبون، والإدارة تتابع كل شي.</p></div>
   <div class="hero">${logo('big dark')}</div>
@@ -411,7 +421,7 @@ function ordersTable(list) {
   return `<div class="tblwrap"><table><thead><tr><th>الطلب</th><th>التاجر</th><th>الزبون</th><th>المنتج</th><th>الإجمالي</th><th>السائق</th><th>الحالة</th><th></th></tr></thead><tbody>
   ${list.map((o) => `<tr><td><b>#${o.no}</b><div class="hint">${ago(o.createdAt)}</div></td><td>${esc(o.merchantName)}</td><td>${esc(o.customerArea)}<div>${telLink(o.customerPhone)}</div></td>
   <td>${esc(o.product)} × ${o.qty}<div class="hint">${vehName(o.vehicle)}</div></td><td>${money(o.total)}</td><td>${esc(o.driverName || '—')}</td><td>${statusSelect(o)}</td>
-  <td><div class="row">${o.driverId ? `<button class="btn sm ghost" data-act="chat" data-id="${o.id}">محادثة</button>` : ''}${o.driverId && o.status !== 'pending' ? `<button class="btn sm soft" data-act="requeue" data-id="${o.id}">إعادة للسائقين</button>` : ''}</div></td></tr>`).join('')}
+  <td><div class="row wrapx"><a class="btn sm wa" href="${waLink(o)}" target="_blank" rel="noopener" aria-label="واتساب الزبون">واتساب</a><button class="btn sm ghost" data-act="receipt" data-id="${o.id}">وصل</button>${o.driverId ? `<button class="btn sm ghost" data-act="chat" data-id="${o.id}">محادثة</button>` : ''}${o.driverId && o.status !== 'pending' ? `<button class="btn sm soft" data-act="requeue" data-id="${o.id}">إعادة للسائقين</button>` : ''}</div></td></tr>`).join('')}
   </tbody></table></div>`;
 }
 
@@ -453,6 +463,126 @@ VIEWS['admin:settings'] = () => {
     <div class="card stack"><h2 style="font-size:18px">الدعم</h2><div class="field"><label for="s-support">رقم الدعم (يظهر للتجار والسائقين)</label><input class="in mono" id="s-support" name="support" inputmode="tel" value="${esc(s.support)}" placeholder="07XX XXX XXXX"></div></div>
     <button class="btn" type="submit" style="align-self:flex-start">حفظ الإعدادات</button></form>`;
 };
+
+/* ============ وصل الطلب: معاينة / طباعة / صورة / واتساب ============ */
+const mny = (n) => `${nf.format(Math.round(n || 0))} د.ع`;
+const pad2 = (n) => String(n).padStart(2, '0');
+function fmtDT(t) {
+  const d = new Date(t + OFF);
+  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())} ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
+}
+function findOrder(id) {
+  const d = S.data || {};
+  return (d.orders || []).find((x) => x.id === id) || (d.attention || []).find((x) => x.id === id) || null;
+}
+function waNumber(phone) {
+  const d = String(phone || '').replace(/\D/g, '');
+  if (d.startsWith('964')) return d;
+  if (d.startsWith('0')) return '964' + d.slice(1);
+  return d;
+}
+function waLink(o) {
+  const msg = `مرحباً، بخصوص طلبك رقم #${o.no} من ${o.merchantName}\nالمنتج: ${o.product} × ${o.qty}\nالمبلغ المطلوب: ${mny(o.total)}${o.driverName ? `\nالمندوب: ${o.driverName}` : ''}\nريو للتوصيل أسرع`;
+  return `https://wa.me/${waNumber(o.customerPhone)}?text=${encodeURIComponent(msg)}`;
+}
+function receiptModel(o) {
+  return {
+    no: o.no,
+    sections: [
+      { rows: [['التاريخ', fmtDT(o.createdAt)], ['الحالة', (ST[o.status] || [o.status])[0]], ['التاجر', o.merchantName]] },
+      { rows: [['رقم الزبون', o.customerPhone], ['المنطقة', o.customerArea]] },
+      { rows: [['البضاعة', o.product], ['عدد القطع', String(o.qty)]] },
+      { box: ['المبلغ المطلوب', mny(o.total)] },
+      { rows: [['أجرة التوصيل', mny(o.deliveryPrice)], ['الصافي للتاجر', mny(o.productPrice)]] },
+      { rows: [['المندوب', o.driverName || '—']] }
+    ]
+  };
+}
+function receiptHtml(o) {
+  const m = receiptModel(o);
+  const body = m.sections.map((sec, i) => {
+    const inner = sec.box
+      ? `<div class="box"><span>${esc(sec.box[0])}</span><span dir="ltr">${esc(sec.box[1])}</span></div>`
+      : sec.rows.map(([l, v]) => `<div class="r"><b>${esc(l)}</b><span dir="auto">${esc(v)}</span></div>`).join('');
+    const nextIsBox = m.sections[i + 1] && m.sections[i + 1].box;
+    return inner + (i < m.sections.length - 1 && !sec.box && !nextIsBox ? '<hr>' : '');
+  }).join('');
+  return `<div class="rcpt"><img class="rl" src="/icons/icon-192.png" alt=""><h3>ريو للتوصيل أسرع</h3><div class="ttl">وصل توصيل</div><div class="no">#${o.no}</div>${body}</div>`;
+}
+async function receiptCanvas(o) {
+  const m = receiptModel(o);
+  try { await document.fonts.load('700 24px Cairo'); await document.fonts.load('500 22px "IBM Plex Sans Arabic"'); } catch { /* ignore */ }
+  const logo = await new Promise((res) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = '/icons/icon-192.png'; });
+  const W = 640, SC = 2, PAD = 30, ROW = 54;
+  let H = 300;
+  m.sections.forEach((sec) => { H += sec.box ? 96 : sec.rows.length * ROW + 26; });
+  H += 40;
+  const c = document.createElement('canvas');
+  c.width = W * SC; c.height = H * SC;
+  const x = c.getContext('2d');
+  x.scale(SC, SC);
+  const FF = 'Cairo, "IBM Plex Sans Arabic", Tahoma, sans-serif';
+  const rr = (px, py, w, h, r) => { x.beginPath(); x.moveTo(px + r, py); x.arcTo(px + w, py, px + w, py + h, r); x.arcTo(px + w, py + h, px, py + h, r); x.arcTo(px, py + h, px, py, r); x.arcTo(px, py, px + w, py, r); x.closePath(); };
+  x.fillStyle = '#fff'; x.fillRect(0, 0, W, H);
+  x.direction = 'rtl'; x.textBaseline = 'middle'; x.fillStyle = '#111';
+  let y = 28;
+  if (logo) { x.drawImage(logo, W / 2 - 40, y, 80, 80); }
+  y += 112;
+  x.textAlign = 'center'; x.font = `800 30px ${FF}`; x.fillText('ريو للتوصيل أسرع', W / 2, y);
+  y += 38;
+  x.lineWidth = 3; x.strokeStyle = '#111'; rr(PAD - 6, y, W - 2 * PAD + 12, 56, 16); x.stroke();
+  x.font = `800 24px ${FF}`; x.fillText('وصل توصيل', W / 2, y + 29);
+  y += 92;
+  x.font = `800 30px ${FF}`; x.fillText(`#${m.no}`, W / 2, y);
+  y += 38;
+  m.sections.forEach((sec, i) => {
+    if (sec.box) {
+      x.lineWidth = 3; rr(PAD - 6, y, W - 2 * PAD + 12, 72, 16); x.stroke();
+      x.font = `800 26px ${FF}`; x.textAlign = 'right'; x.fillText(sec.box[0], W - PAD - 8, y + 37);
+      x.textAlign = 'left'; x.fillText(sec.box[1], PAD + 8, y + 37);
+      y += 96;
+    } else {
+      sec.rows.forEach(([l, v]) => {
+        x.font = `800 23px ${FF}`; x.textAlign = 'right'; x.fillText(l, W - PAD, y + ROW / 2);
+        const lw = x.measureText(l).width;
+        x.font = `500 23px ${FF}`; x.textAlign = 'left'; x.fillText(v, PAD, y + ROW / 2, W - 2 * PAD - lw - 20);
+        y += ROW;
+      });
+      const nextIsBox = m.sections[i + 1] && m.sections[i + 1].box;
+      if (i < m.sections.length - 1 && !nextIsBox) {
+        x.setLineDash([8, 6]); x.lineWidth = 1.5; x.strokeStyle = '#888';
+        x.beginPath(); x.moveTo(PAD, y + 10); x.lineTo(W - PAD, y + 10); x.stroke(); x.setLineDash([]); x.strokeStyle = '#111';
+      }
+      y += 26;
+    }
+  });
+  return c;
+}
+function canvasBlob(c) { return new Promise((res) => c.toBlob(res, 'image/png')); }
+async function downloadReceipt(o) {
+  const b = await canvasBlob(await receiptCanvas(o));
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(b); a.download = `rio-receipt-${o.no}.png`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+async function shareReceipt(o) {
+  try {
+    const b = await canvasBlob(await receiptCanvas(o));
+    const file = new File([b], `rio-receipt-${o.no}.png`, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: `وصل #${o.no}` });
+    else await downloadReceipt(o);
+  } catch { /* أُلغيت المشاركة */ }
+}
+function printReceipt(o) {
+  let root = document.getElementById('print-root');
+  if (!root) { root = document.createElement('div'); root.id = 'print-root'; document.body.appendChild(root); }
+  root.innerHTML = receiptHtml(o);
+  document.body.classList.add('printing');
+  const done = () => { document.body.classList.remove('printing'); window.removeEventListener('afterprint', done); };
+  window.addEventListener('afterprint', done);
+  setTimeout(() => window.print(), 80);
+}
 
 /* ============ النوافذ المنبثقة ============ */
 function sheetShell(title, body) {
@@ -496,6 +626,17 @@ const SHEETS = {
   note(s) {
     const o = S.data.available.find((x) => x.id === s.id);
     return [`ملاحظة طلب #${o ? o.no : ''}`, `<p>${o && o.note ? esc(o.note) : '<span class="muted">لا توجد ملاحظات من التاجر لهذا الطلب.</span>'}</p>`];
+  },
+  receipt(s) {
+    const o = findOrder(s.id);
+    if (!o) return ['وصل الطلب', '<p class="muted">تعذّر العثور على الطلب.</p>'];
+    return [`وصل طلب #${o.no}`, `<div class="rcpt-wrap">${receiptHtml(o)}</div>
+    <div class="row wrapx" style="margin-top:14px;justify-content:center">
+      <button class="btn" data-act="print-receipt" data-id="${o.id}">طباعة</button>
+      <button class="btn ghost" data-act="dl-receipt" data-id="${o.id}">تنزيل صورة</button>
+      ${navigator.share ? `<button class="btn ghost" data-act="share-receipt" data-id="${o.id}">مشاركة</button>` : ''}
+      <a class="btn wa" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a>
+    </div>`];
   },
   chat(s) {
     return [`محادثة طلب #${s.no}`, `<div class="chat" id="chat-box">${chatHtml(s.msgs)}</div><form class="row" data-form="chat"><input class="in grow" id="chat-in" name="text" maxlength="500" placeholder="اكتب رسالة…" autocomplete="off" aria-label="رسالة"><button class="btn" type="submit">إرسال</button></form>`];
@@ -599,6 +740,10 @@ const ACTIONS = {
   otab: (el) => { S.ordersTab = el.dataset.t; S.menu = null; render(); },
   wtab: (el) => { S.walletTab = el.dataset.t; render(); },
   'new-order': () => openSheet({ type: 'new-order', form: newOrderForm() }),
+  receipt: (el) => openSheet({ type: 'receipt', id: Number(el.dataset.id) }),
+  'print-receipt': (el) => { const o = findOrder(Number(el.dataset.id)); if (o) printReceipt(o); },
+  'dl-receipt': (el) => { const o = findOrder(Number(el.dataset.id)); if (o) downloadReceipt(o); },
+  'share-receipt': (el) => { const o = findOrder(Number(el.dataset.id)); if (o) shareReceipt(o); },
   note: (el) => openSheet({ type: 'note', id: Number(el.dataset.id) }),
   charge: () => openSheet({ type: 'charge' }),
   'edit-me': () => openSheet({ type: 'edit-me' }),
@@ -694,7 +839,8 @@ document.addEventListener('change', async (e) => {
 const FORMS = {
   async login(f, err) {
     const r = await api('POST', '/api/login', { phone: f.phone.value, password: f.password.value });
-    S.token = r.token; store.set('rio_token', r.token); setUser(r.user);
+    if (ADMIN_ONLY && r.user.role !== 'admin') throw new Error('هذه اللوحة للمدير فقط');
+    S.token = r.token; store.set(TOKEN_KEY, r.token); setUser(r.user);
     go(S.tab && TABS[r.user.role].some((t) => t[0] === S.tab) ? S.tab : defaultTab());
     void err;
   },
@@ -785,6 +931,7 @@ async function boot() {
   if (S.token) {
     try {
       const r = await api('GET', '/api/me');
+      if (ADMIN_ONLY && r.user.role !== 'admin') throw new Error('not admin');
       setUser(r.user);
       const ok = TABS[r.user.role].some((t) => t[0] === wanted);
       go(ok ? wanted : defaultTab());
