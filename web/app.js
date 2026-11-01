@@ -9,11 +9,14 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const nf = new Intl.NumberFormat('en-US');
 const num = (n) => `<span class="num">${nf.format(Math.round(n || 0))}</span>`;
 const money = (n) => `${num(n)} د.ع`;
+const RSIZES = { '58': ['58mm', 384, '58mm auto', '2mm'], '80': ['80mm', 576, '80mm auto', '3mm'], a5: ['A5', 700, 'A5', '8mm'], a4: ['A4', 794, 'A4', '10mm'] };
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch { /* ignore */ } },
   del(k) { try { localStorage.removeItem(k); } catch { /* ignore */ } }
 };
+let RSIZE = RSIZES[store.get('rio_rsize')] ? store.get('rio_rsize') : '80';
+const rsizeSeg = () => `<div class="seg" role="group" aria-label="حجم الوصل" style="display:flex;justify-content:center;width:max-content;max-width:100%;margin:0 auto 10px">${Object.keys(RSIZES).map((k) => `<button type="button" data-act="rsize" data-k="${k}" aria-pressed="${RSIZE === k}">${RSIZES[k][0]}</button>`).join('')}</div>`;
 const pad = (n) => String(n).padStart(2, '0');
 const OFF = 3 * 3600000;
 const DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
@@ -67,7 +70,7 @@ const IC = {
 };
 const ico = (n) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${IC[n] || ''}</svg>`;
 
-const RIO_MARK = '<svg class="rl" width="170" height="108" viewBox="0 0 300 190" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ريو للتوصيل أسرع" style="display:block;width:170px;height:108px;max-width:100%;margin:0 auto 8px"><rect width="300" height="190" rx="30" fill="#ffd21f"/><g fill="#171200"><rect x="216" y="52" width="64" height="13" rx="6"/><rect x="226" y="80" width="54" height="13" rx="6"/><rect x="216" y="108" width="64" height="13" rx="6"/></g><text x="112" y="112" text-anchor="middle" font-family="Cairo,Tahoma,sans-serif" font-weight="900" font-size="92" fill="#171200">ريوو</text><text x="112" y="168" text-anchor="middle" font-family="Cairo,Tahoma,sans-serif" font-weight="700" font-size="22" fill="#5c4d00">للتوصيل أسرع</text></svg>';
+const RIO_MARK = '<svg class="rl" width="170" height="108" viewBox="0 0 300 190" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ريو للتوصيل أسرع" style="display:block;max-width:100%;margin:0 auto 8px"><rect width="300" height="190" rx="30" fill="#ffd21f"/><g fill="#171200"><rect x="216" y="52" width="64" height="13" rx="6"/><rect x="226" y="80" width="54" height="13" rx="6"/><rect x="216" y="108" width="64" height="13" rx="6"/></g><text x="112" y="112" text-anchor="middle" font-family="Cairo,Tahoma,sans-serif" font-weight="900" font-size="92" fill="#171200">ريوو</text><text x="112" y="168" text-anchor="middle" font-family="Cairo,Tahoma,sans-serif" font-weight="700" font-size="22" fill="#5c4d00">للتوصيل أسرع</text></svg>';
 const logo = (cls = '') => `<span class="logo ${cls}" aria-label="ريو للتوصيل أسرع"><span class="logo-lines"><i></i><i></i><i></i></span><span class="logo-col"><span class="logo-word">ريوو</span><span class="logo-sub">للتوصيل أسرع</span></span></span>`;
 
 const ST = {
@@ -524,7 +527,7 @@ function modelHtml(m) {
     const nextIsBox = m.sections[i + 1] && m.sections[i + 1].box;
     return inner + (i < m.sections.length - 1 && !sec.box && !nextIsBox ? '<hr>' : '');
   }).join('');
-  return `<div class="rcpt">${RIO_MARK}<h3>ريو للتوصيل أسرع</h3>${m.heading ? `<h3 class="rh">${esc(m.heading)}</h3>` : ''}<div class="ttl">${esc(m.title)}</div>${m.no ? `<div class="no">#${esc(m.no)}</div>` : '<div style="height:10px"></div>'}${body}</div>`;
+  return `<div class="rcpt sz${RSIZE}">${RIO_MARK}<h3>ريو للتوصيل أسرع</h3>${m.heading ? `<h3 class="rh">${esc(m.heading)}</h3>` : ''}<div class="ttl">${esc(m.title)}</div>${m.no ? `<div class="no">#${esc(m.no)}</div>` : '<div style="height:10px"></div>'}${body}</div>`;
 }
 const receiptCanvas = (o) => modelCanvas(receiptModel(o));
 async function modelCanvas(m) {
@@ -533,10 +536,11 @@ async function modelCanvas(m) {
   let H = 360 + (m.heading ? 48 : 0) - (m.no ? 0 : 48);
   m.sections.forEach((sec) => { H += sec.box ? 96 : sec.rows.length * ROW + 26; });
   H += 40;
+  const OUT = RSIZES[RSIZE][1], K = OUT / W;
   const c = document.createElement('canvas');
-  c.width = W * SC; c.height = H * SC;
+  c.width = Math.round(OUT * SC); c.height = Math.round(H * K * SC);
   const x = c.getContext('2d');
-  x.scale(SC, SC);
+  x.scale(SC * K, SC * K);
   const FF = 'Cairo, "IBM Plex Sans Arabic", Tahoma, sans-serif';
   const rr = (px, py, w, h, r) => { x.beginPath(); x.moveTo(px + r, py); x.arcTo(px + w, py, px + w, py + h, r); x.arcTo(px + w, py + h, px, py + h, r); x.arcTo(px, py + h, px, py, r); x.arcTo(px, py, px + w, py, r); x.closePath(); };
   x.fillStyle = '#fff'; x.fillRect(0, 0, W, H);
@@ -547,8 +551,8 @@ async function modelCanvas(m) {
     x.fillStyle = '#ffd21f'; rr(lx, y, lw, lh, 24); x.fill();
     x.fillStyle = '#171200';
     [[0.69, 0.30, 0.24], [0.72, 0.45, 0.2], [0.69, 0.60, 0.24]].forEach(([fx, fy, fw]) => { rr(lx + lw * fx, y + lh * fy - 5, lw * fw, 10, 5); x.fill(); });
-    x.textAlign = 'center'; x.font = `900 78px ${FF}`; x.fillText('ريوو', lx + lw * 0.37, y + lh * 0.55);
-    x.fillStyle = '#5c4d00'; x.font = `700 18px ${FF}`; x.fillText('للتوصيل أسرع', lx + lw * 0.35, y + lh * 0.84);
+    x.textAlign = 'center'; x.font = `900 78px ${FF}`; x.fillText('ريوو', lx + lw * 0.37, y + lh * 0.50);
+    x.fillStyle = '#5c4d00'; x.font = `700 18px ${FF}`; x.fillText('للتوصيل أسرع', lx + lw * 0.35, y + lh * 0.88);
     x.fillStyle = '#111';
   }
   y += lh0() + 24;
@@ -584,8 +588,24 @@ async function modelCanvas(m) {
 }
 const lh0 = () => 152;
 function canvasBlob(c) { return new Promise((res) => c.toBlob(res, 'image/png')); }
+async function saveBlob(b, name) {
+  const cap = window.Capacitor;
+  if (cap && typeof cap.isNativePlatform === 'function' && cap.isNativePlatform()) {
+    try {
+      const data = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(b); });
+      await cap.registerPlugin('Filesystem').writeFile({ path: 'Rio/' + name, data, directory: 'DOCUMENTS', recursive: true });
+      toast('تم حفظ الصورة في المستندات ← Rio');
+      return;
+    } catch { /* نكمل بالتنزيل العادي */ }
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(b); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
 async function downloadModel(m, name) {
   const b = await canvasBlob(await modelCanvas(m));
+  if (b) { await saveBlob(b, name); return; }
   const a = document.createElement('a');
   a.href = URL.createObjectURL(b); a.download = name;
   document.body.appendChild(a); a.click(); a.remove();
@@ -603,6 +623,9 @@ function printModel(m) {
   let root = document.getElementById('print-root');
   if (!root) { root = document.createElement('div'); root.id = 'print-root'; document.body.appendChild(root); }
   root.innerHTML = modelHtml(m);
+  let ps = document.getElementById('page-style');
+  if (!ps) { ps = document.createElement('style'); ps.id = 'page-style'; document.head.appendChild(ps); }
+  ps.textContent = `@page{size:${RSIZES[RSIZE][2]};margin:${RSIZES[RSIZE][3]}}`;
   document.body.classList.add('printing');
   const done = () => { document.body.classList.remove('printing'); window.removeEventListener('afterprint', done); };
   window.addEventListener('afterprint', done);
@@ -885,20 +908,20 @@ const SHEETS = {
   receipt(s) {
     const o = findOrder(s.id);
     if (!o) return ['وصل الطلب', '<p class="muted">تعذّر العثور على الطلب.</p>'];
-    return [`وصل طلب #${o.no}`, `<div class="rcpt-wrap">${receiptHtml(o)}</div>
+    return [`وصل طلب #${o.no}`, `${rsizeSeg()}<div class="rcpt-wrap">${receiptHtml(o)}</div>
     <div class="row wrapx" style="margin-top:14px;justify-content:center">
       <button class="btn" data-act="print-receipt" data-id="${o.id}">طباعة</button>
-      <button class="btn ghost" data-act="dl-receipt" data-id="${o.id}">تنزيل صورة</button>
+      <button class="btn ghost" data-act="dl-receipt" data-id="${o.id}">حفظ صورة</button>
       ${navigator.share ? `<button class="btn ghost" data-act="share-receipt" data-id="${o.id}">مشاركة</button>` : ''}
       <a class="btn wa" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a>
     </div>`];
   },
   'report-receipt'(s) {
     const m = s.rep.receipt;
-    return ['وصل مختصر', `<div class="rcpt-wrap">${modelHtml(m)}</div>
+    return ['وصل مختصر', `${rsizeSeg()}<div class="rcpt-wrap">${modelHtml(m)}</div>
     <div class="row wrapx" style="margin-top:14px;justify-content:center">
       <button class="btn" data-act="rr-print">طباعة</button>
-      <button class="btn ghost" data-act="rr-png">تنزيل صورة PNG</button>
+      <button class="btn ghost" data-act="rr-png">حفظ صورة</button>
       ${navigator.share ? `<button class="btn ghost" data-act="rr-share">مشاركة</button>` : ''}
     </div>`];
   },
@@ -1012,6 +1035,7 @@ const ACTIONS = {
   wtab: (el) => { S.walletTab = el.dataset.t; render(); },
   'new-order': () => openSheet({ type: 'new-order', form: newOrderForm() }),
   receipt: (el) => openSheet({ type: 'receipt', id: Number(el.dataset.id) }),
+  rsize: (el) => { RSIZE = el.dataset.k; store.set('rio_rsize', RSIZE); renderSheet(); },
   'print-receipt': (el) => { const o = findOrder(Number(el.dataset.id)); if (o) printReceipt(o); },
   'dl-receipt': (el) => { const o = findOrder(Number(el.dataset.id)); if (o) downloadReceipt(o); },
   'share-receipt': (el) => { const o = findOrder(Number(el.dataset.id)); if (o) shareReceipt(o); },

@@ -95,11 +95,18 @@
   .t80 .bx{border:2px solid #111;border-radius:10px;padding:6px 10px;font-weight:800;font-size:15px;display:flex;justify-content:space-between;margin:6px 0}
   .t80 .ttl{border:2px solid #111;border-radius:10px;text-align:center;padding:5px;font-weight:800;font-size:15px;margin:8px 0}
   .t80 .no{text-align:center;font-weight:800;font-size:18px}
+  body.sz58{max-width:54mm;font-size:10.5px}
+  .sz58 .hd .rl{width:110px;height:auto}.sz58 .ttl{font-size:13px;padding:4px}.sz58 .bx{font-size:12px;padding:5px 7px}.sz58 .no{font-size:15px}.sz58 .r{gap:4px}
+  body.sz80{max-width:76mm}
+  body.t80.sza5{max-width:130mm;font-size:14px}body.t80.sza4{max-width:170mm;font-size:16px}
+  .t80.sza5 .hd .rl,.t80.sza4 .hd .rl{width:210px;height:auto}
   .words{border:1.5px solid #111;border-radius:10px;padding:8px 12px;margin:10px 0;background:#fff8d6;font-weight:700}
   .big{font-size:26px;font-weight:800;direction:ltr;text-align:center;border:3px solid #111;border-radius:14px;padding:8px;margin:12px 0}
   @media screen{body{padding:14px}}
   `;
-  const docPage = (title, body, cls) => '<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>' + esc(title) + '</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800;900&display=swap"><style>' + DOC_CSS + '</style></head><body class="' + (cls || '') + '">' + body + '</body></html>';
+  const PAGEBOX = { '58': '58mm auto;margin:2mm', '80': '80mm auto;margin:3mm', a5: 'A5;margin:8mm', a4: 'A4;margin:10mm' };
+  const pageCss = (cls) => { const m = /sz(58|80|a5|a4)/.exec(cls || ''); return m ? '@page{size:' + PAGEBOX[m[1]] + '}' : ''; };
+  const docPage = (title, body, cls) => '<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>' + esc(title) + '</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800;900&display=swap"><style>' + DOC_CSS + pageCss(cls) + '</style></head><body class="' + (cls || '') + '">' + body + '</body></html>';
   function printDoc(title, body, cls) {
     const f = document.createElement('iframe');
     f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
@@ -113,6 +120,33 @@
     const once = () => { if (!done) { done = true; setTimeout(go, 250); } };
     try { d.fonts.ready.then(once); } catch (e) { /* ignore */ }
     setTimeout(once, 1800);
+  }
+  const SZPX = { '58': 232, '80': 315, a5: 560, a4: 794 };
+  const loadH2C = () => (window.html2canvas ? Promise.resolve(window.html2canvas) : new Promise((res, rej) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+    sc.onload = () => res(window.html2canvas); sc.onerror = () => rej(new Error('تعذّر تحميل أداة الصور، تحقق من الإنترنت'));
+    document.head.appendChild(sc);
+  }));
+  /* حفظ الوصل كصورة PNG بنفس حجمه المختار */
+  async function saveDocImage(title, body, cls, name) {
+    const h2c = await loadH2C();
+    const m = /sz(58|80|a5|a4)/.exec(cls || ''), w = SZPX[m ? m[1] : '80'];
+    const f = document.createElement('iframe');
+    f.style.cssText = 'position:fixed;left:-10000px;top:0;height:1400px;border:0;background:#fff;width:' + w + 'px';
+    document.body.appendChild(f);
+    try {
+      const d = f.contentWindow.document;
+      d.open(); d.write(docPage(title, body, cls)); d.close();
+      try { await d.fonts.ready; } catch (e) { /* ignore */ }
+      await new Promise((r) => setTimeout(r, 450));
+      const canvas = await h2c(d.body, { scale: 3, backgroundColor: '#ffffff', useCORS: true, width: w, windowWidth: w });
+      const blob = await new Promise((r) => canvas.toBlob(r, 'image/png'));
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = name || 'rio.png';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    } finally { f.remove(); }
   }
   const hdr = (title, sub) => '<div class="hd">' + LOGO + '<div class="t"><h1>' + esc(title) + '</h1><small>ريو للتوصيل أسرع' + (sub ? ' · ' + esc(sub) : '') + '</small></div></div>';
   const tbl = (head, rows, foot) => '<table><thead><tr>' + head.map((h) => '<th' + (h[0] === '#' ? ' class="n"' : '') + '>' + esc(h.replace(/^#/, '')) + '</th>').join('') + '</tr></thead><tbody>' +
@@ -175,5 +209,5 @@
     }
   }
 
-  g.RL = { OFF, DAY, esc, nf, mny, fd, fdt, dayStart, ago, ST, STC, wa, LOGO, tafqeet, printDoc, docPage, docA4, doc80, exportXlsx, tbl };
+  g.RL = { OFF, DAY, esc, nf, mny, fd, fdt, dayStart, ago, ST, STC, wa, LOGO, tafqeet, printDoc, saveDocImage, docPage, docA4, doc80, exportXlsx, tbl };
 })(window);

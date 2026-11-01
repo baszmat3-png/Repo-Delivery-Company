@@ -1,10 +1,15 @@
 'use strict';
 /* ريو — لوحة التحكم (ويب). مزامنة فورية عبر SSE + احتياط بالاستعلام الدوري. */
 (() => {
-const { esc, nf, mny, fd, fdt, dayStart, ago, ST, STC, wa, LOGO, tafqeet, printDoc, docPage, docA4, doc80, exportXlsx, OFF, DAY } = window.RL;
+const { esc, nf, mny, fd, fdt, dayStart, ago, ST, STC, wa, LOGO, tafqeet, printDoc, saveDocImage, docPage, docA4, doc80, exportXlsx, OFF, DAY } = window.RL;
 const API = String(window.RIO_API || '').replace(/\/$/, ''), KEY = 'rio_admin_token';
 const $ = (s, r = document) => r.querySelector(s);
 const ls = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch { /* */ } }, del(k) { try { localStorage.removeItem(k); } catch { /* */ } } };
+let RS = ls.get('rio_rsize'); if (!['58', '80', 'a5', 'a4'].includes(RS)) RS = '80';
+const thermal = () => RS === '58' || RS === '80';
+const rcls = () => 't80 sz' + RS;
+const sizeSeg = () => `<div class="row" style="justify-content:center;margin-bottom:10px"><span class="hint">حجم الوصل</span><div class="seg" role="group" aria-label="حجم الوصل">${[['58', '58mm'], ['80', '80mm'], ['a5', 'A5'], ['a4', 'A4']].map(([k, l]) => `<button type="button" data-a="rsize" data-k="${k}" aria-pressed="${RS === k}">${l}</button>`).join('')}</div></div>`;
+const docBtns = () => `<button class="btn" data-a="print-doc">${ico('print')} طباعة / PDF</button><button class="btn g" data-a="save-doc">${ico('dl')} حفظ صورة</button>`;
 const DONE = ['delivered', 'partial'], RET = ['returned', 'partial'];
 const CATS = ['الإيجار', 'الوقود', 'السحب', 'الطعام', 'تنقلات شخصية', 'الإنترنت', 'اشتراكات تقنية', 'رواتب', 'إعلانات', 'صيانة', 'كهرباء وماء', 'أخرى'];
 const PAGES = [['home', 'لوحة المعلومات', 'home'], ['orders', 'الطلبات', 'orders'], ['merchants', 'المتاجر', 'store'], ['drivers', 'المندوبون', 'bike'], ['customers', 'العملاء', 'users'], ['finance', 'المالية والأرباح', 'money'], ['vouchers', 'سندات القبض والصرف', 'voucher'], ['cards', 'كروت الشحن', 'card'], ['settings', 'الإعدادات', 'settings']];
@@ -14,6 +19,7 @@ const IC = {
   users: '<circle cx="9" cy="8" r="3.5"/><path d="M2 20c0-3.5 3-5.5 7-5.5s7 2 7 5.5"/><path d="M16 4.5a3.5 3.5 0 010 7M18 14.5c2.5.6 4 2.3 4 5.5"/>',
   money: '<rect x="2" y="6" width="20" height="12" rx="3"/><circle cx="12" cy="12" r="2.8"/><path d="M6 10v4M18 10v4"/>', voucher: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
   card: '<rect x="2" y="5" width="20" height="14" rx="3"/><path d="M2 10h20M6 15h4"/>', settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>',
+  dl: '<path d="M12 4v11M7 11l5 5 5-5M5 20h14"/>',
   plus: '<path d="M12 5v14M5 12h14"/>', xl: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8l8 8M16 8l-8 8"/>', pdf: '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 14h6M9 17h4"/>',
   print: '<path d="M7 9V3h10v6M7 17H4v-6h16v6h-3"/><rect x="7" y="14" width="10" height="7"/>', refresh: '<path d="M20 11a8 8 0 10-2.3 5.7M20 4v7h-7"/>'
 };
@@ -345,6 +351,19 @@ function settings() {
   <div class="err" id="fe" role="alert"></div><button class="btn" style="min-height:44px">حفظ الإعدادات</button></form>`;
 }
 
+function voucherDoc80(v) {
+  return doc80({ title: v.kind === 'in' ? 'سند قبض' : 'سند صرف', no: v.no, groups: [{ rows: [['التاريخ', fd(v.at)], [v.kind === 'in' ? 'استلمنا من' : 'دفعنا إلى', v.partyName]] }, { boxes: [['المبلغ', mny(v.amount)]] }, { rows: [['كتابةً', tafqeet(v.amount)], ['التفاصيل', v.note || '—']] }] });
+}
+function curDoc() {
+  const m = M;
+  if (!m) return null;
+  if (m.type === 'receipt') return { title: 'وصل #' + m.o.no, body: orderReceipt(m.o), cls: rcls(), name: `rio-receipt-${m.o.no}.png` };
+  if (m.type === 'vprint') return { title: 'سند #' + m.v.no, body: thermal() ? voucherDoc80(m.v) : voucherDoc(m.v), cls: thermal() ? rcls() : 'sz' + RS, name: `rio-voucher-${m.v.no}.png` };
+  if (m.type === 'stmt') return { title: 'كشف', body: thermal() ? stmtReceipt(m) : stmtA4(m), cls: thermal() ? rcls() : 'sz' + RS, name: `rio-statement-${fd(Date.now())}.png` };
+  if (m.type === 'created') return { title: 'بيانات حساب', body: credDoc(m), cls: rcls(), name: `rio-account-${m.phone}.png` };
+  if (m.type === 'pw') { const u = findU(m.id); return u ? { title: 'بيانات حساب', body: credDoc({ role: D.drivers.includes(u) ? 'driver' : 'merchant', name: u.name, phone: u.phone, password: m.done, vehicle: u.vehicle, area: u.area }), cls: rcls(), name: `rio-account-${u.phone}.png` } : null; }
+  return null;
+}
 function voucherDoc(v) {
   const k = v.kind === 'in' ? 'سند قبض' : 'سند صرف';
   return docA4({
@@ -379,7 +398,7 @@ function stmtBody(m) {
   const tot = l.filter((o) => DONE.includes(o.status));
   return `<div class="kpis" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">${rows.map(([a, b, hi]) => kpi(a, `<span class="num">${esc(b)}</span>`, hi ? 'y' : '')).join('')}</div>
   <div class="row between" style="margin:6px 0 10px"><div class="chips">${Object.keys(SCOPES).map((k) => `<button class="chip" data-a="scope" data-k="${k}" aria-pressed="${m.scope === k}">${SCOPES[k][0]}${k === 'returned' ? ` (${st.summary.returned})` : ''}</button>`).join('')}</div>
-  <div class="row"><button class="btn sm" data-a="s-receipt">${ico('print')} وصل (80mm)</button><button class="btn sm g" data-a="s-pdf">${ico('pdf')} PDF / طباعة A4</button><button class="btn sm g" data-a="s-xlsx">${ico('xl')} Excel</button>${st.party.phone ? `<a class="btn sm w" target="_blank" rel="noopener" href="${wa(st.party.phone, stmtText(st))}">إرسال الملخص واتساب</a>` : ''}</div></div>
+  ${sizeSeg()}<div class="row"><button class="btn sm" data-a="print-doc">${ico('print')} طباعة / PDF</button><button class="btn sm g" data-a="save-doc">${ico('dl')} حفظ صورة</button><button class="btn sm g" data-a="s-xlsx">${ico('xl')} Excel</button>${st.party.phone ? `<a class="btn sm w" target="_blank" rel="noopener" href="${wa(st.party.phone, stmtText(st))}">إرسال الملخص واتساب</a>` : ''}</div></div>
   <div class="tw" style="max-height:44vh"><table><thead><tr><th>الطلب</th><th>التاريخ</th>${isM ? '' : '<th>المتجر</th>'}<th>المنطقة / المنتج</th><th class="n">البضاعة</th><th class="n">التوصيل</th><th class="n">الإجمالي</th>${isD ? '' : '<th>المندوب</th>'}<th>الحالة</th></tr></thead><tbody>
   ${l.map((o) => `<tr><td><b>#${o.no}</b></td><td>${fdt(o.createdAt)}</td>${isM ? '' : `<td>${esc(o.merchantName)}</td>`}<td>${esc(o.customerArea)}<div class="hint">${esc(o.product)} × ${o.qty}</div></td><td class="n">${nn(o.productPrice)}</td><td class="n">${nn(o.deliveryPrice)}${o.discount ? `<div class="hint">خصم ${nf(o.discount)}</div>` : ''}</td><td class="n">${nn(o.total)}</td>${isD ? '' : `<td>${esc(o.driverName || '—')}</td>`}<td>${stB(o.status)}</td></tr>`).join('')}</tbody>
   ${l.length ? `<tfoot><tr><td colspan="${isM ? 3 : 4}">${nn(l.length)} طلب</td><td class="n">${nn(tot.reduce((a, o) => a + o.productPrice, 0))}</td><td class="n">${nn(tot.reduce((a, o) => a + o.deliveryPrice, 0))}</td><td class="n">${nn(tot.reduce((a, o) => a + o.total, 0))}</td><td colspan="2"></td></tr></tfoot>` : ''}</table></div>${l.length ? '' : empty('لا توجد طلبات')}
@@ -428,11 +447,11 @@ function modalHtml() {
   if (m.type === 'stmt') return [`${stTitle(m.st)}: ${esc(stName(m.st))}`, stmtBody(m), 1];
   if (m.type === 'receipt') {
     const o = m.o;
-    return [`وصل طلب #${o.no}`, `<iframe title="معاينة الوصل" srcdoc="${esc(docPage('وصل', orderReceipt(o), 't80'))}" style="width:100%;height:60vh;border:1px solid var(--line);border-radius:12px;background:#fff"></iframe>
-    <div class="row" style="margin-top:12px;justify-content:center"><button class="btn" data-a="print-order">${ico('print')} طباعة / PDF</button><a class="btn w" target="_blank" rel="noopener" href="${wa(o.customerPhone, `مرحباً، بخصوص طلبك #${o.no} من ${o.merchantName}\nالمنتج: ${o.product} × ${o.qty}\nالمبلغ المطلوب: ${mny(o.total)}\nريو للتوصيل أسرع`)}">واتساب الزبون</a></div>`];
+    return [`وصل طلب #${o.no}`, `${sizeSeg()}<iframe title="معاينة الوصل" srcdoc="${esc(docPage('وصل', orderReceipt(o), rcls()))}" style="width:100%;height:60vh;border:1px solid var(--line);border-radius:12px;background:#fff"></iframe>
+    <div class="row" style="margin-top:12px;justify-content:center">${docBtns()}<a class="btn w" target="_blank" rel="noopener" href="${wa(o.customerPhone, `مرحباً، بخصوص طلبك #${o.no} من ${o.merchantName}\nالمنتج: ${o.product} × ${o.qty}\nالمبلغ المطلوب: ${mny(o.total)}\nريو للتوصيل أسرع`)}">واتساب الزبون</a></div>`];
   }
-  if (m.type === 'vprint') return [`${m.v.kind === 'in' ? 'سند قبض' : 'سند صرف'} #${m.v.no}`, `<iframe title="معاينة السند" srcdoc="${esc(docPage('سند', voucherDoc(m.v)))}" style="width:100%;height:62vh;border:1px solid var(--line);border-radius:12px;background:#fff"></iframe>
-    <div class="row" style="margin-top:12px;justify-content:center"><button class="btn" data-a="print-voucher">${ico('print')} طباعة / PDF</button><button class="btn g" data-a="print-voucher80">وصل 80mm</button>${vPhone(m.v) ? `<a class="btn w" target="_blank" rel="noopener" href="${wa(vPhone(m.v), `${m.v.kind === 'in' ? 'سند قبض' : 'سند صرف'} رقم #${m.v.no}\nالمبلغ: ${mny(m.v.amount)}\nالتاريخ: ${fd(m.v.at)}\nالتفاصيل: ${m.v.note || '—'}\nريو للتوصيل أسرع`)}">واتساب</a>` : ''}</div>`, 1];
+  if (m.type === 'vprint') return [`${m.v.kind === 'in' ? 'سند قبض' : 'سند صرف'} #${m.v.no}`, `${sizeSeg()}<iframe title="معاينة السند" srcdoc="${esc(docPage('سند', thermal() ? voucherDoc80(m.v) : voucherDoc(m.v), thermal() ? rcls() : 'sz' + RS))}" style="width:100%;height:62vh;border:1px solid var(--line);border-radius:12px;background:#fff"></iframe>
+    <div class="row" style="margin-top:12px;justify-content:center">${docBtns()}${vPhone(m.v) ? `<a class="btn w" target="_blank" rel="noopener" href="${wa(vPhone(m.v), `${m.v.kind === 'in' ? 'سند قبض' : 'سند صرف'} رقم #${m.v.no}\nالمبلغ: ${mny(m.v.amount)}\nالتاريخ: ${fd(m.v.at)}\nالتفاصيل: ${m.v.note || '—'}\nريو للتوصيل أسرع`)}">واتساب</a>` : ''}</div>`, 1];
   if (m.type === 'add-user') {
     const d = m.role === 'driver';
     return [d ? 'إضافة مندوب' : 'إضافة متجر', `<form data-f="add-user">${field('u-name', d ? 'اسم المندوب' : 'اسم المتجر', '<input class="in" id="u-name" required>')}${field('u-phone', 'رقم الهاتف', '<input class="in" id="u-phone" inputmode="tel" placeholder="07XXXXXXXXX" required>')}
@@ -444,7 +463,7 @@ function modalHtml() {
     const d = m.role === 'driver';
     return [d ? 'تم تسجيل السائق' : 'تم تسجيل التاجر', `<div class="card" style="background:var(--ac-soft);box-shadow:none"><div class="r2"><b>الاسم</b><span>${esc(m.name)}</span></div><div class="r2"><b>رقم الهاتف</b><span class="num">${esc(m.phone)}</span></div>
       <div class="r2"><b>كلمة المرور</b><span class="num" style="font-weight:800;letter-spacing:.05em">${esc(m.password)}</span></div><div class="r2"><b>${d ? 'المركبة' : 'المنطقة'}</b><span>${esc(d ? (m.vehicle === 'car' ? 'سيارة' : 'دراجة') : m.area)}</span></div><div class="r2"><b>رابط الدخول</b><span class="num" style="direction:ltr">${esc(loginUrl())}</span></div></div>
-      <div class="row" style="justify-content:center;margin-top:14px"><a class="btn w" target="_blank" rel="noopener" href="${wa(m.phone, credText(m))}">إرسال بالواتساب</a><button class="btn" data-a="print-created">${ico('print')} طباعة بالتفاصيل</button><button class="btn g" data-a="copy" data-t="${esc(credText(m))}">نسخ</button></div>`];
+      ${sizeSeg()}<div class="row" style="justify-content:center;margin-top:14px"><a class="btn w" target="_blank" rel="noopener" href="${wa(m.phone, credText(m))}">إرسال بالواتساب</a>${docBtns()}<button class="btn g" data-a="copy" data-t="${esc(credText(m))}">نسخ</button></div>`];
   }
   if (m.type === 'chat') {
     return [`محادثة طلب #${m.o.no}`, `<div class="chatbox" id="chat-box">${chatBoxHtml(m.msgs)}</div><form data-f="chat" class="row"><input class="in grow" id="chat-in" maxlength="500" placeholder="اكتب رسالة للسائق أو التاجر…" autocomplete="off"><button class="btn">إرسال</button></form><div class="err" id="fe" role="alert"></div>`];
@@ -457,8 +476,8 @@ function modalHtml() {
   }
   if (m.type === 'pw') {
     const u = findU(m.id);
-    if (m.done) return [`تم تعيين كلمة السر`, `<div class="card" style="background:var(--ac-soft);box-shadow:none"><p style="margin:0 0 6px">${esc(u.name)} — <span class="num">${esc(u.phone)}</span></p><div class="big" style="font-size:28px;font-weight:800;direction:ltr;text-align:center;letter-spacing:.06em">${esc(m.done)}</div></div>
-      <div class="row" style="justify-content:center"><button class="btn g" data-a="copy" data-t="${esc(m.done)}">نسخ</button><button class="btn" data-a="print-pw">${ico('print')} طباعة</button><a class="btn w" target="_blank" rel="noopener" href="${wa(u.phone, `مرحباً ${u.name}\nبيانات الدخول إلى ريو للتوصيل أسرع:\nرقم الهاتف: ${u.phone}\nكلمة المرور: ${m.done}\nيُفضّل تغييرها بعد أول دخول.`)}">إرسال بالواتساب</a></div>`];
+    if (m.done) return [`تم تعيين كلمة السر`, `<div class="card" style="background:var(--ac-soft);box-shadow:none"><p style="margin:0 0 6px">${esc(u.name)} — <span class="num">${esc(u.phone)}</span></p><div class="big" style="font-size:28px;font-weight:800;direction:ltr;text-align:center;letter-spacing:.06em">${esc(m.done)}</div></div>${sizeSeg()}
+      <div class="row" style="justify-content:center"><button class="btn g" data-a="copy" data-t="${esc(m.done)}">نسخ</button>${docBtns()}<a class="btn w" target="_blank" rel="noopener" href="${wa(u.phone, `مرحباً ${u.name}\nبيانات الدخول إلى ريو للتوصيل أسرع:\nرقم الهاتف: ${u.phone}\nكلمة المرور: ${m.done}\nيُفضّل تغييرها بعد أول دخول.`)}">إرسال بالواتساب</a></div>`];
     return [`كلمة سر جديدة — ${esc(u.name)}`, `<form data-f="pw">${field('w-p', 'كلمة المرور الجديدة', '<div class="row"><input class="in grow" id="w-p" minlength="6" required autocomplete="off"><button type="button" class="btn g" data-a="gen" data-t="w-p">توليد</button></div>', '6 أحرف أو أكثر. تُسجَّل خروج الجلسات القديمة عند أول انتهاء.')}<div class="err" id="fe" role="alert"></div><button class="btn" style="width:100%">تعيين</button></form>`];
   }
   if (m.type === 'adjust') {
@@ -560,21 +579,14 @@ const clickActs = {
   async copy(el) { try { await navigator.clipboard.writeText(el.dataset.t); toast('تم النسخ'); } catch { toast('تعذّر النسخ', true); } },
   receipt(el) { const o = O.find((x) => x.id === Number(el.dataset.id)); if (o) { M = { type: 'receipt', o }; drawModal(); } },
   chat(el) { const o = O.find((x) => x.id === Number(el.dataset.id)); if (o) { M = { type: 'chat', o, msgs: [], loaded: false }; drawModal(); startChat(); } },
-  'print-created'() { printDoc('بيانات حساب', credDoc(M), 't80'); },
-  'print-pw'() { const u = findU(M.id); if (u) printDoc('بيانات حساب', credDoc({ role: D.drivers.includes(u) ? 'driver' : 'merchant', name: u.name, phone: u.phone, password: M.done, vehicle: u.vehicle, area: u.area }), 't80'); },
-  'print-order'() { printDoc('وصل #' + M.o.no, orderReceipt(M.o), 't80'); },
+  'print-doc'() { const d = curDoc(); if (d) printDoc(d.title, d.body, d.cls); },
+  async 'save-doc'() { const d = curDoc(); if (d) await act(() => saveDocImage(d.title, d.body, d.cls, d.name), 'تم حفظ الصورة'); },
+  rsize(el) { RS = el.dataset.k; ls.set('rio_rsize', RS); drawModal(); },
   vprint(el) { const v = V.find((x) => x.id === Number(el.dataset.id)); if (v) { M = { type: 'vprint', v }; drawModal(); } },
-  'print-voucher'() { printDoc('سند #' + M.v.no, voucherDoc(M.v)); },
-  'print-voucher80'() {
-    const v = M.v;
-    printDoc('سند #' + v.no, doc80({ title: v.kind === 'in' ? 'سند قبض' : 'سند صرف', no: v.no, groups: [{ rows: [['التاريخ', fd(v.at)], [v.kind === 'in' ? 'استلمنا من' : 'دفعنا إلى', v.partyName]] }, { boxes: [['المبلغ', mny(v.amount)]] }, { rows: [['كتابةً', tafqeet(v.amount)], ['التفاصيل', v.note || '—']] }] }), 't80');
-  },
   async stmt(el) {
     const q = { type: el.dataset.t, id: el.dataset.id, phone: el.dataset.phone };
     const st = await act(() => fetchStmt(q)); if (st) { M = { type: 'stmt', q, st, scope: 'all' }; drawModal(); }
   },
-  's-receipt'() { printDoc('كشف', stmtReceipt(M), 't80'); },
-  's-pdf'() { printDoc('كشف', stmtA4(M)); },
   's-xlsx'() { stmtXlsx(M); },
   'exp-orders'() { doExcel('orders'); }, 'pdf-orders'() { doPdf('orders'); },
   'exp-merchants'() { doExcel('merchants'); }, 'pdf-merchants'() { doPdf('merchants'); },
