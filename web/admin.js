@@ -7,12 +7,13 @@ const $ = (s, r = document) => r.querySelector(s);
 const ls = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch { /* */ } }, del(k) { try { localStorage.removeItem(k); } catch { /* */ } } };
 const DONE = ['delivered', 'partial'], RET = ['returned', 'partial'];
 const CATS = ['الإيجار', 'الوقود', 'السحب', 'الطعام', 'تنقلات شخصية', 'الإنترنت', 'اشتراكات تقنية', 'رواتب', 'إعلانات', 'صيانة', 'كهرباء وماء', 'أخرى'];
-const PAGES = [['home', 'لوحة المعلومات', 'home'], ['orders', 'الطلبات', 'orders'], ['merchants', 'المتاجر', 'store'], ['drivers', 'المندوبون', 'bike'], ['customers', 'العملاء', 'users'], ['finance', 'المالية والأرباح', 'money'], ['vouchers', 'سندات القبض والصرف', 'voucher']];
+const PAGES = [['home', 'لوحة المعلومات', 'home'], ['orders', 'الطلبات', 'orders'], ['merchants', 'المتاجر', 'store'], ['drivers', 'المندوبون', 'bike'], ['customers', 'العملاء', 'users'], ['finance', 'المالية والأرباح', 'money'], ['vouchers', 'سندات القبض والصرف', 'voucher'], ['cards', 'كروت الشحن', 'card'], ['settings', 'الإعدادات', 'settings']];
 const IC = {
   home: '<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>', orders: '<rect x="5" y="3" width="14" height="18" rx="3"/><path d="M9 8h6M9 12h6M9 16h3"/>',
   store: '<path d="M4 9l1.5-5h13L20 9"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/>', bike: '<circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-8h5l3 8M10 8H8M13 12h5"/>',
   users: '<circle cx="9" cy="8" r="3.5"/><path d="M2 20c0-3.5 3-5.5 7-5.5s7 2 7 5.5"/><path d="M16 4.5a3.5 3.5 0 010 7M18 14.5c2.5.6 4 2.3 4 5.5"/>',
   money: '<rect x="2" y="6" width="20" height="12" rx="3"/><circle cx="12" cy="12" r="2.8"/><path d="M6 10v4M18 10v4"/>', voucher: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
+  card: '<rect x="2" y="5" width="20" height="14" rx="3"/><path d="M2 10h20M6 15h4"/>', settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>',
   plus: '<path d="M12 5v14M5 12h14"/>', xl: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8l8 8M16 8l-8 8"/>', pdf: '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 14h6M9 17h4"/>',
   print: '<path d="M7 9V3h10v6M7 17H4v-6h16v6h-3"/><rect x="7" y="14" width="10" height="7"/>', refresh: '<path d="M20 11a8 8 0 10-2.3 5.7M20 4v7h-7"/>'
 };
@@ -21,7 +22,7 @@ const ico = (n) => `<svg viewBox="0 0 24 24" aria-hidden="true">${IC[n] || ''}</
 /* ---------------- الحالة ---------------- */
 let T = ls.get(KEY) || '', P = ls.get('rio_page') || 'home', R = ls.get('rio_range') || 'month', CF = ls.get('rio_cf') || '', CT = ls.get('rio_ct') || '';
 let BASIS = ls.get('rio_basis') || 'fees', SORT = ls.get('rio_sort') || 'orders', FP = 'month', VK = 'in', Q = '', FS = 'all', FM = 0;
-let D = null, O = [], FN = null, V = [], E = '', M = null, LIVE = false, DIRTY = false, loading = false;
+let D = null, O = [], FN = null, V = [], CARDS = [], SET = null, BATCH = null, E = '', M = null, LIVE = false, DIRTY = false, loading = false;
 if (!PAGES.some((x) => x[0] === P)) P = 'home';
 
 function range() {
@@ -65,8 +66,10 @@ async function load(silent) {
     jobs.push(P === 'orders' ? api('GET', `/api/admin/orders?from=${a}&to=${b}&limit=5000`) : null);
     jobs.push(P === 'home' || P === 'finance' ? api('GET', '/api/admin/finance') : null);
     jobs.push(P === 'vouchers' ? api('GET', `/api/admin/vouchers?from=${a}&to=${b}`) : null);
-    const [d, o, f, v] = await Promise.all(jobs);
-    D = d; if (o) O = o.orders; if (f) FN = f; if (v) V = v.vouchers; E = '';
+    jobs.push(P === 'cards' ? api('GET', '/api/admin/cards') : null);
+    jobs.push(P === 'settings' ? api('GET', '/api/settings') : null);
+    const [d, o, f, v, cd, st] = await Promise.all(jobs);
+    D = d; if (o) O = o.orders; if (f) FN = f; if (v) V = v.vouchers; if (cd) CARDS = cd.cards; if (st) SET = st.settings; E = '';
     if (M && M.type === 'stmt') { try { M.st = await fetchStmt(M.q); } catch { /* ignore */ } }
   } catch (e) { E = e.message; }
   DIRTY = false; draw(); drawModal();
@@ -162,7 +165,7 @@ function draw() {
 }
 
 function page() {
-  return ({ home, orders, merchants, drivers, customers, finance, vouchers })[P]();
+  return ({ home, orders, merchants, drivers, customers, finance, vouchers, cards, settings })[P]();
 }
 
 /* ---------------- حساب الدخل ---------------- */
@@ -314,6 +317,34 @@ function vouchers() {
   ${V.length ? `<div class="tw"><table><thead><tr><th>الرقم</th><th>النوع</th><th>التاريخ</th><th>الطرف</th><th>التفاصيل</th><th class="n">المبلغ</th><th></th></tr></thead><tbody>${V.map((v) => `<tr><td><b>#${v.no}</b></td><td>${bdg(v.kind === 'in' ? 'قبض' : 'صرف', v.kind === 'in' ? 'green' : 'red')}</td><td>${fd(v.at)}</td><td>${esc(v.partyName)} <span class="hint">(${PT[v.partyType]})</span></td><td>${esc(v.note)}${v.ref ? `<div class="hint">مرجع: ${esc(v.ref)}</div>` : ''}</td><td class="n"><b class="${v.kind === 'in' ? 'pos' : 'neg'}">${mm(v.amount)}</b></td>
   <td class="act"><div class="row"><button class="btn sm" data-a="vprint" data-id="${v.id}">وصل / طباعة</button><button class="btn sm d" data-a="vdel" data-id="${v.id}">حذف</button></div></td></tr>`).join('')}</tbody></table></div>` : empty('لا توجد سندات في هذه الفترة')}</div>`;
 }
+/* ---------------- كروت الشحن ---------------- */
+function cards() {
+  const free = CARDS.filter((c) => !c.used), used = CARDS.filter((c) => c.used);
+  const sum = (a) => a.reduce((t, c) => t + c.amount, 0);
+  const grp = (n) => String(n).replace(/(\d{4})(?=\d)/g, '$1 ');
+  return `<div class="kpis">${kpi('كل الكروت', nn(CARDS.length), 'y')}${kpi('متاحة', nn(free.length), 'g', mny(sum(free)))}${kpi('مستخدمة', nn(used.length), 'a', mny(sum(used)))}</div>
+  <div class="card"><div class="ch">توليد كروت جديدة</div><form data-f="gen-cards"><div class="frm">
+  <div class="field"><label for="g-amount">قيمة الكرت</label><select class="in" id="g-amount">${[5000, 10000, 25000, 50000, 100000].map((v) => `<option value="${v}" ${v === 10000 ? 'selected' : ''}>${nf(v)} د.ع</option>`).join('')}</select></div>
+  <div class="field"><label for="g-count">العدد (حتى 50)</label><input class="in" id="g-count" type="number" min="1" max="50" value="5" inputmode="numeric"></div>
+  <div class="field"><button class="btn" style="min-height:40px">توليد الكروت</button></div></div></form></div>
+  ${BATCH ? `<div class="card"><div class="ch">الكروت الجديدة (${BATCH.length}) <button class="btn sm g" data-a="copy" data-t="${esc(BATCH.join('\n'))}">نسخ الكل</button><button class="btn sm g" data-a="batch-x">إخفاء</button></div><div class="num" style="line-height:2.1;direction:ltr;text-align:center">${BATCH.map((n) => esc(grp(n))).join('<br>')}</div></div>` : ''}
+  <div class="card"><div class="ch">الكروت <small>${nn(free.length)} متاح من ${nn(CARDS.length)}</small></div>
+  ${CARDS.length ? `<div class="tw"><table><thead><tr><th>رقم الكرت</th><th class="n">القيمة</th><th>الحالة</th><th>استخدمه</th><th></th></tr></thead><tbody>${CARDS.map((c) => `<tr><td class="num" style="direction:ltr">${esc(grp(c.number))}</td><td class="n">${mm(c.amount)}</td><td>${c.used ? bdg('مستخدم', 'gray') : bdg('متاح', 'green')}</td><td>${c.used ? `${esc(c.usedBy)}<div class="hint">${fdt(c.usedAt)}</div>` : '—'}</td>
+  <td class="act">${c.used ? '' : `<div class="row"><button class="btn sm" data-a="copy" data-t="${esc(c.number)}">نسخ</button><button class="btn sm d" data-a="del-card" data-n="${esc(c.number)}">حذف</button></div>`}</td></tr>`).join('')}</tbody></table></div>` : empty('لا توجد كروت', 'ولّد أول مجموعة كروت من النموذج أعلاه.')}</div>`;
+}
+
+/* ---------------- الإعدادات ---------------- */
+function settings() {
+  if (!SET) return `<div class="card">جارٍ التحميل…</div>`;
+  const f = (k, l) => `<div class="field"><label for="s-${k}">${l}</label><input class="in" id="s-${k}" inputmode="numeric" value="${esc(SET[k])}"></div>`;
+  return `<form data-f="settings">
+  <div class="card"><div class="ch">أسعار التوصيل للزبون <small>بالدينار العراقي</small></div><div class="frm">${f('bikeSame', 'دراجة · نفس المنطقة')}${f('bikeOther', 'دراجة · منطقة ثانية')}${f('carSame', 'سيارة · نفس المنطقة')}${f('carOther', 'سيارة · منطقة ثانية')}</div></div>
+  <div class="card"><div class="ch">رسوم التطبيق على السائق <small>تُخصم من محفظة السائق عند قبول كل طلب</small></div><div class="frm">${f('feeSame', 'نفس المنطقة')}${f('feeOther', 'منطقة ثانية')}</div></div>
+  <div class="card"><div class="ch">التنبيهات والدعم</div><div class="frm">${f('lateMin', 'مدة التأخير بالدقائق (لتنبيه الطلبات المتأخرة)')}
+  <div class="field"><label for="s-support">رقم الدعم (يظهر للتجار والسائقين)</label><input class="in" id="s-support" inputmode="tel" value="${esc(SET.support || '')}" placeholder="07XX XXX XXXX"></div></div></div>
+  <div class="err" id="fe" role="alert"></div><button class="btn" style="min-height:44px">حفظ الإعدادات</button></form>`;
+}
+
 function voucherDoc(v) {
   const k = v.kind === 'in' ? 'سند قبض' : 'سند صرف';
   return docA4({
@@ -507,6 +538,8 @@ const doPdf = (kind) => { const e = listExports(kind); printDoc(e.name, docA4({ 
 const clickActs = {
   page(el) { P = el.dataset.k; ls.set('rio_page', P); Q = ''; FS = 'all'; FM = 0; load(); },
   logout() { logout(); },
+  'batch-x'() { BATCH = null; draw(); },
+  async 'del-card'(el) { if (confirm('حذف هذا الكرت؟') && await act(() => api('DELETE', '/api/admin/cards/' + el.dataset.n), 'تم الحذف')) load(); },
   reload() { load(); },
   basis(el) { BASIS = el.dataset.k; ls.set('rio_basis', BASIS); draw(); },
   sort(el) { SORT = el.dataset.k; ls.set('rio_sort', SORT); draw(); },
@@ -558,7 +591,7 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && M) close
 document.addEventListener('input', (e) => {
   const t = e.target;
   if (t.id === 'q') { Q = t.value; const l = $('#list'); if (l) l.innerHTML = ({ orders: ordersList, merchants: merchantList, drivers: driverList, customers: customerList })[P](); }
-  else if (/^(ea|va|a-amt|d-v|u-disc)$/.test(t.id)) { const v = t.value.replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)); if (v !== t.value) t.value = v; }
+  else if (/^(ea|va|a-amt|d-v|u-disc|g-count|s-(bikeSame|bikeOther|carSame|carOther|feeSame|feeOther|lateMin))$/.test(t.id)) { const v = t.value.replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)); if (v !== t.value) t.value = v; }
 });
 document.addEventListener('change', async (e) => {
   const t = e.target, c = t.dataset.c; if (!c) return;
@@ -598,6 +631,14 @@ document.addEventListener('submit', async (e) => {
       const info = { type: 'created', role: M.role, name: $('#u-name').value.trim(), phone: $('#u-phone').value.trim(), password: $('#u-pass').value, vehicle: d ? $('#u-veh').value : '', area: d ? '' : $('#u-area').value.trim() };
       await api('POST', '/api/admin/users', { role: M.role, name: $('#u-name').value, phone: $('#u-phone').value, password: $('#u-pass').value, vehicle: d ? $('#u-veh').value : undefined, area: d ? '' : $('#u-area').value, discount: d ? 0 : $('#u-disc').value });
       toast('تم إنشاء الحساب'); await load(); M = info; drawModal();
+    }
+    else if (k === 'gen-cards') {
+      const r = await api('POST', '/api/admin/cards', { amount: $('#g-amount').value, count: $('#g-count').value });
+      BATCH = r.made; toast('تم توليد ' + r.made.length + ' كرت'); await load();
+    }
+    else if (k === 'settings') {
+      const body = {}; ['bikeSame', 'bikeOther', 'carSame', 'carOther', 'feeSame', 'feeOther', 'lateMin'].forEach((x) => { body[x] = $('#s-' + x).value; }); body.support = $('#s-support').value;
+      const r = await api('PUT', '/api/admin/settings', body); SET = r.settings; toast('تم حفظ الإعدادات'); draw();
     }
     else if (k === 'chat') {
       const inp = $('#chat-in'), t = inp.value.trim();

@@ -260,7 +260,7 @@ a.btn{text-decoration:none}
 .btn.wa{background:#25d366;color:#fff}
 .rcpt-wrap{background:#eef1f5;border-radius:16px;padding:12px;max-height:60vh;overflow:auto}
 .rcpt{background:#fff;color:#111;max-width:340px;margin:0 auto;padding:16px;text-align:right;border-radius:10px}
-.rcpt .rl{display:block;width:170px;height:auto;margin:0 auto 8px}
+.rcpt .rl{display:block;width:170px;height:108px;max-width:100%;margin:0 auto 8px;flex:none}
 .rcpt{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .rcpt h3{text-align:center;font-size:18px;margin:0 0 10px;font-weight:800}
 .rcpt .ttl{border:2px solid #111;border-radius:12px;text-align:center;padding:8px;font-weight:800}
