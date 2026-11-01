@@ -419,9 +419,9 @@ function statusSelect(o) {
 }
 function ordersTable(list) {
   return `<div class="tblwrap"><table><thead><tr><th>الطلب</th><th>التاجر</th><th>الزبون</th><th>المنتج</th><th>الإجمالي</th><th>السائق</th><th>الحالة</th><th></th></tr></thead><tbody>
-  ${list.map((o) => `<tr><td><b>#${o.no}</b><div class="hint">${ago(o.createdAt)}</div></td><td>${esc(o.merchantName)}</td><td>${esc(o.customerArea)}<div>${telLink(o.customerPhone)}</div></td>
+  ${list.map((o) => `<tr><td><b>#${o.no}</b><div class="hint">${ago(o.createdAt)}</div><div class="row wrapx" style="margin-top:8px"><a class="btn sm wa" href="${waLink(o)}" target="_blank" rel="noopener" aria-label="واتساب الزبون">واتساب</a><button class="btn sm ghost" data-act="receipt" data-id="${o.id}">وصل</button></div></td><td>${esc(o.merchantName)}</td><td>${esc(o.customerArea)}<div>${telLink(o.customerPhone)}</div></td>
   <td>${esc(o.product)} × ${o.qty}<div class="hint">${vehName(o.vehicle)}</div></td><td>${money(o.total)}</td><td>${esc(o.driverName || '—')}</td><td>${statusSelect(o)}</td>
-  <td><div class="row wrapx"><a class="btn sm wa" href="${waLink(o)}" target="_blank" rel="noopener" aria-label="واتساب الزبون">واتساب</a><button class="btn sm ghost" data-act="receipt" data-id="${o.id}">وصل</button>${o.driverId ? `<button class="btn sm ghost" data-act="chat" data-id="${o.id}">محادثة</button>` : ''}${o.driverId && o.status !== 'pending' ? `<button class="btn sm soft" data-act="requeue" data-id="${o.id}">إعادة للسائقين</button>` : ''}</div></td></tr>`).join('')}
+  <td><div class="row wrapx">${o.driverId ? `<button class="btn sm ghost" data-act="chat" data-id="${o.id}">محادثة</button>` : ''}${o.driverId && o.status !== 'pending' ? `<button class="btn sm soft" data-act="requeue" data-id="${o.id}">إعادة للسائقين</button>` : ''}</div></td></tr>`).join('')}
   </tbody></table></div>`;
 }
 
