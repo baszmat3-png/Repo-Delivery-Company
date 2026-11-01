@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>حذف الحساب - ريو للتوصيل أسرع</title>
+<meta name="description" content="طلب حذف حساب ريو للتوصيل أسرع وبياناته الشخصية">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@700;900&family=IBM+Plex+Sans+Arabic:wght@400;600&display=swap">
+<link rel="stylesheet" href="legal.css">
+</head>
+<body><main>
+<a class="back" href="./">← العودة للتطبيق</a>
+<h1>حذف الحساب</h1>
+<p class="muted">تطبيق «ريو للتوصيل أسرع»</p>
+<p>يمكنك حذف حسابك وبياناتك الشخصية من هنا. سجّل بنفس رقم الهاتف وكلمة المرور التي تدخل بها للتطبيق.</p>
+<h2>ماذا يحدث عند الحذف</h2>
+<ul>
+<li>يُلغى الحساب ولا يمكن الدخول به مرة أخرى.</li>
+<li>يُمسح اسمك ورقم هاتفك وكلمة مرورك المشفّرة فوراً.</li>
+<li>يُمسح نص رسائلك داخل الطلبات.</li>
+<li>تبقى سجلات الطلبات والعمليات المالية لأغراض المحاسبة، لكن بدون ربطها بأي هوية.</li>
+<li>الرصيد المتبقي في محفظة السائق يُفقد عند الحذف، فاستفد منه قبل ذلك.</li>
+</ul>
+<form class="card" id="f" autocomplete="on">
+  <div class="field"><label for="phone">رقم الهاتف</label><input id="phone" name="phone" inputmode="tel" dir="ltr" placeholder="07XX XXX XXXX" autocomplete="username" required></div>
+  <div class="field"><label for="pw">كلمة المرور</label><input id="pw" name="password" type="password" autocomplete="current-password" required></div>
+  <button class="del" id="b" type="submit">حذف حسابي نهائياً</button>
+  <p class="msg" id="m" role="alert"></p>
+</form>
+<p class="muted">إذا لم تتمكن من الدخول بحسابك تواصل مع الدعم لطلب الحذف.</p>
+</main>
+<script src="config.js"></script>
+<script>
+(function () {
+  var API = String(window.RIO_API || '').replace(/\/$/, '');
+  var f = document.getElementById('f'), m = document.getElementById('m'), b = document.getElementById('b');
+  f.addEventListener('submit', function (e) {
+    e.preventDefault(); m.textContent = ''; m.className = 'msg'; b.disabled = true;
+    fetch(API + '/api/delete-account', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: f.phone.value, password: f.password.value }) })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (x) {
+        if (x.ok) { m.textContent = 'تم حذف حسابك وبياناتك الشخصية.'; m.className = 'msg ok'; f.reset(); }
+        else { m.textContent = x.j.error || 'تعذّر الحذف'; m.className = 'msg err'; }
+      })
+      .catch(function () { m.textContent = 'لا يوجد اتصال بالخادم، حاول مرة أخرى'; m.className = 'msg err'; })
+      .then(function () { b.disabled = false; });
+  });
+})();
+</script>
+</body></html>

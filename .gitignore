@@ -1,0 +1,8 @@
+node_modules/
+server/data/
+server/node_modules/
+android/
+.env
+*.log
+*.keystore
+*.jks

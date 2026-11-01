@@ -1,0 +1,51 @@
+name: بناء تطبيق أندرويد
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - name: ضبط عنوان الخادم
+        run: |
+          if [ -z "${{ vars.RIO_API_URL }}" ]; then echo "::error::أضف متغير المستودع RIO_API_URL (رابط Render)"; exit 1; fi
+          echo 'window.RIO_API = "${{ vars.RIO_API_URL }}";' > web/config.js
+      - run: npm install
+      - run: npx cap add android
+      - name: أيقونات التطبيق
+        run: npx capacitor-assets generate --android
+      - run: npx cap sync android
+      - name: رقم الإصدار
+        run: sed -i "s/versionCode 1/versionCode ${{ github.run_number }}/" android/app/build.gradle
+      - name: بناء APK للتجربة
+        working-directory: android
+        run: ./gradlew assembleDebug
+      - name: بناء AAB موقّع لمتجر Play
+        if: env.HAS_KEYSTORE == 'true'
+        working-directory: android
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          ./gradlew bundleRelease \
+            -Pandroid.injected.signing.store.file="$RUNNER_TEMP/release.keystore" \
+            -Pandroid.injected.signing.store.password="$KS_PASS" \
+            -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="${KEY_PASS:-$KS_PASS}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rio-android
+          path: |
+            android/app/build/outputs/apk/debug/*.apk
+            android/app/build/outputs/bundle/release/*.aab
