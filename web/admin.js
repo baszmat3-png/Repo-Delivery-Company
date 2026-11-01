@@ -346,6 +346,7 @@ function settings() {
   return `<form data-f="settings">
   <div class="card"><div class="ch">أسعار التوصيل للزبون <small>بالدينار العراقي</small></div><div class="frm">${f('bikeSame', 'دراجة · نفس المنطقة')}${f('bikeOther', 'دراجة · منطقة ثانية')}${f('carSame', 'سيارة · نفس المنطقة')}${f('carOther', 'سيارة · منطقة ثانية')}</div></div>
   <div class="card"><div class="ch">رسوم التطبيق على السائق <small>تُخصم من محفظة السائق عند قبول كل طلب</small></div><div class="frm">${f('feeSame', 'نفس المنطقة')}${f('feeOther', 'منطقة ثانية')}</div></div>
+  <div class="card"><div class="ch">الوصولات <small>تحكم بظهور زر «وصل» عند التجار والسائقين</small></div><label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="s-receipts" ${SET.receipts !== 0 ? 'checked' : ''} style="width:22px;height:22px"><span><b>تفعيل الوصولات</b><span class="hint" style="display:block">عند الإيقاف يختفي زر «وصل» من حسابات التجار والسائقين، وتبقى متاحة لك في لوحة التحكم.</span></span></label></div>
   <div class="card"><div class="ch">التنبيهات والدعم</div><div class="frm">${f('lateMin', 'مدة التأخير بالدقائق (لتنبيه الطلبات المتأخرة)')}
   <div class="field"><label for="s-support">رقم الدعم (يظهر للتجار والسائقين)</label><input class="in" id="s-support" inputmode="tel" value="${esc(SET.support || '')}" placeholder="07XX XXX XXXX"></div></div></div>
   <div class="err" id="fe" role="alert"></div><button class="btn" style="min-height:44px">حفظ الإعدادات</button></form>`;
@@ -651,7 +652,7 @@ document.addEventListener('submit', async (e) => {
       BATCH = r.made; toast('تم توليد ' + r.made.length + ' كرت'); await load();
     }
     else if (k === 'settings') {
-      const body = {}; ['bikeSame', 'bikeOther', 'carSame', 'carOther', 'feeSame', 'feeOther', 'lateMin'].forEach((x) => { body[x] = $('#s-' + x).value; }); body.support = $('#s-support').value;
+      const body = {}; ['bikeSame', 'bikeOther', 'carSame', 'carOther', 'feeSame', 'feeOther', 'lateMin'].forEach((x) => { body[x] = $('#s-' + x).value; }); body.support = $('#s-support').value; body.receipts = $('#s-receipts').checked;
       const r = await api('PUT', '/api/admin/settings', body); SET = r.settings; toast('تم حفظ الإعدادات'); draw();
     }
     else if (k === 'chat') {

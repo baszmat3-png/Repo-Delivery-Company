@@ -16,6 +16,8 @@ const store = {
   del(k) { try { localStorage.removeItem(k); } catch { /* ignore */ } }
 };
 let RSIZE = RSIZES[store.get('rio_rsize')] ? store.get('rio_rsize') : '80';
+/* تشغيل/إيقاف الوصولات من الإدارة: يخفي زر «وصل» عن التاجر والسائق فقط */
+const receiptsOn = () => !S.user || S.user.role === 'admin' || !S.data || !S.data.settings || ![0, false, '0'].includes(S.data.settings.receipts);
 const rsizeSeg = () => `<div class="seg" role="group" aria-label="حجم الوصل" style="display:flex;justify-content:center;width:max-content;max-width:100%;margin:0 auto 10px">${Object.keys(RSIZES).map((k) => `<button type="button" data-act="rsize" data-k="${k}" aria-pressed="${RSIZE === k}">${RSIZES[k][0]}</button>`).join('')}</div>`;
 const pad = (n) => String(n).padStart(2, '0');
 const OFF = 3 * 3600000;
@@ -404,7 +406,7 @@ function driverOrderCard(o) {
       ${o.note ? `<div class="full"><dt>ملاحظة</dt><dd>${esc(o.note)}</dd></div>` : ''}
     </dl>
     ${o.status === 'picking_up' ? `<div class="notice">ادفع للتاجر ${money(o.productPrice)} عند الاستلام، وبعدها غيّر الحالة إلى «في الطريق للزبون».</div>` : ''}
-    <div class="row wrapx"><button class="btn ghost grow" data-act="chat" data-id="${o.id}">${ico('chat')} محادثة</button><button class="btn ghost grow" data-act="receipt" data-id="${o.id}">وصل</button><a class="btn wa grow" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a></div>
+    <div class="row wrapx"><button class="btn ghost grow" data-act="chat" data-id="${o.id}">${ico('chat')} محادثة</button>${receiptsOn() ? `<button class="btn ghost grow" data-act="receipt" data-id="${o.id}">وصل</button>` : ''}<a class="btn wa grow" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a></div>
     <hr class="rule" style="margin:0">
     <dl class="kv"><div><dt>المتجر</dt><dd>${esc(o.merchantName)}</dd></div><div><dt>العنوان</dt><dd>${esc(o.merchantArea)}</dd></div><div class="full"><dt>هاتف المتجر</dt><dd>${telLink(o.merchantPhone)}</dd></div></dl>
   </article>`;
@@ -480,6 +482,7 @@ VIEWS['admin:settings'] = () => {
       <div class="kpis" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">${f('bikeSame', 'دراجة · نفس المنطقة')}${f('bikeOther', 'دراجة · منطقة ثانية')}${f('carSame', 'سيارة · نفس المنطقة')}${f('carOther', 'سيارة · منطقة ثانية')}</div></div>
     <div class="card stack"><h2 style="font-size:18px">رسوم التطبيق على السائق</h2><p class="hint">تُخصم من محفظة السائق عند قبول كل طلب.</p>
       <div class="kpis" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">${f('feeSame', 'نفس المنطقة')}${f('feeOther', 'منطقة ثانية')}</div></div>
+    <div class="card stack"><h2 style="font-size:18px">الوصولات</h2><label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="s-receipts" name="receipts" ${s.receipts !== 0 ? 'checked' : ''} style="width:22px;height:22px"><span><b>تفعيل الوصولات</b><span class="hint" style="display:block">عند الإيقاف يختفي زر «وصل» من حسابات التجار والسائقين. تبقى متاحة لك كمدير.</span></span></label></div>
     <div class="card stack"><h2 style="font-size:18px">الدعم</h2><div class="field"><label for="s-support">رقم الدعم (يظهر للتجار والسائقين)</label><input class="in mono" id="s-support" name="support" inputmode="tel" value="${esc(s.support)}" placeholder="07XX XXX XXXX"></div></div>
     <button class="btn" type="submit" style="align-self:flex-start">حفظ الإعدادات</button></form>`;
 };
@@ -760,7 +763,7 @@ function exportReportWord(rep) { saveBlob(new Blob(['\ufeff', reportWordHtml(rep
 function exportCard(title, hint) {
   const chips = RANGES.map(([k, l]) => `<button class="chip" data-act="exp-range" data-k="${k}" aria-pressed="${S.expRange === k}">${l}</button>`).join('');
   return `<h2 class="sec">${title}</h2><div class="card stack"><div class="lbl">الفترة</div><div class="chips" style="margin:0">${chips}</div>
-  <div class="row wrapx"><button class="btn ghost grow" data-act="exp-xlsx">${ico('dl')} Excel</button><button class="btn ghost grow" data-act="exp-word">${ico('dl')} Word</button><button class="btn grow" data-act="exp-receipt">وصل مختصر</button></div>
+  <div class="row wrapx"><button class="btn ghost grow" data-act="exp-xlsx">${ico('dl')} Excel</button><button class="btn ghost grow" data-act="exp-word">${ico('dl')} Word</button>${receiptsOn() ? '<button class="btn grow" data-act="exp-receipt">وصل مختصر</button>' : ''}</div>
   <p class="hint">${hint}</p></div>`;
 }
 
@@ -875,6 +878,7 @@ function renderSheet() {
   const root = $('#sheet-root');
   const s = S.sheet;
   if (!s) { root.hidden = true; root.innerHTML = ''; return; }
+  if ((s.type === 'receipt' || s.type === 'report-receipt') && !receiptsOn()) { S.sheet = null; root.hidden = true; root.innerHTML = ''; return; }
   root.hidden = false;
   const b = SHEETS[s.type];
   root.innerHTML = b ? sheetShell(...b(s)) : '';
@@ -1034,7 +1038,7 @@ const ACTIONS = {
   otab: (el) => { S.ordersTab = el.dataset.t; S.menu = null; render(); },
   wtab: (el) => { S.walletTab = el.dataset.t; render(); },
   'new-order': () => openSheet({ type: 'new-order', form: newOrderForm() }),
-  receipt: (el) => openSheet({ type: 'receipt', id: Number(el.dataset.id) }),
+  receipt: (el) => receiptsOn() && openSheet({ type: 'receipt', id: Number(el.dataset.id) }),
   rsize: (el) => { RSIZE = el.dataset.k; store.set('rio_rsize', RSIZE); renderSheet(); },
   'print-receipt': (el) => { const o = findOrder(Number(el.dataset.id)); if (o) printReceipt(o); },
   'dl-receipt': (el) => { const o = findOrder(Number(el.dataset.id)); if (o) downloadReceipt(o); },
@@ -1058,7 +1062,7 @@ const ACTIONS = {
   'exp-range': (el) => { S.expRange = el.dataset.k; render(); },
   async 'exp-xlsx'() { const rep = await act(buildReport); if (rep) await act(() => exportReportXlsx(rep), 'تم تجهيز ملف Excel'); },
   async 'exp-word'() { const rep = await act(buildReport); if (rep) { exportReportWord(rep); toast('تم تجهيز ملف Word'); } },
-  async 'exp-receipt'() { const rep = await act(buildReport); if (rep) openSheet({ type: 'report-receipt', rep }); },
+  async 'exp-receipt'() { if (!receiptsOn()) return; const rep = await act(buildReport); if (rep) openSheet({ type: 'report-receipt', rep }); },
   'rr-print': () => printModel(S.sheet.rep.receipt),
   'rr-png': () => downloadModel(S.sheet.rep.receipt, `rio-summary-${fmtDT(Date.now()).slice(0, 10)}.png`),
   'rr-share': () => shareModel(S.sheet.rep.receipt, `rio-summary-${fmtDT(Date.now()).slice(0, 10)}.png`, 'وصل مختصر'),
@@ -1202,6 +1206,7 @@ const FORMS = {
   async settings(f) {
     const body = {};
     for (const k of ['bikeSame', 'bikeOther', 'carSame', 'carOther', 'feeSame', 'feeOther', 'support']) body[k] = f[k].value;
+    body.receipts = f.receipts.checked;
     await api('PUT', '/api/admin/settings', body);
     toast('تم حفظ الإعدادات'); refresh(true);
   }

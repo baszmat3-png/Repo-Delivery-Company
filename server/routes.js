@@ -31,7 +31,7 @@ const STATUSES = ['pending', 'picking_up', 'on_the_way', 'delivered', 'no_answer
 const DRIVER_STATUSES = ['picking_up', 'on_the_way', 'delivered', 'no_answer', 'problem', 'other', 'returned', 'partial'];
 const DONE = ['delivered', 'partial'];
 
-const DEF_SETTINGS = { bikeSame: 3000, bikeOther: 5000, carSame: 5000, carOther: 8000, feeSame: 500, feeOther: 1000, lateMin: 45, support: '' };
+const DEF_SETTINGS = { bikeSame: 3000, bikeOther: 5000, carSame: 5000, carOther: 8000, feeSame: 500, feeOther: 1000, lateMin: 45, support: '', receipts: 1 };
 
 async function getSettings() {
   const r = await q(`SELECT value FROM settings WHERE key='main'`);
@@ -530,6 +530,7 @@ route('PUT', '/api/admin/settings', ADMIN, async (c) => {
       next[k] = v;
     }
   }
+  if (c.body.receipts !== undefined) next.receipts = [true, 1, '1', 'true'].includes(c.body.receipts) ? 1 : 0;
   if (c.body.support !== undefined) next.support = normPhone(c.body.support).slice(0, 15);
   await q(`INSERT INTO settings(key,value) VALUES('main',$1) ON CONFLICT(key) DO UPDATE SET value=excluded.value`, [JSON.stringify(next)]);
   return { settings: next };
