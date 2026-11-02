@@ -27,8 +27,8 @@ const yearStart = (t) => { const d = new Date(t + OFF); return Date.UTC(d.getUTC
 const sumOf = (a, k) => a.reduce((s, o) => s + (Number(o[k]) || 0), 0);
 const isRet = (o) => o.status === 'returned' || o.status === 'partial' || o.status === 'rejected';
 
-const STATUSES = ['pending', 'picking_up', 'on_the_way', 'delivered', 'no_answer', 'postponed', 'rejected', 'problem', 'other', 'returned', 'partial', 'cancelled'];
-const DRIVER_STATUSES = ['picking_up', 'on_the_way', 'delivered', 'rejected', 'no_answer', 'postponed', 'problem', 'other', 'returned', 'partial'];
+const STATUSES = ['pending', 'picking_up', 'on_the_way', 'delivered', 'no_answer', 'postponed', 'rejected', 'cancelled'];
+const DRIVER_STATUSES = ['picking_up', 'on_the_way', 'delivered', 'rejected', 'no_answer', 'postponed'];
 const TROUBLE = ['no_answer', 'postponed', 'problem', 'other'];
 const DONE = ['delivered', 'partial'];
 

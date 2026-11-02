@@ -80,7 +80,9 @@ const ST = {
   delivered: ['تم التسليم', 'green'], rejected: ['مرفوض من زبون', 'red'], postponed: ['تأجيل', 'amber'], no_answer: ['لا يرد', 'red'], problem: ['مشكلة', 'red'], other: ['حالة أخرى', 'red'],
   returned: ['راجع', 'blue'], partial: ['راجع جزئي', 'blue'], cancelled: ['ملغي', '']
 };
-const DRIVER_ST = ['picking_up', 'on_the_way', 'delivered', 'rejected', 'postponed', 'no_answer', 'problem', 'other', 'returned', 'partial'];
+const DRIVER_ST = ['picking_up', 'on_the_way', 'delivered', 'rejected', 'no_answer', 'postponed'];
+const ST_OK = ['pending', 'picking_up', 'on_the_way', 'delivered', 'rejected', 'no_answer', 'postponed', 'cancelled'];
+const stKeys = (cur) => Object.keys(ST).filter((k) => ST_OK.includes(k) || k === cur);
 const pill = (s) => `<span class="pill ${ST[s]?.[1] || ''}">${esc(ST[s]?.[0] || s)}</span>`;
 const vehName = (v) => (v === 'car' ? 'سيارة' : 'دراجة');
 
@@ -466,7 +468,7 @@ VIEWS['admin:overview'] = () => {
 };
 
 function statusSelect(o) {
-  return `<select class="in" style="min-height:38px;padding:6px 10px;min-width:150px" data-chg="admin-status" data-id="${o.id}" aria-label="حالة الطلب ${o.no}">${Object.keys(ST).map((s) => `<option value="${s}" ${o.status === s ? 'selected' : ''}>${ST[s][0]}</option>`).join('')}</select>`;
+  return `<select class="in" style="min-height:38px;padding:6px 10px;min-width:150px" data-chg="admin-status" data-id="${o.id}" aria-label="حالة الطلب ${o.no}">${stKeys(o.status).map((s) => `<option value="${s}" ${o.status === s ? 'selected' : ''}>${ST[s][0]}</option>`).join('')}</select>`;
 }
 function ordersTable(list) {
   return `<div class="tblwrap"><table><thead><tr><th>الطلب</th><th>التاجر</th><th>الزبون</th><th>المنتج</th><th>الإجمالي</th><th>السائق</th><th>الحالة</th><th></th></tr></thead><tbody>
@@ -480,7 +482,7 @@ VIEWS['admin:orders'] = () => {
   const list = S.data.orders;
   const chip = (id, l) => `<button class="chip" data-act="afilter" data-f="${id}" aria-pressed="${S.adminFilter === id}">${l}</button>`;
   return `${head('الطلبات', `${list.length} طلب`)}
-  <div class="chips">${chip('all', 'الكل')}${Object.keys(ST).map((s) => chip(s, ST[s][0])).join('')}</div>
+  <div class="chips">${chip('all', 'الكل')}${stKeys().map((s) => chip(s, ST[s][0])).join('')}</div>
   ${list.length ? ordersTable(list) : emptyBox('لا توجد طلبات بهذه الحالة')}`;
 };
 VIEWS['admin:merchants'] = () => userTable('merchant');

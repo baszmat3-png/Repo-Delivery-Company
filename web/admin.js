@@ -13,6 +13,8 @@ const custMsg = (o) => fillTpl(tpl('cust_' + o.status) || tpl('cust_default'), o
 const drvMsg = (o, d) => fillTpl(tpl('admin_driver'), { ...ordVars(o), name: d ? d.name : '', phone: d ? d.phone : '' });
 const thermal = () => RS === '58' || RS === '80';
 const rcls = () => 't80 sz' + RS;
+const ST_OK = ['pending', 'picking_up', 'on_the_way', 'delivered', 'rejected', 'no_answer', 'postponed', 'cancelled'];
+const stKeys = (cur) => Object.keys(ST).filter((k) => ST_OK.includes(k) || k === cur);
 const rOn = () => !SET || (SET.receipts !== 0 && SET.receipts !== false);
 const sizeSeg = () => `<div class="row" style="justify-content:center;margin-bottom:10px"><span class="hint">حجم الوصل</span><div class="seg" role="group" aria-label="حجم الوصل">${[['58', '58mm'], ['80', '80mm'], ['a5', 'A5'], ['a4', 'A4']].map(([k, l]) => `<button type="button" data-a="rsize" data-k="${k}" aria-pressed="${RS === k}">${l}</button>`).join('')}</div></div>`;
 const docBtns = () => `<button class="btn" data-a="print-doc">${ico('print')} طباعة / PDF</button><button class="btn g" data-a="save-doc">${ico('dl')} حفظ صورة</button>`;
@@ -232,7 +234,7 @@ function ordersList() {
   return `<div class="tw"><table><thead><tr><th>الطلب</th><th>المتجر</th><th>الزبون</th><th>المنتج</th><th class="n">البضاعة</th><th class="n">التوصيل</th><th class="n">الإجمالي</th><th>المندوب</th><th>الحالة</th><th></th></tr></thead><tbody>
   ${l.slice(0, 400).map((o) => `<tr><td><b>#${o.no}</b><div class="hint">${fdt(o.createdAt)}</div></td><td>${esc(o.merchantName)}</td><td>${esc(o.customerArea)}<div class="hint num">${esc(o.customerPhone)}</div></td><td>${esc(o.product)} × ${o.qty}</td>
   <td class="n">${nn(o.productPrice)}</td><td class="n">${nn(o.deliveryPrice)}</td><td class="n"><b>${nn(o.total)}</b></td><td>${esc(o.driverName || '—')}</td>
-  <td><select class="in" style="min-height:34px;padding:4px 8px" data-c="status" data-id="${o.id}" aria-label="حالة الطلب ${o.no}">${Object.keys(ST).map((k) => `<option value="${k}" ${o.status === k ? 'selected' : ''}>${ST[k]}</option>`).join('')}</select></td>
+  <td><select class="in" style="min-height:34px;padding:4px 8px" data-c="status" data-id="${o.id}" aria-label="حالة الطلب ${o.no}">${stKeys(o.status).map((k) => `<option value="${k}" ${o.status === k ? 'selected' : ''}>${ST[k]}</option>`).join('')}</select></td>
   <td class="act"><div class="row">${rOn() ? `<button class="btn sm" data-a="receipt" data-id="${o.id}">وصل</button>` : ''}${o.driverId ? `<button class="btn sm g" data-a="chat" data-id="${o.id}">محادثة</button>` : ''}<a class="btn sm w" target="_blank" rel="noopener" href="${wa(o.customerPhone, custMsg(o))}">واتساب الزبون</a>${o.driverId && driverPhone(o) ? `<a class="btn sm w" target="_blank" rel="noopener" href="${wa(driverPhone(o), drvMsg(o, D.drivers.find((x) => x.id === o.driverId)))}">واتساب السائق</a>` : ''}${ASSIGNABLE.includes(o.status) ? `<button class="btn sm" data-a="assign" data-id="${o.id}">${o.driverId ? 'تحويل لسائق' : 'تعيين سائق'}</button>` : ''}${o.driverId && o.status !== 'pending' ? `<button class="btn sm g" data-a="requeue" data-id="${o.id}">إعادة</button>` : ''}</div></td></tr>`).join('')}
   </tbody>${l.length ? `<tfoot><tr><td colspan="4">${nn(l.length)} طلب (المسلّم ${nn(tot.length)})</td><td class="n">${nn(tot.reduce((a, o) => a + o.productPrice, 0))}</td><td class="n">${nn(tot.reduce((a, o) => a + o.deliveryPrice, 0))}</td><td class="n">${nn(tot.reduce((a, o) => a + o.total, 0))}</td><td colspan="3"></td></tr></tfoot>` : ''}</table></div>${l.length > 400 ? `<p class="hint">يُعرض أول 400 سجل — استخدم البحث أو التصدير للحصول على الكل (${nn(l.length)}).</p>` : ''}${l.length ? '' : empty('لا توجد طلبات مطابقة')}`;
 }
@@ -240,7 +242,7 @@ function orders() {
   const ms = D.merchants.map((m) => `<option value="${m.id}" ${FM === m.id ? 'selected' : ''}>${esc(m.name)}</option>`).join('');
   return `<div class="card"><div class="row between" style="margin-bottom:12px"><div class="row"><input class="in" id="q" placeholder="بحث: رقم، متجر، هاتف، منطقة…" value="${esc(Q)}" style="min-width:230px"><select class="in" data-c="fm" id="fm"><option value="0">كل المتاجر</option>${ms}</select></div>
   <div class="row"><button class="btn sm g" data-a="exp-orders">${ico('xl')} Excel</button><button class="btn sm g" data-a="pdf-orders">${ico('pdf')} PDF / طباعة</button></div></div>
-  <div class="chips" style="margin-bottom:12px"><button class="chip" data-a="fs" data-k="all" aria-pressed="${FS === 'all'}">الكل</button>${Object.keys(ST).map((k) => `<button class="chip" data-a="fs" data-k="${k}" aria-pressed="${FS === k}">${ST[k]} (${D.counts[k] || 0})</button>`).join('')}</div><div id="list">${ordersList()}</div></div>`;
+  <div class="chips" style="margin-bottom:12px"><button class="chip" data-a="fs" data-k="all" aria-pressed="${FS === 'all'}">الكل</button>${stKeys().map((k) => `<button class="chip" data-a="fs" data-k="${k}" aria-pressed="${FS === k}">${ST[k]} (${D.counts[k] || 0})</button>`).join('')}</div><div id="list">${ordersList()}</div></div>`;
 }
 
 /* ---------------- المتاجر ---------------- */
