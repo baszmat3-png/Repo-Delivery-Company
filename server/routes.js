@@ -468,7 +468,6 @@ route('POST', '/api/admin/orders/:id/assign', ADMIN, async (c) => {
   const d = dr.rows[0];
   if (!d) fail('اختر سائقاً فعّالاً', 404);
   if (o.driver_id === d.id) fail('الطلب مسند لهذا السائق أصلاً', 409);
-  if ((o.vehicle === 'car' ? 'car' : 'bike') !== (d.vehicle === 'car' ? 'car' : 'bike')) fail(o.vehicle === 'car' ? 'هذا طلب سيارة، اختر سائق سيارة' : 'هذا طلب دراجة، اختر سائق دراجة', 409);
   const s = await getSettings();
   const now = Date.now();
   const charge = c.body.charge !== false;

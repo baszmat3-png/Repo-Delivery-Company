@@ -493,9 +493,9 @@ function modalHtml() {
   }
   if (m.type === 'assign') {
     const o = m.o, car = o.vehicle === 'car';
-    const ds = D.drivers.filter((x) => x.active && (x.vehicle === 'car') === car && x.id !== o.driverId);
+    const ds = D.drivers.filter((x) => x.id !== o.driverId).sort((a, b) => ((b.vehicle === 'car') === car) - ((a.vehicle === 'car') === car));
     return [`${o.driverId ? 'تحويل' : 'تعيين'} الطلب #${o.no} لسائق`, `<form data-f="assign"><p class="muted">طلب ${car ? 'سيارة' : 'دراجة'} — ${esc(o.merchantName)} → ${esc(o.customerArea)}${o.driverId ? `<br>السائق الحالي: <b>${esc(o.driverName)}</b>. سيختفي الطلب منه وتُرجَع له رسوم التطبيق${o.fee ? ` (${mny(o.fee)})` : ''} كاملة.` : ''}</p>
-    ${ds.length ? field('as-d', car ? 'سائق السيارة' : 'سائق الدراجة', `<select class="in" id="as-d">${ds.map((x) => `<option value="${x.id}">${esc(x.name)} — رصيد ${nf(x.balance)} د.ع${x.active_ ? '' : ''}</option>`).join('')}</select>`) : `<div class="notice">لا يوجد سائقون فعّالون من نوع ${car ? 'سيارة' : 'دراجة'}.</div>`}
+    ${ds.length ? field('as-d', 'السائق', `<select class="in" id="as-d">${ds.map((x) => `<option value="${x.id}" ${x.active ? '' : 'disabled'}>${esc(x.name)} — ${x.vehicle === 'car' ? 'سيارة' : 'دراجة'} — رصيد ${nf(x.balance)} د.ع${x.active ? '' : ' (موقوف)'}</option>`).join('')}</select>`) : `<div class="notice">لا يوجد سائقون آخرون.</div>`}
     <label class="row" style="gap:10px;align-items:center;margin:10px 0 14px;cursor:pointer"><input type="checkbox" id="as-c" checked style="width:20px;height:20px"><span>خصم رسوم التطبيق من السائق الجديد <small class="muted">(ألغِ التحديد لتعيينه بدون خصم)</small></span></label>
     <div class="err" id="fe" role="alert"></div><button class="btn" style="width:100%" ${ds.length ? '' : 'disabled'}>${o.driverId ? 'تحويل الطلب' : 'تعيين الطلب'}</button></form>`];
   }
