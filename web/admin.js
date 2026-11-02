@@ -275,14 +275,14 @@ function driverList() {
   const l = [...D.drivers].filter((m) => !q || norm(m.name + ' ' + m.phone).includes(q)).sort((a, b) => b.delivered - a.delivered);
   return `<div class="tw"><table><thead><tr><th>#</th><th>المندوب</th><th class="n">المنجز</th><th class="n">جارٍ</th><th class="n">متأخر</th><th class="n">راجع</th><th class="n">مشاكل</th><th class="n">الرصيد</th><th class="n">المحصّل</th><th class="n">رسوم مخصومة</th><th>آخر نشاط</th><th></th></tr></thead><tbody>
   ${l.map((m, i) => `<tr><td>${rankB(i)}</td><td><b>${esc(m.name)}</b> ${!m.active ? bdg('موقوف', 'red') : m.receiving ? bdg('يستقبل', 'green') : bdg('متوقف الاستقبال', 'gray')}<div class="hint">${m.vehicle === 'car' ? 'سيارة' : 'دراجة'} · <span class="num">${esc(m.phone)}</span></div></td>
-  <td class="n"><b>${nn(m.delivered)}</b></td><td class="n">${nn(m.active)}</td><td class="n">${m.late ? `<b class="neg">${nn(m.late)}</b>` : '0'}</td><td class="n">${nn(m.returned)}</td><td class="n">${nn(m.problems)}</td>
+  <td class="n"><b>${nn(m.delivered)}</b></td><td class="n">${nn(m.live)}</td><td class="n">${m.late ? `<b class="neg">${nn(m.late)}</b>` : '0'}</td><td class="n">${nn(m.returned)}</td><td class="n">${nn(m.problems)}</td>
   <td class="n"><b class="${m.balance < (D.settingsFee || 1000) ? 'neg' : ''}">${mm(m.balance)}</b></td><td class="n">${mm(m.collected)}</td><td class="n">${mm(m.fees)}</td><td>${ago(m.lastAt)}</td>
   <td class="act"><div class="row"><button class="btn sm" data-a="stmt" data-t="driver" data-id="${m.id}">كشف / تصدير</button><button class="btn sm g" data-a="adjust" data-id="${m.id}">رصيد</button><button class="btn sm g" data-a="pw" data-id="${m.id}">كلمة سر</button><a class="btn sm w" target="_blank" rel="noopener" href="${wapw(m)}">واتساب</a><button class="btn sm ${m.active ? 'g' : 'd'}" data-a="toggle" data-id="${m.id}">${m.active ? 'إيقاف' : 'تفعيل'}</button></div></td></tr>`).join('')}
   </tbody></table></div>${l.length ? '' : empty('لا يوجد مندوبون')}`;
 }
 function drivers() {
   const d = D.drivers;
-  return `<div class="kpis">${kpi('عدد المندوبين', nn(d.length), 'y', nn(d.filter((x) => x.receiving && x.active).length) + ' يستقبل الطلبات')}${kpi('لديهم طلبات جارية', nn(d.filter((x) => x.active_ || x.active > 0).length), 'b')}${kpi('طلبات متأخرة', nn(D.lateOrders.length), D.lateOrders.length ? 'r' : 'g', `أكثر من ${D.lateMin} دقيقة`)}${kpi('مجموع الأرصدة', mm(d.reduce((a, x) => a + x.balance, 0)), 'g')}${kpi('رسوم مخصومة (الفترة)', mm(D.fees), 'y')}</div>
+  return `<div class="kpis">${kpi('عدد المندوبين', nn(d.length), 'y', nn(d.filter((x) => x.receiving && x.active).length) + ' يستقبل الطلبات')}${kpi('لديهم طلبات جارية', nn(d.filter((x) => x.live > 0).length), 'b')}${kpi('طلبات متأخرة', nn(D.lateOrders.length), D.lateOrders.length ? 'r' : 'g', `أكثر من ${D.lateMin} دقيقة`)}${kpi('مجموع الأرصدة', mm(d.reduce((a, x) => a + x.balance, 0)), 'g')}${kpi('رسوم مخصومة (الفترة)', mm(D.fees), 'y')}</div>
   <div class="card"><div class="row between" style="margin-bottom:12px"><input class="in" id="q" placeholder="بحث عن مندوب…" value="${esc(Q)}" style="min-width:220px"><div class="row"><button class="btn sm g" data-a="exp-drivers">${ico('xl')} Excel</button><button class="btn sm g" data-a="pdf-drivers">${ico('pdf')} PDF</button><button class="btn" data-a="add-user" data-r="driver">${ico('plus')} إضافة مندوب</button></div></div><div id="list">${driverList()}</div></div>`;
 }
 
@@ -579,7 +579,7 @@ function listExports(kind) {
   }
   if (kind === 'drivers') {
     const h = ['المندوب', 'الهاتف', 'المنجز', 'الجاري', 'المتأخر', 'الراجع', 'مشاكل', 'الرصيد', 'المحصّل', 'رسوم مخصومة', 'صافي الربح'];
-    const r = [...D.drivers].sort((a, b) => b.delivered - a.delivered).map((m) => [m.name, m.phone, m.delivered, m.active, m.late, m.returned, m.problems, m.balance, m.collected, m.fees, m.earned]);
+    const r = [...D.drivers].sort((a, b) => b.delivered - a.delivered).map((m) => [m.name, m.phone, m.delivered, m.live, m.late, m.returned, m.problems, m.balance, m.collected, m.fees, m.earned]);
     return { name: 'المندوبون', head: h, rows: r, pdf: { head: ['المندوب', '#المنجز', '#الجاري', '#المتأخر', '#الراجع', '#الرصيد', '#الرسوم'], rows: r.map((x) => [x[0], x[2], x[3], x[4], x[5], nf(x[7]), nf(x[9])]) } };
   }
   if (kind === 'customers') return { name: 'العملاء', head: ['الهاتف', 'المنطقة', 'الطلبات', 'المسلّمة', 'الراجع', 'إجمالي المدفوع'], rows: D.customers.map((c) => [c.phone, c.area, c.orders, c.delivered, c.returned, c.total]) };
@@ -630,7 +630,12 @@ const clickActs = {
   'exp-merchants'() { doExcel('merchants'); }, 'pdf-merchants'() { doPdf('merchants'); },
   'exp-drivers'() { doExcel('drivers'); }, 'pdf-drivers'() { doPdf('drivers'); },
   'exp-customers'() { doExcel('customers'); }, 'exp-expenses'() { doExcel('expenses'); }, 'exp-vouchers'() { doExcel('vouchers'); },
-  async toggle(el) { const u = findU(Number(el.dataset.id)); if (u && confirm((u.active ? 'إيقاف حساب ' : 'تفعيل حساب ') + u.name + '؟') && await act(() => api('PUT', '/api/admin/users/' + u.id, { active: !u.active }), 'تم')) load(); },
+  async toggle(el) {
+    const u = findU(Number(el.dataset.id)); if (!u) return;
+    const prev = u.active; u.active = prev ? 0 : 1; draw();
+    try { await api('PUT', '/api/admin/users/' + u.id, { active: !prev }); toast(prev ? 'تم إيقاف الحساب' : 'تم تفعيل الحساب'); load(); }
+    catch (e) { u.active = prev; draw(); toast(e.message, true); }
+  },
   async requeue(el) { if (confirm('إعادة الطلب للسائقين وإرجاع رسوم التطبيق للسائق؟') && await act(() => api('POST', `/api/admin/orders/${el.dataset.id}/requeue`), 'أُعيد الطلب للسائقين')) load(); },
   async 'del-exp'(el) { if (confirm('حذف هذا المصروف؟') && await act(() => api('DELETE', '/api/admin/expenses/' + el.dataset.id), 'تم الحذف')) load(); },
   async vdel(el) { if (confirm('حذف هذا السند نهائياً؟ سيتغيّر رصيد الطرف المرتبط به.') && await act(() => api('DELETE', '/api/admin/vouchers/' + el.dataset.id), 'تم الحذف')) load(); }

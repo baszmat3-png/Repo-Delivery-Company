@@ -148,7 +148,6 @@ route('PUT', '/api/me/profile', async (c) => {
   const name = clean(c.body.name, 60);
   if (name.length < 2) fail('اكتب الاسم');
   const patch = { name };
-  if (c.user.role === 'driver' && ['bike', 'car'].includes(c.body.vehicle)) patch.vehicle = c.body.vehicle;
   const u = await db.update('users', 'id', c.user.id, patch);
   return { user: pub(u) };
 });
@@ -641,7 +640,7 @@ route('GET', '/api/admin/stats', ADMIN, async (c) => {
     const mine = live.filter((o) => o.driver_id === u.id);
     return {
       ...pub(u), orders: m.length, delivered: d.length, returned: r.length, fees: sumOf(m, 'fee'), collected: sumOf(d, 'total'),
-      earned: sumOf(d, 'delivery_price') - sumOf(d, 'fee'), active: mine.length,
+      earned: sumOf(d, 'delivery_price') - sumOf(d, 'fee'), live: mine.length,
       late: mine.filter((o) => o.accepted_at && now - o.accepted_at > lateMs).length,
       problems: m.filter((o) => TROUBLE.includes(o.status)).length,
       lastAt: m.reduce((a, o) => Math.max(a, o.updated_at), 0)

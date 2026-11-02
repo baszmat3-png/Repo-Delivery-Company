@@ -178,7 +178,7 @@ let es = null, liveT = null;
 function connectLive() {
   if (es || !S.token || typeof EventSource === 'undefined') return;
   es = new EventSource(API + '/api/stream?token=' + encodeURIComponent(S.token));
-  es.addEventListener('change', () => { clearTimeout(liveT); liveT = setTimeout(liveRefresh, 300); setTimeout(checkNotifs, 200); });
+  es.addEventListener('change', () => { clearTimeout(liveT); liveT = setTimeout(liveRefresh, 300); setTimeout(checkNotifs, 200); setTimeout(checkNewOrders, 250); });
 }
 function disconnectLive() { if (es) { es.close(); es = null; } }
 function liveRefresh() {
@@ -819,15 +819,14 @@ function unlockAudio() {
 }
 function beep() {
   try {
-    unlockAudio(); if (!audioCtx) return;
-    const t = audioCtx.currentTime;
-    [[880, 0], [1175, 0.2], [1568, 0.4]].forEach(([f, d]) => {
-      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-      o.type = 'sine'; o.frequency.value = f;
-      g.gain.setValueAtTime(0.0001, t + d); g.gain.exponentialRampToValueAtTime(0.4, t + d + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.32);
-      o.connect(g); g.connect(audioCtx.destination); o.start(t + d); o.stop(t + d + 0.35);
-    });
-    if (navigator.vibrate) navigator.vibrate([150, 80, 150]);
+    unlockAudio();
+    if (audioCtx) {
+      const t = audioCtx.currentTime, o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = 'sine'; o.frequency.value = 988;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.3, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
+      o.connect(g); g.connect(audioCtx.destination); o.start(t); o.stop(t + 0.5);
+    }
+    if (navigator.vibrate) navigator.vibrate(200);
   } catch { /* ignore */ }
 }
 function whenActive(reg) {
@@ -846,8 +845,8 @@ async function notifyReg() {
 }
 async function systemNotify(m) {
   if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
-  const opts = { body: m.text, tag: 'rio-chat-' + m.orderId, renotify: true, vibrate: [200, 100, 200], dir: 'rtl', lang: 'ar', data: { orderId: m.orderId, orderNo: m.orderNo } };
-  const title = `${m.name} · طلب #${m.orderNo}`;
+  const opts = { body: m.text, tag: m.tag || ('rio-chat-' + m.orderId), renotify: true, vibrate: [200], dir: 'rtl', lang: 'ar', data: { orderId: m.orderId, orderNo: m.orderNo } };
+  const title = m.title || `${m.name} · طلب #${m.orderNo}`;
   try {
     const reg = await notifyReg();
     if (reg) { await reg.showNotification(title, opts); return; }
@@ -874,6 +873,24 @@ async function checkNotifs() {
     else { beep(); toast(`رسالة جديدة من ${m.name} (طلب #${m.orderNo})`); }
   } catch { /* ignore */ } finally { nBusy = false; }
 }
+let knownAvail = null, aBusy = false;
+async function checkNewOrders() {
+  if (!S.user || S.user.role !== 'driver' || aBusy) return;
+  aBusy = true;
+  try {
+    const d = await api('GET', '/api/driver/home');
+    const ids = (d.available || []).map((o) => o.id);
+    const seen = knownAvail;
+    knownAvail = new Set(ids);
+    if (seen === null || !d.me.receiving) return;
+    const fresh = d.available.filter((o) => !seen.has(o.id));
+    if (!fresh.length) return;
+    const o = fresh[0];
+    const text = `${o.merchantName} — ${o.merchantArea} ← ${o.customerArea}`;
+    if (document.hidden) systemNotify({ title: 'طلب جديد #' + o.no, text, tag: 'rio-new-order' });
+    else { beep(); toast('طلب جديد متاح: ' + text); }
+  } catch { /* ignore */ } finally { aBusy = false; }
+}
 function openChatFor(id, no) {
   id = Number(id); if (!id || !S.user) return;
   markRead(id);
@@ -895,7 +912,8 @@ async function askNotifPermission() {
 }
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', (e) => { const d = e.data || {}; if (d.type === 'open-chat') openChatFor(d.orderId, d.orderNo); });
 setInterval(checkNotifs, 15000);
-document.addEventListener('visibilitychange', () => { if (!document.hidden) checkNotifs(); });
+setInterval(checkNewOrders, 15000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { checkNotifs(); checkNewOrders(); } });
 
 /* ============ النوافذ المنبثقة ============ */
 function sheetShell(title, body) {
@@ -982,7 +1000,6 @@ const SHEETS = {
     return ['بياناتي', `<form class="stack" data-form="edit-me">
       ${field('m-name', 'الاسم', `<input class="in" id="m-name" name="name" value="${esc(me.name)}" required>`)}
       ${field('m-phone', 'رقم الهاتف', `<input class="in mono" id="m-phone" value="${esc(fmtPhone(me.phone))}" disabled>`, 'لتغيير رقم الهاتف تواصل مع الإدارة.')}
-      ${me.role === 'driver' ? `<div class="field"><span class="lbl">المركبة</span><div class="seg"><button type="button" data-act="me-veh" data-v="bike" aria-pressed="${(S.sheet.vehicle || me.vehicle) === 'bike'}">${ico('bike')} دراجة</button><button type="button" data-act="me-veh" data-v="car" aria-pressed="${(S.sheet.vehicle || me.vehicle) === 'car'}">${ico('car')} سيارة</button></div></div>` : ''}
       <p class="hint" id="m-err" style="color:var(--red)" role="alert"></p><button class="btn block" type="submit">حفظ</button></form>`];
   },
   password() {
@@ -1129,8 +1146,10 @@ const ACTIONS = {
     if (await act(() => api('PUT', '/api/driver/receiving', { receiving: next }), next ? 'تم تفعيل استقبال الطلبات' : 'تم إيقاف استقبال الطلبات')) refresh(true);
   },
   async 'toggle-user'(el) {
-    const u = S.data.users.find((x) => x.id === Number(el.dataset.id));
-    if (u && await act(() => api('PUT', `/api/admin/users/${u.id}`, { active: !u.active }), u.active ? 'تم إيقاف الحساب' : 'تم تفعيل الحساب')) refresh(true);
+    const u = S.data.users.find((x) => x.id === Number(el.dataset.id)); if (!u) return;
+    const prev = u.active; u.active = prev ? 0 : 1; render();
+    try { await api('PUT', `/api/admin/users/${u.id}`, { active: !prev }); toast(prev ? 'تم إيقاف الحساب' : 'تم تفعيل الحساب'); refresh(true); }
+    catch (e) { u.active = prev; render(); toast(e.message, true); }
   },
   async requeue(el) {
     if (S.armed !== 'r' + el.dataset.id) { S.armed = 'r' + el.dataset.id; el.textContent = 'اضغط للتأكيد'; setTimeout(() => { S.armed = null; if (el.isConnected) el.textContent = 'إعادة للسائقين'; }, 4000); return; }
@@ -1204,7 +1223,7 @@ const FORMS = {
     closeSheet(); refresh(true);
   },
   async 'edit-me'(f) {
-    const r = await api('PUT', '/api/me/profile', { name: f.name.value, vehicle: S.sheet.vehicle });
+    const r = await api('PUT', '/api/me/profile', { name: f.name.value });
     setUser(r.user); toast('تم حفظ بياناتك'); closeSheet(); refresh(true);
   },
   async password(f) { await api('PUT', '/api/me/password', { current: f.current.value, next: f.next.value }); toast('تم تحديث كلمة المرور'); closeSheet(); },
