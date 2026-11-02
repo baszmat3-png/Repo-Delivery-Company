@@ -1,4 +1,4 @@
-name: بناء AAB لمتجر Play (مفتاح مولَّد ومشفّر)
+name: بناء AAB لمتجر Play (غير موقّع)
 on:
   workflow_dispatch:
 permissions:
@@ -23,45 +23,16 @@ jobs:
         run: npx capacitor-assets generate --android
       - run: npx cap sync android
       - name: رقم الإصدار
-        run: sed -i "s/versionCode 1/versionCode ${{ github.run_number }}/" android/app/build.gradle
-      - name: توليد مفتاح الرفع
-        run: |
-          mkdir -p out
-          PASS=$(openssl rand -hex 12)
-          keytool -genkey -v -keystore out/upload.keystore -alias rio -keyalg RSA -keysize 2048 -validity 10000 \
-            -storepass "$PASS" -keypass "$PASS" -dname "CN=Rio Delivery, OU=Rio, O=Rio Delivery, L=Baghdad, C=IQ"
-          echo "$PASS" > out/password.txt
-          echo "::add-mask::$PASS"
-          echo "KS_PASS=$PASS" >> "$GITHUB_ENV"
-          keytool -list -v -keystore out/upload.keystore -storepass "$PASS" | grep -E "SHA1|SHA256" | tee out/fingerprints.txt
-      - name: بناء AAB موقّع
+        run: sed -i "s/versionCode 1/versionCode $((${{ github.run_number }} + 100))/" android/app/build.gradle
+      - name: بناء AAB (غير موقّع — يُوقَّع محلياً بمفتاح الرفع الثابت)
         working-directory: android
-        run: |
-          ./gradlew bundleRelease \
-            -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/out/upload.keystore" \
-            -Pandroid.injected.signing.store.password="$KS_PASS" \
-            -Pandroid.injected.signing.key.alias=rio \
-            -Pandroid.injected.signing.key.password="$KS_PASS"
-      - name: تشفير المفتاح بالمفتاح العام
-        run: |
-          cd out
-          tar czf secrets.tgz upload.keystore password.txt
-          openssl rand 32 > k.bin
-          openssl enc -aes-256-cbc -pbkdf2 -in secrets.tgz -out secrets.enc -pass file:k.bin
-          openssl pkeyutl -encrypt -pubin -inkey ../.github/release-pub.pem -in k.bin -out k.enc -pkeyopt rsa_padding_mode:oaep
-          cp ../android/app/build/outputs/bundle/release/*.aab app-release.aab
-          rm -f secrets.tgz k.bin upload.keystore password.txt
-      - uses: actions/upload-artifact@v4
-        with:
-          name: rio-aab
-          path: |
-            out/app-release.aab
-            out/secrets.enc
-            out/k.enc
-            out/fingerprints.txt
+        run: ./gradlew bundleRelease
+      - run: |
+          mkdir -p out
+          cp android/app/build/outputs/bundle/release/*.aab out/app-unsigned.aab
       - name: نشر الملفات على فرع مؤقت
         run: |
-          mkdir pub && cp out/app-release.aab out/secrets.enc out/k.enc out/fingerprints.txt pub/
+          mkdir pub && cp out/app-unsigned.aab pub/
           cd pub && git init -q -b aab-output
           git config user.name "github-actions" && git config user.email "actions@github.com"
           git add . && git commit -q -m "aab build ${{ github.run_number }}"
