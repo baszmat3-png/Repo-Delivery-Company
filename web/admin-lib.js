@@ -17,10 +17,11 @@
     return 'قبل ' + Math.floor(h / 24) + ' يوم';
   };
   const ST = {
-    pending: 'بانتظار سائق', picking_up: 'استلام من التاجر', on_the_way: 'في الطريق', delivered: 'تم التسليم', no_answer: 'لا يرد',
+    pending: 'بانتظار سائق', picking_up: 'قيد الاستلام من التاجر', on_the_way: 'في الطريق للزبون', delivered: 'تم التسليم', no_answer: 'لا يرد', postponed: 'تأجيل', rejected: 'مرفوض من زبون',
     problem: 'مشكلة', other: 'أخرى', returned: 'راجع', partial: 'راجع جزئي', cancelled: 'ملغي'
   };
-  const STC = { pending: 'amber', picking_up: 'blue', on_the_way: 'blue', delivered: 'green', no_answer: 'red', problem: 'red', other: 'red', returned: 'violet', partial: 'violet', cancelled: 'gray' };
+  const STC = { pending: 'amber', picking_up: 'blue', on_the_way: 'blue', delivered: 'green', no_answer: 'red', postponed: 'amber', rejected: 'violet', problem: 'red', other: 'red', returned: 'violet', partial: 'violet', cancelled: 'gray' };
+  const fillTpl = (t, v) => String(t || '').replace(/\{(\w+)\}/g, (m, k) => (v[k] !== undefined && v[k] !== null ? String(v[k]) : m));
   const wa = (phone, text) => {
     let d = String(phone || '').replace(/\D/g, '');
     if (d[0] === '0') d = '964' + d.slice(1);
@@ -209,5 +210,5 @@
     }
   }
 
-  g.RL = { OFF, DAY, esc, nf, mny, fd, fdt, dayStart, ago, ST, STC, wa, LOGO, tafqeet, printDoc, saveDocImage, docPage, docA4, doc80, exportXlsx, tbl };
+  g.RL = { OFF, DAY, esc, nf, mny, fd, fdt, dayStart, ago, ST, STC, wa, LOGO, tafqeet, printDoc, saveDocImage, docPage, docA4, doc80, exportXlsx, tbl, fillTpl };
 })(window);

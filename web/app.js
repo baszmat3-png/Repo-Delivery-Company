@@ -77,10 +77,10 @@ const logo = (cls = '') => `<span class="logo ${cls}" aria-label="ريو للت�
 
 const ST = {
   pending: ['بانتظار سائق', 'amber'], picking_up: ['قيد الاستلام من التاجر', 'accent'], on_the_way: ['في الطريق للزبون', 'accent'],
-  delivered: ['تم التسليم', 'green'], no_answer: ['لا يرد', 'red'], problem: ['مشكلة', 'red'], other: ['حالة أخرى', 'red'],
+  delivered: ['تم التسليم', 'green'], rejected: ['مرفوض من زبون', 'red'], postponed: ['تأجيل', 'amber'], no_answer: ['لا يرد', 'red'], problem: ['مشكلة', 'red'], other: ['حالة أخرى', 'red'],
   returned: ['راجع', 'blue'], partial: ['راجع جزئي', 'blue'], cancelled: ['ملغي', '']
 };
-const DRIVER_ST = ['picking_up', 'on_the_way', 'delivered', 'no_answer', 'problem', 'other', 'returned', 'partial'];
+const DRIVER_ST = ['picking_up', 'on_the_way', 'delivered', 'rejected', 'postponed', 'no_answer', 'problem', 'other', 'returned', 'partial'];
 const pill = (s) => `<span class="pill ${ST[s]?.[1] || ''}">${esc(ST[s]?.[0] || s)}</span>`;
 const vehName = (v) => (v === 'car' ? 'سيارة' : 'دراجة');
 
@@ -275,6 +275,7 @@ function merchantOrderCard(o, withCancel) {
     </dl>
     <div class="row wrapx">
       ${o.driverId ? `<button class="btn ghost sm" data-act="chat" data-id="${o.id}">${ico('chat')} محادثة السائق</button>` : ''}
+      <a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a>
       ${withCancel && o.status === 'pending' ? `<button class="btn danger sm ${armed ? 'arm' : ''}" data-act="cancel" data-id="${o.id}">${armed ? 'اضغط للتأكيد' : 'إلغاء الطلب'}</button>` : ''}
     </div></article>`;
 }
@@ -299,7 +300,7 @@ const VIEWS = {
   'merchant:orders'() {
     const o = S.data.orders;
     const f = S.filter;
-    const sets = { all: null, active: ['pending', 'picking_up', 'on_the_way'], done: ['delivered'], issues: ['no_answer', 'problem', 'other', 'returned', 'partial', 'cancelled'] };
+    const sets = { all: null, active: ['pending', 'picking_up', 'on_the_way'], done: ['delivered'], issues: ['rejected', 'postponed', 'no_answer', 'problem', 'other', 'returned', 'partial', 'cancelled'] };
     const list = sets[f] ? o.filter((x) => sets[f].includes(x.status)) : o;
     const chip = (id, l) => `<button class="chip" data-act="filter" data-f="${id}" aria-pressed="${f === id}">${l}</button>`;
     return `${head('الطلبات', `${o.length} طلب`)}
@@ -325,8 +326,8 @@ const VIEWS = {
   },
   'driver:orders'() {
     const all = S.data.orders;
-    const cur = all.filter((o) => ['picking_up', 'on_the_way'].includes(o.status));
-    const prev = all.filter((o) => !['picking_up', 'on_the_way'].includes(o.status));
+    const cur = all.filter((o) => ['picking_up', 'on_the_way', 'postponed'].includes(o.status));
+    const prev = all.filter((o) => !['picking_up', 'on_the_way', 'postponed'].includes(o.status));
     const t = S.ordersTab;
     const list = t === 'current' ? cur : prev;
     return `${head('الطلبات')}
@@ -391,11 +392,38 @@ function profileView(me, settings) {
   ${accountLinks(settings)}`;
 }
 
+function mapCoords(url) {
+  const m = String(url || '').match(/(-?\d{1,3}\.\d{3,})\s*[,%2C]+\s*(-?\d{1,3}\.\d{3,})/i) || String(url || '').match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  return m ? [m[1], m[2]] : null;
+}
+function mapButtons(o) {
+  const url = o.merchantMap || '';
+  if (!url && !o.merchantArea) return '';
+  const c = mapCoords(url);
+  const wz = c ? `https://waze.com/ul?ll=${c[0]},${c[1]}&navigate=yes` : `https://waze.com/ul?q=${encodeURIComponent((o.merchantName || '') + ' ' + (o.merchantArea || ''))}&navigate=yes`;
+  const a = (h, t, cls = 'ghost') => `<a class="btn ${cls} sm grow" href="${esc(h)}" target="_blank" rel="noopener">${t}</a>`;
+  return `<div class="hint" style="margin-top:4px">موقع المتجر — افتحه بالتطبيق الذي تفضّله</div>
+    <div class="row wrapx">${a(wz, 'Waze', 'soft')}${url ? a(url, 'خرائط / الرابط الأصلي') : ''}${c ? a(`geo:${c[0]},${c[1]}?q=${c[0]},${c[1]}`, 'تطبيق آخر') : ''}</div>`;
+}
+function tplText(key, vars) {
+  const T = (S.data && S.data.settings && S.data.settings.templates) || {};
+  return String(T[key] || '').replace(/\{(\w+)\}/g, (m, k) => (vars[k] !== undefined && vars[k] !== null ? String(vars[k]) : m));
+}
+function ordVars(o) {
+  const st = (S.data && S.data.settings) || {};
+  return { order_no: o.no, status: (ST[o.status] || [o.status])[0], merchant: o.merchantName, merchant_phone: o.merchantPhone, merchant_area: o.merchantArea, customer_phone: o.customerPhone, customer_area: o.customerArea, product: o.product, qty: o.qty, product_price: mny(o.productPrice), delivery_price: mny(o.deliveryPrice), total: mny(o.total), driver: o.driverName || '—', note: o.note || '', app: 'ريو للتوصيل أسرع', support: st.support || '', date: fmtDT(o.createdAt), name: (S.user && S.user.name) || '', phone: (S.user && S.user.phone) || '' };
+}
+function supportLink(o) {
+  const sp = (S.data && S.data.settings && S.data.settings.support) || '';
+  const msg = tplText('driver_support', ordVars(o)) || `مرحباً، أحتاج مساعدة بخصوص الطلب #${o.no}`;
+  return `https://wa.me/${waNumber(sp)}?text=${encodeURIComponent(msg)}`;
+}
 function driverOrderCard(o) {
   const open = S.menu === o.id;
-  const m = open ? `<div class="menu" role="menu">${DRIVER_ST.map((s) => `<button role="menuitem" data-act="set-status" data-id="${o.id}" data-s="${s}"><span class="ck">${o.status === s ? ico('check') : ''}</span>${ST[s][0]}</button>`).join('')}</div>` : '';
+  const locked = o.status === 'delivered';
+  const m = open && !locked ? `<div class="menu" role="menu">${DRIVER_ST.map((s) => `<button role="menuitem" data-act="set-status" data-id="${o.id}" data-s="${s}"><span class="ck">${o.status === s ? ico('check') : ''}</span>${ST[s][0]}</button>`).join('')}</div>` : '';
   return `<article class="card ord">
-    <div class="ord-h"><div class="menuwrap"><button class="pill ${ST[o.status]?.[1] || ''}" data-act="menu" data-id="${o.id}" aria-haspopup="menu" aria-expanded="${open}">${esc(ST[o.status]?.[0] || o.status)} <span aria-hidden="true">▾</span></button>${m}</div><div class="ord-no">طلب #${o.no}</div></div>
+    <div class="ord-h"><div class="menuwrap">${locked ? pill('delivered') : `<button class="pill ${ST[o.status]?.[1] || ''}" data-act="menu" data-id="${o.id}" aria-haspopup="menu" aria-expanded="${open}">${esc(ST[o.status]?.[0] || o.status)} <span aria-hidden="true">▾</span></button>`}${m}</div><div class="ord-no">طلب #${o.no}</div></div>
     <dl class="kv">
       <div><dt>الزبون</dt><dd>${esc(o.customerArea)}</dd></div>
       <div><dt>تحصل من الزبون</dt><dd>${money(o.total)}</dd></div>
@@ -406,9 +434,10 @@ function driverOrderCard(o) {
       ${o.note ? `<div class="full"><dt>ملاحظة</dt><dd>${esc(o.note)}</dd></div>` : ''}
     </dl>
     ${o.status === 'picking_up' ? `<div class="notice">ادفع للتاجر ${money(o.productPrice)} عند الاستلام، وبعدها غيّر الحالة إلى «في الطريق للزبون».</div>` : ''}
-    <div class="row wrapx"><button class="btn ghost grow" data-act="chat" data-id="${o.id}">${ico('chat')} محادثة</button>${receiptsOn() ? `<button class="btn ghost grow" data-act="receipt" data-id="${o.id}">وصل</button>` : ''}<a class="btn wa grow" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a></div>
+    <div class="row wrapx"><button class="btn ghost grow" data-act="chat" data-id="${o.id}">${ico('chat')} محادثة</button>${receiptsOn() ? `<button class="btn ghost grow" data-act="receipt" data-id="${o.id}">وصل</button>` : ''}<a class="btn wa grow" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a><a class="btn ghost grow" href="${supportLink(o)}" target="_blank" rel="noopener">واتساب الدعم</a></div>
     <hr class="rule" style="margin:0">
     <dl class="kv"><div><dt>المتجر</dt><dd>${esc(o.merchantName)}</dd></div><div><dt>العنوان</dt><dd>${esc(o.merchantArea)}</dd></div><div class="full"><dt>هاتف المتجر</dt><dd>${telLink(o.merchantPhone)}</dd></div></dl>
+    ${mapButtons(o)}
   </article>`;
 }
 
@@ -505,7 +534,8 @@ function waNumber(phone) {
   return d;
 }
 function waLink(o) {
-  const msg = `مرحباً، بخصوص طلبك رقم #${o.no} من ${o.merchantName}\nالمنتج: ${o.product} × ${o.qty}\nالمبلغ المطلوب: ${mny(o.total)}${o.driverName ? `\nالمندوب: ${o.driverName}` : ''}\nريو للتوصيل أسرع`;
+  const msg = tplText('cust_' + o.status, ordVars(o)) || tplText('cust_default', ordVars(o)) || `مرحباً، بخصوص طلبك رقم #${o.no} من ${o.merchantName}
+المبلغ المطلوب: ${mny(o.total)}`;
   return `https://wa.me/${waNumber(o.customerPhone)}?text=${encodeURIComponent(msg)}`;
 }
 function receiptModel(o) {
@@ -971,6 +1001,7 @@ const SHEETS = {
       ${field('u-phone', 'رقم الهاتف', '<input class="in mono" id="u-phone" name="phone" inputmode="tel" placeholder="07XX XXX XXXX" required>')}
       ${field('u-pass', 'كلمة المرور', '<input class="in" id="u-pass" name="password" minlength="6" required>', '6 أحرف أو أكثر. أعطها للمستخدم ليغيّرها بعد أول دخول.')}
       ${d ? `<div class="field"><span class="lbl">المركبة</span><div class="seg"><button type="button" data-act="nu-veh" data-v="bike" aria-pressed="${(s.vehicle || 'bike') === 'bike'}">${ico('bike')} دراجة</button><button type="button" data-act="nu-veh" data-v="car" aria-pressed="${s.vehicle === 'car'}">${ico('car')} سيارة</button></div></div>` : field('u-area', 'منطقة المتجر', '<input class="in" id="u-area" name="area" placeholder="مثال: الكرادة" required>', 'تُستخدم لتحديد سعر التوصيل (نفس المنطقة أو منطقة ثانية).')}
+      ${d ? '' : field('u-map', 'رابط موقع المتجر على الخريطة (اختياري)', '<input class="in mono" id="u-map" name="mapUrl" dir="ltr" placeholder="https://maps.app.goo.gl/...">', 'يظهر للسائقين ليفتحوه عبر Waze أو أي تطبيق خرائط')}
       <p class="hint" id="u-err" style="color:var(--red)" role="alert"></p><button class="btn block" type="submit">إنشاء الحساب</button></form>`];
   },
   'edit-user'(s) {
@@ -980,7 +1011,7 @@ const SHEETS = {
       ${field('e-name', 'الاسم', `<input class="in" id="e-name" name="name" value="${esc(u.name)}" required>`)}
       ${field('e-phone', 'رقم الهاتف', `<input class="in mono" id="e-phone" name="phone" value="${esc(u.phone)}" inputmode="tel" required>`)}
       ${u.role === 'merchant' ? field('e-area', 'المنطقة', `<input class="in" id="e-area" name="area" value="${esc(u.area)}" required>`) : `<div class="field"><span class="lbl">المركبة</span><div class="seg"><button type="button" data-act="eu-veh" data-v="bike" aria-pressed="${(s.vehicle || u.vehicle) === 'bike'}">${ico('bike')} دراجة</button><button type="button" data-act="eu-veh" data-v="car" aria-pressed="${(s.vehicle || u.vehicle) === 'car'}">${ico('car')} سيارة</button></div></div>`}
-      ${u.role === 'merchant' ? field('e-disc', 'خصم على كل طلب (د.ع)', `<input class="in" id="e-disc" name="discount" inputmode="numeric" value="${u.discount || 0}">`, 'يُخصم من أجرة التوصيل لطلبات هذا المتجر') : ''}
+      ${u.role === 'merchant' ? field('e-map', 'رابط موقع المتجر على الخريطة', `<input class="in mono" id="e-map" name="mapUrl" dir="ltr" value="${esc(u.mapUrl || '')}" placeholder="https://maps.app.goo.gl/...">`, 'يظهر للسائق ليفتحه عبر Waze أو أي تطبيق خرائط') : ''}
       ${field('e-pass', 'كلمة مرور جديدة (اتركها فارغة بدون تغيير)', '<input class="in" id="e-pass" name="password" minlength="6" autocomplete="off">')}
       <p class="hint" id="e-err" style="color:var(--red)" role="alert"></p><button class="btn block" type="submit">حفظ</button></form>`];
   },
@@ -1002,7 +1033,7 @@ function updateOrderForm() {
   const f = s.form;
   const st = S.data.settings;
   if (!f.zoneManual) f.zone = f.customerArea.trim() && normArea(f.customerArea) === normArea(S.user.area) ? 'same' : 'other';
-  const p = (z) => Math.max(0, st[f.vehicle + (z === 'same' ? 'Same' : 'Other')] - (S.user.discount || 0));
+  const p = (z) => st[f.vehicle + (z === 'same' ? 'Same' : 'Other')];
   $('#o-zone').innerHTML = ['same', 'other'].map((z) => `<button type="button" data-act="zone" data-z="${z}" aria-pressed="${f.zone === z}">${money(p(z))}<small>${z === 'same' ? 'نفس المنطقة' : 'منطقة ثانية'}</small></button>`).join('');
   const price = Number(digits(f.productPrice).replace(/[,\s]/g, '')) || 0;
   $('#o-total').innerHTML = money(price + p(f.zone));
@@ -1184,12 +1215,12 @@ const FORMS = {
     S.sheet.loaded = false; await loadChat();
   },
   async 'add-user'(f) {
-    await api('POST', '/api/admin/users', { role: S.sheet.role, name: f.name.value, phone: f.phone.value, password: f.password.value, area: f.area ? f.area.value : '', vehicle: S.sheet.vehicle || 'bike' });
+    await api('POST', '/api/admin/users', { role: S.sheet.role, name: f.name.value, phone: f.phone.value, password: f.password.value, area: f.area ? f.area.value : '', mapUrl: f.mapUrl ? f.mapUrl.value : '', vehicle: S.sheet.vehicle || 'bike' });
     toast('تم إنشاء الحساب'); closeSheet(); refresh(true);
   },
   async 'edit-user'(f) {
     const body = { name: f.name.value, phone: f.phone.value };
-    if (f.discount) body.discount = f.discount.value;
+    if (f.mapUrl) body.mapUrl = f.mapUrl.value;
     if (f.area) body.area = f.area.value; else body.vehicle = S.sheet.vehicle || S.data.users.find((x) => x.id === S.sheet.id).vehicle;
     if (f.password.value) body.password = f.password.value;
     await api('PUT', `/api/admin/users/${S.sheet.id}`, body);

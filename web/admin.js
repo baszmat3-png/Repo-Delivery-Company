@@ -1,16 +1,21 @@
 'use strict';
 /* ريو — لوحة التحكم (ويب). مزامنة فورية عبر SSE + احتياط بالاستعلام الدوري. */
 (() => {
-const { esc, nf, mny, fd, fdt, dayStart, ago, ST, STC, wa, LOGO, tafqeet, printDoc, saveDocImage, docPage, docA4, doc80, exportXlsx, OFF, DAY } = window.RL;
+const { esc, nf, mny, fd, fdt, dayStart, ago, ST, STC, wa, LOGO, tafqeet, printDoc, saveDocImage, docPage, docA4, doc80, exportXlsx, fillTpl, OFF, DAY } = window.RL;
 const API = String(window.RIO_API || '').replace(/\/$/, ''), KEY = 'rio_admin_token';
 const $ = (s, r = document) => r.querySelector(s);
 const ls = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch { /* */ } }, del(k) { try { localStorage.removeItem(k); } catch { /* */ } } };
 let RS = ls.get('rio_rsize'); if (!['58', '80', 'a5', 'a4'].includes(RS)) RS = '80';
+const APP = 'ريو للتوصيل أسرع';
+const tpl = (k) => (SET && SET.templates && SET.templates[k]) || '';
+const ordVars = (o) => ({ order_no: o.no, status: ST[o.status] || o.status, merchant: o.merchantName, merchant_phone: o.merchantPhone, merchant_area: o.merchantArea, customer_phone: o.customerPhone, customer_area: o.customerArea, product: o.product, qty: o.qty, product_price: mny(o.productPrice), delivery_price: mny(o.deliveryPrice), total: mny(o.total), driver: o.driverName || '—', note: o.note || '', app: APP, support: (SET && SET.support) || '', date: fdt(o.createdAt) });
+const custMsg = (o) => fillTpl(tpl('cust_' + o.status) || tpl('cust_default'), ordVars(o));
+const drvMsg = (o, d) => fillTpl(tpl('admin_driver'), { ...ordVars(o), name: d ? d.name : '', phone: d ? d.phone : '' });
 const thermal = () => RS === '58' || RS === '80';
 const rcls = () => 't80 sz' + RS;
 const sizeSeg = () => `<div class="row" style="justify-content:center;margin-bottom:10px"><span class="hint">حجم الوصل</span><div class="seg" role="group" aria-label="حجم الوصل">${[['58', '58mm'], ['80', '80mm'], ['a5', 'A5'], ['a4', 'A4']].map(([k, l]) => `<button type="button" data-a="rsize" data-k="${k}" aria-pressed="${RS === k}">${l}</button>`).join('')}</div></div>`;
 const docBtns = () => `<button class="btn" data-a="print-doc">${ico('print')} طباعة / PDF</button><button class="btn g" data-a="save-doc">${ico('dl')} حفظ صورة</button>`;
-const DONE = ['delivered', 'partial'], RET = ['returned', 'partial'];
+const DONE = ['delivered', 'partial'], RET = ['returned', 'partial', 'rejected'];
 const CATS = ['الإيجار', 'الوقود', 'السحب', 'الطعام', 'تنقلات شخصية', 'الإنترنت', 'اشتراكات تقنية', 'رواتب', 'إعلانات', 'صيانة', 'كهرباء وماء', 'أخرى'];
 const PAGES = [['home', 'لوحة المعلومات', 'home'], ['orders', 'الطلبات', 'orders'], ['merchants', 'المتاجر', 'store'], ['drivers', 'المندوبون', 'bike'], ['customers', 'العملاء', 'users'], ['finance', 'المالية والأرباح', 'money'], ['vouchers', 'سندات القبض والصرف', 'voucher'], ['cards', 'كروت الشحن', 'card'], ['settings', 'الإعدادات', 'settings']];
 const IC = {
@@ -30,6 +35,7 @@ let T = ls.get(KEY) || '', P = ls.get('rio_page') || 'home', R = ls.get('rio_ran
 let BASIS = ls.get('rio_basis') || 'fees', SORT = ls.get('rio_sort') || 'orders', FP = 'month', VK = 'in', Q = '', FS = 'all', FM = 0;
 let MENU = false, D = null, O = [], FN = null, V = [], CARDS = [], SET = null, BATCH = null, E = '', M = null, LIVE = false, DIRTY = false, loading = false;
 if (!PAGES.some((x) => x[0] === P)) P = 'home';
+if (!['orders', 'active', 'goods'].includes(SORT)) SORT = 'orders';
 
 function range() {
   const n = Date.now(), s = dayStart(n), d = new Date(n + OFF);
@@ -73,7 +79,7 @@ async function load(silent) {
     jobs.push(P === 'home' || P === 'finance' ? api('GET', '/api/admin/finance') : null);
     jobs.push(P === 'vouchers' ? api('GET', `/api/admin/vouchers?from=${a}&to=${b}`) : null);
     jobs.push(P === 'cards' ? api('GET', '/api/admin/cards') : null);
-    jobs.push(P === 'settings' ? api('GET', '/api/settings') : null);
+    jobs.push(api('GET', '/api/settings'));
     const [d, o, f, v, cd, st] = await Promise.all(jobs);
     D = d; if (o) O = o.orders; if (f) FN = f; if (v) V = v.vouchers; if (cd) CARDS = cd.cards; if (st) SET = st.settings; E = '';
     if (M && M.type === 'stmt') { try { M.st = await fetchStmt(M.q); } catch { /* ignore */ } }
@@ -209,22 +215,24 @@ function home() {
 }
 
 /* ---------------- الطلبات ---------------- */
-const ORD_HEAD = ['رقم الطلب', 'التاريخ', 'الحالة', 'المتجر', 'منطقة الزبون', 'هاتف الزبون', 'المنتج', 'العدد', 'سعر البضاعة', 'أجرة التوصيل', 'الخصم', 'الإجمالي', 'المندوب', 'تاريخ التسليم'];
-const ordRow = (o) => [o.no, fdt(o.createdAt), ST[o.status] || o.status, o.merchantName, o.customerArea, o.customerPhone, o.product, o.qty, o.productPrice, o.deliveryPrice, o.discount || 0, o.total, o.driverName || '', o.deliveredAt ? fdt(o.deliveredAt) : ''];
+const ORD_HEAD = ['رقم الطلب', 'التاريخ', 'الحالة', 'المتجر', 'منطقة الزبون', 'هاتف الزبون', 'المنتج', 'العدد', 'سعر البضاعة', 'أجرة التوصيل', 'الإجمالي', 'المندوب', 'تاريخ التسليم'];
+const ordRow = (o) => [o.no, fdt(o.createdAt), ST[o.status] || o.status, o.merchantName, o.customerArea, o.customerPhone, o.product, o.qty, o.productPrice, o.deliveryPrice, o.total, o.driverName || '', o.deliveredAt ? fdt(o.deliveredAt) : ''];
 const ordPdfHead = ['#', 'التاريخ', 'الحالة', 'المتجر', 'المنطقة', 'المنتج', '#البضاعة', '#التوصيل', '#الإجمالي', 'المندوب'];
 const ordPdfRow = (o) => [o.no, fd(o.createdAt), ST[o.status] || o.status, o.merchantName, o.customerArea, o.product + ' × ' + o.qty, nf(o.productPrice), nf(o.deliveryPrice), nf(o.total), o.driverName || '—'];
 function filteredOrders() {
   const q = norm(Q.trim());
   return O.filter((o) => (FS === 'all' || o.status === FS) && (!FM || o.merchantId === FM) && (!q || norm([o.no, o.merchantName, o.customerPhone, o.customerArea, o.driverName, o.product].join(' ')).includes(q)));
 }
+const ASSIGNABLE = ['pending', 'picking_up', 'on_the_way', 'no_answer', 'postponed', 'problem', 'other'];
+const driverPhone = (o) => { const d = D.drivers.find((x) => x.id === o.driverId); return d ? d.phone : ''; };
 function ordersList() {
   const l = filteredOrders();
   const tot = l.filter((o) => DONE.includes(o.status));
   return `<div class="tw"><table><thead><tr><th>الطلب</th><th>المتجر</th><th>الزبون</th><th>المنتج</th><th class="n">البضاعة</th><th class="n">التوصيل</th><th class="n">الإجمالي</th><th>المندوب</th><th>الحالة</th><th></th></tr></thead><tbody>
   ${l.slice(0, 400).map((o) => `<tr><td><b>#${o.no}</b><div class="hint">${fdt(o.createdAt)}</div></td><td>${esc(o.merchantName)}</td><td>${esc(o.customerArea)}<div class="hint num">${esc(o.customerPhone)}</div></td><td>${esc(o.product)} × ${o.qty}</td>
-  <td class="n">${nn(o.productPrice)}</td><td class="n">${nn(o.deliveryPrice)}${o.discount ? `<div class="hint">خصم ${nf(o.discount)}</div>` : ''}</td><td class="n"><b>${nn(o.total)}</b></td><td>${esc(o.driverName || '—')}</td>
+  <td class="n">${nn(o.productPrice)}</td><td class="n">${nn(o.deliveryPrice)}</td><td class="n"><b>${nn(o.total)}</b></td><td>${esc(o.driverName || '—')}</td>
   <td><select class="in" style="min-height:34px;padding:4px 8px" data-c="status" data-id="${o.id}" aria-label="حالة الطلب ${o.no}">${Object.keys(ST).map((k) => `<option value="${k}" ${o.status === k ? 'selected' : ''}>${ST[k]}</option>`).join('')}</select></td>
-  <td class="act"><div class="row"><button class="btn sm" data-a="receipt" data-id="${o.id}">وصل</button>${o.driverId ? `<button class="btn sm g" data-a="chat" data-id="${o.id}">محادثة</button>` : ''}<a class="btn sm w" target="_blank" rel="noopener" href="${wa(o.customerPhone, `مرحباً، بخصوص طلبك #${o.no} من ${o.merchantName}\nالمبلغ المطلوب: ${mny(o.total)}\nريو للتوصيل أسرع`)}">واتساب</a>${o.driverId && o.status !== 'pending' ? `<button class="btn sm g" data-a="requeue" data-id="${o.id}">إعادة</button>` : ''}</div></td></tr>`).join('')}
+  <td class="act"><div class="row"><button class="btn sm" data-a="receipt" data-id="${o.id}">وصل</button>${o.driverId ? `<button class="btn sm g" data-a="chat" data-id="${o.id}">محادثة</button>` : ''}<a class="btn sm w" target="_blank" rel="noopener" href="${wa(o.customerPhone, custMsg(o))}">واتساب الزبون</a>${o.driverId && driverPhone(o) ? `<a class="btn sm w" target="_blank" rel="noopener" href="${wa(driverPhone(o), drvMsg(o, D.drivers.find((x) => x.id === o.driverId)))}">واتساب السائق</a>` : ''}${ASSIGNABLE.includes(o.status) ? `<button class="btn sm" data-a="assign" data-id="${o.id}">${o.driverId ? 'تحويل لسائق' : 'تعيين سائق'}</button>` : ''}${o.driverId && o.status !== 'pending' ? `<button class="btn sm g" data-a="requeue" data-id="${o.id}">إعادة</button>` : ''}</div></td></tr>`).join('')}
   </tbody>${l.length ? `<tfoot><tr><td colspan="4">${nn(l.length)} طلب (المسلّم ${nn(tot.length)})</td><td class="n">${nn(tot.reduce((a, o) => a + o.productPrice, 0))}</td><td class="n">${nn(tot.reduce((a, o) => a + o.deliveryPrice, 0))}</td><td class="n">${nn(tot.reduce((a, o) => a + o.total, 0))}</td><td colspan="3"></td></tr></tfoot>` : ''}</table></div>${l.length > 400 ? `<p class="hint">يُعرض أول 400 سجل — استخدم البحث أو التصدير للحصول على الكل (${nn(l.length)}).</p>` : ''}${l.length ? '' : empty('لا توجد طلبات مطابقة')}`;
 }
 function orders() {
@@ -235,7 +243,8 @@ function orders() {
 }
 
 /* ---------------- المتاجر ---------------- */
-const SORTS = { orders: ['الأكثر طلباً', (a, b) => b.orders - a.orders], active: ['الأكثر نشاطاً', (a, b) => b.lastAt - a.lastAt], goods: ['الأعلى مبيعاً', (a, b) => b.goods - a.goods], owed: ['الأعلى مستحقاً', (a, b) => b.owed - a.owed] };
+const SORTS = { orders: ['الأكثر طلباً', (a, b) => b.orders - a.orders], active: ['الأكثر نشاطاً', (a, b) => b.lastAt - a.lastAt], goods: ['الأعلى مبيعاً', (a, b) => b.goods - a.goods] };
+const mapHref = (u) => (/^https?:/i.test(u) ? u : 'https://www.google.com/maps?q=' + encodeURIComponent(u));
 const wapw = (u) => wa(u.phone, `مرحباً ${u.name}، ريو للتوصيل أسرع`);
 function merchantList() {
   const q = norm(Q.trim());
@@ -243,16 +252,16 @@ function merchantList() {
   const top = [...D.merchants].sort((a, b) => b.orders - a.orders).filter((x) => x.orders > 0).slice(0, 3).map((x) => x.id);
   const mx = Math.max(1, ...l.map((m) => m.orders));
   const t = (k) => l.reduce((a, m) => a + (m[k] || 0), 0);
-  return `<div class="tw"><table><thead><tr><th>#</th><th>المتجر</th><th>الطلبات</th><th class="n">المسلّمة</th><th class="n">الراجع</th><th class="n">قيمة البضائع</th><th class="n">أجور التوصيل</th><th>خصم/طلب</th><th class="n">المطلوب منك لهم</th><th>آخر نشاط</th><th></th></tr></thead><tbody>
-  ${l.map((m, i) => `<tr><td>${rankB(i)}</td><td><b>${esc(m.name)}</b> ${!m.active ? bdg('موقوف', 'red') : ''} ${top.includes(m.id) ? bdg('الأكثر طلباً', 'y') : ''} ${m.orders >= 20 && !m.discount ? bdg('مؤهل لخصم', 'blue') : ''}<div class="hint">${esc(m.area)} · <span class="num">${esc(m.phone)}</span></div></td>
+  return `<div class="tw"><table><thead><tr><th>#</th><th>المتجر</th><th>الطلبات</th><th class="n">المسلّمة</th><th class="n">الراجع</th><th class="n">قيمة البضائع</th><th class="n">أجور التوصيل</th><th>الموقع</th><th>آخر نشاط</th><th></th></tr></thead><tbody>
+  ${l.map((m, i) => `<tr><td>${rankB(i)}</td><td><b>${esc(m.name)}</b> ${!m.active ? bdg('موقوف', 'red') : ''} ${top.includes(m.id) ? bdg('الأكثر طلباً', 'y') : ''}<div class="hint">${esc(m.area)} · <span class="num">${esc(m.phone)}</span></div></td>
   <td style="min-width:120px"><b>${nn(m.orders)}</b><div class="bar"><i style="width:${pct(m.orders, mx)}%"></i></div></td><td class="n">${nn(m.delivered)}</td><td class="n">${m.returned ? `<span class="neg">${nn(m.returned)}</span><div class="hint">${mm(m.returnedValue)}</div>` : '0'}</td>
-  <td class="n">${mm(m.goods)}</td><td class="n">${mm(m.delivery)}</td><td>${m.discount ? bdg(nf(m.discount) + ' د.ع', 'green') : '<span class="muted">—</span>'}</td><td class="n"><b class="${m.owed > 0 ? 'neg' : ''}">${mm(m.owed)}</b></td><td>${ago(m.lastAt)}</td>
-  <td class="act"><div class="row"><button class="btn sm" data-a="stmt" data-t="merchant" data-id="${m.id}">كشف / تصدير</button><button class="btn sm g" data-a="discount" data-id="${m.id}">خصم</button><button class="btn sm g" data-a="pw" data-id="${m.id}">كلمة سر</button><a class="btn sm w" target="_blank" rel="noopener" href="${wapw(m)}">واتساب</a><button class="btn sm ${m.active ? 'g' : 'd'}" data-a="toggle" data-id="${m.id}">${m.active ? 'إيقاف' : 'تفعيل'}</button></div></td></tr>`).join('')}
-  </tbody>${l.length ? `<tfoot><tr><td colspan="2">${l.length} متجر</td><td>${nn(t('orders'))}</td><td class="n">${nn(t('delivered'))}</td><td class="n">${nn(t('returned'))}</td><td class="n">${mm(t('goods'))}</td><td class="n">${mm(t('delivery'))}</td><td></td><td class="n">${mm(t('owed'))}</td><td colspan="2"></td></tr></tfoot>` : ''}</table></div>${l.length ? '' : empty('لا توجد متاجر', 'أضف أول متجر من الزر أعلاه.')}`;
+  <td class="n">${mm(m.goods)}</td><td class="n">${mm(m.delivery)}</td><td>${m.mapUrl ? `<a class="btn sm g" target="_blank" rel="noopener" href="${esc(mapHref(m.mapUrl))}">خريطة</a>` : '<span class="muted">—</span>'}</td><td>${ago(m.lastAt)}</td>
+  <td class="act"><div class="row"><button class="btn sm" data-a="stmt" data-t="merchant" data-id="${m.id}">كشف / تصدير</button><button class="btn sm g" data-a="mloc" data-id="${m.id}">العنوان والموقع</button><button class="btn sm g" data-a="pw" data-id="${m.id}">كلمة سر</button><a class="btn sm w" target="_blank" rel="noopener" href="${wapw(m)}">واتساب</a><button class="btn sm ${m.active ? 'g' : 'd'}" data-a="toggle" data-id="${m.id}">${m.active ? 'إيقاف' : 'تفعيل'}</button></div></td></tr>`).join('')}
+  </tbody>${l.length ? `<tfoot><tr><td colspan="2">${l.length} متجر</td><td>${nn(t('orders'))}</td><td class="n">${nn(t('delivered'))}</td><td class="n">${nn(t('returned'))}</td><td class="n">${mm(t('goods'))}</td><td class="n">${mm(t('delivery'))}</td><td colspan="3"></td></tr></tfoot>` : ''}</table></div>${l.length ? '' : empty('لا توجد متاجر', 'أضف أول متجر من الزر أعلاه.')}`;
 }
 function merchants() {
-  const m = D.merchants, owed = m.reduce((a, x) => a + x.owed, 0);
-  return `<div class="kpis">${kpi('عدد المتاجر', nn(m.length), 'y', nn(m.filter((x) => x.orders).length) + ' نشط في الفترة')}${kpi('المطلوب منك لهم', mm(owed), owed > 0 ? 'r' : '', 'قيمة البضائع المسلّمة − المدفوع')}${kpi('طلبات مسلّمة', nn(m.reduce((a, x) => a + x.delivered, 0)), 'g')}${kpi('طلبات راجعة', nn(m.reduce((a, x) => a + x.returned, 0)), 'v', mny(m.reduce((a, x) => a + x.returnedValue, 0)))}${kpi('أجور التوصيل', mm(m.reduce((a, x) => a + x.delivery, 0)), 'b')}</div>
+  const m = D.merchants;
+  return `<div class="kpis">${kpi('عدد المتاجر', nn(m.length), 'y', nn(m.filter((x) => x.orders).length) + ' نشط في الفترة')}${kpi('طلبات مسلّمة', nn(m.reduce((a, x) => a + x.delivered, 0)), 'g')}${kpi('طلبات راجعة', nn(m.reduce((a, x) => a + x.returned, 0)), 'v', mny(m.reduce((a, x) => a + x.returnedValue, 0)))}${kpi('أجور التوصيل', mm(m.reduce((a, x) => a + x.delivery, 0)), 'b')}</div>
   <div class="card"><div class="row between" style="margin-bottom:12px"><div class="row"><input class="in" id="q" placeholder="بحث عن متجر…" value="${esc(Q)}" style="min-width:220px"><div class="seg" role="group" aria-label="الترتيب">${Object.keys(SORTS).map((k) => `<button data-a="sort" data-k="${k}" aria-pressed="${SORT === k}">${SORTS[k][0]}</button>`).join('')}</div></div>
   <div class="row"><button class="btn sm g" data-a="exp-merchants">${ico('xl')} Excel</button><button class="btn sm g" data-a="pdf-merchants">${ico('pdf')} PDF</button><button class="btn" data-a="add-user" data-r="merchant">${ico('plus')} إضافة متجر</button></div></div><div id="list">${merchantList()}</div></div>`;
 }
@@ -349,8 +358,16 @@ function settings() {
   <div class="card"><div class="ch">الوصولات <small>تحكم بظهور زر «وصل» عند التجار والسائقين</small></div><label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="s-receipts" ${SET.receipts !== 0 ? 'checked' : ''} style="width:22px;height:22px"><span><b>تفعيل الوصولات</b><span class="hint" style="display:block">عند الإيقاف يختفي زر «وصل» من حسابات التجار والسائقين، وتبقى متاحة لك في لوحة التحكم.</span></span></label></div>
   <div class="card"><div class="ch">التنبيهات والدعم</div><div class="frm">${f('lateMin', 'مدة التأخير بالدقائق (لتنبيه الطلبات المتأخرة)')}
   <div class="field"><label for="s-support">رقم الدعم (يظهر للتجار والسائقين)</label><input class="in" id="s-support" inputmode="tel" value="${esc(SET.support || '')}" placeholder="07XX XXX XXXX"></div></div></div>
+  <div class="card"><div class="ch">قوالب رسائل الواتساب <small>تتغير هنا وتصل كما تكتبها</small></div>
+  <p class="hint" style="margin:0 0 8px">اضغط على متغير لإدخاله في القالب الذي تكتب فيه. تُستبدل المتغيرات بتفاصيل الطلب تلقائياً.</p>
+  <div class="chips" style="margin-bottom:12px">${TPL_VARS.map(([v, l]) => `<button type="button" class="chip" data-a="tpl-var" data-v="{${v}}" title="${esc(l)}">{${v}} <small class="muted">${esc(l)}</small></button>`).join('')}</div>
+  ${TPL_DEFS.map(([k, l]) => `<div class="field" style="margin-bottom:12px"><label for="t-${k}">${l}</label><textarea class="in" id="t-${k}" rows="4" style="min-height:92px;font-family:inherit">${esc((SET.templates || {})[k] || '')}</textarea><div class="row" style="margin-top:4px"><button type="button" class="btn sm g" data-a="tpl-reset" data-k="${k}">استعادة الافتراضي</button></div></div>`).join('')}</div>
   <div class="err" id="fe" role="alert"></div><button class="btn" style="min-height:44px">حفظ الإعدادات</button></form>`;
 }
+const TPL_DEFS = [['cust_picking_up', 'رسالة للزبون: قيد الاستلام من التاجر'], ['cust_on_the_way', 'رسالة للزبون: في الطريق للزبون'], ['cust_delivered', 'رسالة للزبون: تم التسليم'], ['cust_rejected', 'رسالة للزبون: مرفوض من زبون'], ['cust_no_answer', 'رسالة للزبون: لا يرد'], ['cust_postponed', 'رسالة للزبون: تأجيل'], ['cust_default', 'رسالة للزبون: عامة (بقية الحالات)'], ['driver_support', 'من السائق إلى الدعم'], ['admin_driver', 'من الإدارة إلى السائق (بخصوص طلب)'], ['admin_merchant', 'من الإدارة إلى التاجر (بخصوص طلب)'], ['account', 'بيانات الحساب الجديد (للتاجر أو السائق)']];
+const TPL_VARS = [['order_no', 'رقم الطلب'], ['status', 'الحالة'], ['merchant', 'المتجر'], ['merchant_phone', 'هاتف المتجر'], ['merchant_area', 'عنوان المتجر'], ['customer_phone', 'هاتف الزبون'], ['customer_area', 'منطقة الزبون'], ['product', 'المنتج'], ['qty', 'العدد'], ['product_price', 'سعر المنتج'], ['delivery_price', 'سعر التوصيل'], ['total', 'المبلغ المطلوب'], ['driver', 'المندوب'], ['note', 'الملاحظة'], ['name', 'الاسم'], ['phone', 'الهاتف'], ['password', 'كلمة المرور'], ['login_url', 'رابط الدخول'], ['support', 'رقم الدعم'], ['app', 'اسم التطبيق'], ['date', 'التاريخ']];
+let TPLF = '';
+document.addEventListener('focusin', (e) => { if (e.target && /^t-/.test(e.target.id || '')) TPLF = e.target.id; });
 
 function voucherDoc80(v) {
   return doc80({ title: v.kind === 'in' ? 'سند قبض' : 'سند صرف', no: v.no, groups: [{ rows: [['التاريخ', fd(v.at)], [v.kind === 'in' ? 'استلمنا من' : 'دفعنا إلى', v.partyName]] }, { boxes: [['المبلغ', mny(v.amount)]] }, { rows: [['كتابةً', tafqeet(v.amount)], ['التفاصيل', v.note || '—']] }] });
@@ -383,8 +400,7 @@ const TXK = { fee: 'رسوم تطبيق', charge: 'شحن كرت', refund: 'اس
 function sumRows(st) {
   const s = st.summary, t = st.type;
   if (t === 'merchant') return [['عدد الطلبات', nf(s.orders)], ['المسلّمة', nf(s.delivered)], ['الراجعة', nf(s.returned)], ['قيمة الراجع', mny(s.returnedValue)], ['الملغاة', nf(s.cancelled)], ['الجارية', nf(s.open)],
-    ['قيمة البضائع المسلّمة', mny(s.goods)], ['أجور التوصيل', mny(s.delivery)], ['الخصم الممنوح للمتجر', mny(s.discountTotal)], ['المحصّل من الزبائن', mny(s.total)], ['سندات صرف (دُفع له)', mny(s.paid)], ['سندات قبض (استلمنا منه)', mny(s.received)],
-    ['المطلوب منك لهم (الفترة)', mny(s.owedPeriod), 1], ['الرصيد المستحق الكلي', mny(s.owedAll), 1]];
+    ['قيمة البضائع المسلّمة', mny(s.goods)], ['أجور التوصيل', mny(s.delivery)], ['المحصّل من الزبائن', mny(s.total)], ['سندات صرف (دُفع له)', mny(s.paid)], ['سندات قبض (استلمنا منه)', mny(s.received)]];
   if (t === 'driver') return [['عدد الطلبات', nf(s.orders)], ['المنجزة', nf(s.delivered)], ['الراجعة', nf(s.returned)], ['الجارية', nf(s.active)], ['المتأخرة', nf(s.late)], ['مشاكل / لا يرد', nf(s.problems)],
     ['المحصّل من الزبائن', mny(s.collected)], ['أجور التوصيل المنجزة', mny(s.delivery)], ['رسوم التطبيق المخصومة', mny(s.fees)], ['صافي ربح المندوب', mny(s.earned)], ['رصيد المحفظة الحالي', mny(s.balance), 1]];
   return [['عدد الطلبات', nf(s.orders)], ['المسلّمة', nf(s.delivered)], ['الراجعة', nf(s.returned)], ['قيمة البضائع', mny(s.goods)], ['أجور التوصيل', mny(s.delivery)], ['إجمالي المدفوع', mny(s.total), 1]];
@@ -401,14 +417,14 @@ function stmtBody(m) {
   <div class="row between" style="margin:6px 0 10px"><div class="chips">${Object.keys(SCOPES).map((k) => `<button class="chip" data-a="scope" data-k="${k}" aria-pressed="${m.scope === k}">${SCOPES[k][0]}${k === 'returned' ? ` (${st.summary.returned})` : ''}</button>`).join('')}</div>
   ${sizeSeg()}<div class="row"><button class="btn sm" data-a="print-doc">${ico('print')} طباعة / PDF</button><button class="btn sm g" data-a="save-doc">${ico('dl')} حفظ صورة</button><button class="btn sm g" data-a="s-xlsx">${ico('xl')} Excel</button>${st.party.phone ? `<a class="btn sm w" target="_blank" rel="noopener" href="${wa(st.party.phone, stmtText(st))}">إرسال الملخص واتساب</a>` : ''}</div></div>
   <div class="tw" style="max-height:44vh"><table><thead><tr><th>الطلب</th><th>التاريخ</th>${isM ? '' : '<th>المتجر</th>'}<th>المنطقة / المنتج</th><th class="n">البضاعة</th><th class="n">التوصيل</th><th class="n">الإجمالي</th>${isD ? '' : '<th>المندوب</th>'}<th>الحالة</th></tr></thead><tbody>
-  ${l.map((o) => `<tr><td><b>#${o.no}</b></td><td>${fdt(o.createdAt)}</td>${isM ? '' : `<td>${esc(o.merchantName)}</td>`}<td>${esc(o.customerArea)}<div class="hint">${esc(o.product)} × ${o.qty}</div></td><td class="n">${nn(o.productPrice)}</td><td class="n">${nn(o.deliveryPrice)}${o.discount ? `<div class="hint">خصم ${nf(o.discount)}</div>` : ''}</td><td class="n">${nn(o.total)}</td>${isD ? '' : `<td>${esc(o.driverName || '—')}</td>`}<td>${stB(o.status)}</td></tr>`).join('')}</tbody>
+  ${l.map((o) => `<tr><td><b>#${o.no}</b></td><td>${fdt(o.createdAt)}</td>${isM ? '' : `<td>${esc(o.merchantName)}</td>`}<td>${esc(o.customerArea)}<div class="hint">${esc(o.product)} × ${o.qty}</div></td><td class="n">${nn(o.productPrice)}</td><td class="n">${nn(o.deliveryPrice)}</td><td class="n">${nn(o.total)}</td>${isD ? '' : `<td>${esc(o.driverName || '—')}</td>`}<td>${stB(o.status)}</td></tr>`).join('')}</tbody>
   ${l.length ? `<tfoot><tr><td colspan="${isM ? 3 : 4}">${nn(l.length)} طلب</td><td class="n">${nn(tot.reduce((a, o) => a + o.productPrice, 0))}</td><td class="n">${nn(tot.reduce((a, o) => a + o.deliveryPrice, 0))}</td><td class="n">${nn(tot.reduce((a, o) => a + o.total, 0))}</td><td colspan="2"></td></tr></tfoot>` : ''}</table></div>${l.length ? '' : empty('لا توجد طلبات')}
   ${isM && st.vouchers.length ? `<h4 style="margin:16px 0 8px">السندات</h4><div class="tw" style="max-height:25vh"><table><thead><tr><th>الرقم</th><th>النوع</th><th>التاريخ</th><th>التفاصيل</th><th class="n">المبلغ</th></tr></thead><tbody>${st.vouchers.map((v) => `<tr><td>#${v.no}</td><td>${bdg(v.kind === 'in' ? 'قبض' : 'صرف', v.kind === 'in' ? 'green' : 'red')}</td><td>${fd(v.at)}</td><td>${esc(v.note)}</td><td class="n">${mm(v.amount)}</td></tr>`).join('')}</tbody></table></div>` : ''}
   ${isD && st.txs.length ? `<h4 style="margin:16px 0 8px">حركة المحفظة (الخصم الفعلي والشحن)</h4><div class="tw" style="max-height:25vh"><table><thead><tr><th>التاريخ</th><th>العملية</th><th>الطلب</th><th class="n">المبلغ</th></tr></thead><tbody>${st.txs.map((t) => `<tr><td>${fdt(t.at)}</td><td>${esc(t.label || TXK[t.kind] || t.kind)}</td><td>${t.orderNo ? '#' + t.orderNo : '—'}</td><td class="n"><b class="${t.amount < 0 ? 'neg' : 'pos'}">${t.amount < 0 ? '−' : '+'}${mm(Math.abs(t.amount))}</b></td></tr>`).join('')}</tbody></table></div>` : ''}`;
 }
 function stmtText(st) {
   const s = st.summary;
-  if (st.type === 'merchant') return `${stTitle(st)} — ${st.party.name}\nالفترة: ${rangeLabel()}\nالطلبات: ${s.orders} · المسلّمة: ${s.delivered} · الراجعة: ${s.returned}\nقيمة البضائع المسلّمة: ${mny(s.goods)}\nأجور التوصيل: ${mny(s.delivery)}\nالمدفوع لكم: ${mny(s.paid)}\nالمبلغ المطلوب لكم: ${mny(s.owedAll)}\nريو للتوصيل أسرع`;
+  if (st.type === 'merchant') return `${stTitle(st)} — ${st.party.name}\nالفترة: ${rangeLabel()}\nالطلبات: ${s.orders} · المسلّمة: ${s.delivered} · الراجعة: ${s.returned}\nقيمة البضائع المسلّمة: ${mny(s.goods)}\nأجور التوصيل: ${mny(s.delivery)}\nالمدفوع لكم: ${mny(s.paid)}\nريو للتوصيل أسرع`;
   if (st.type === 'driver') return `${stTitle(st)} — ${st.party.name}\nالفترة: ${rangeLabel()}\nالمنجزة: ${s.delivered} · الراجعة: ${s.returned}\nرسوم التطبيق المخصومة: ${mny(s.fees)}\nرصيد محفظتك: ${mny(s.balance)}\nريو للتوصيل أسرع`;
   return `طلباتك لدى ريو للتوصيل أسرع: ${s.orders}\nريو للتوصيل أسرع`;
 }
@@ -449,7 +465,7 @@ function modalHtml() {
   if (m.type === 'receipt') {
     const o = m.o;
     return [`وصل طلب #${o.no}`, `${sizeSeg()}<iframe title="معاينة الوصل" srcdoc="${esc(docPage('وصل', orderReceipt(o), rcls()))}" style="width:100%;height:60vh;border:1px solid var(--line);border-radius:12px;background:#fff"></iframe>
-    <div class="row" style="margin-top:12px;justify-content:center">${docBtns()}<a class="btn w" target="_blank" rel="noopener" href="${wa(o.customerPhone, `مرحباً، بخصوص طلبك #${o.no} من ${o.merchantName}\nالمنتج: ${o.product} × ${o.qty}\nالمبلغ المطلوب: ${mny(o.total)}\nريو للتوصيل أسرع`)}">واتساب الزبون</a></div>`];
+    <div class="row" style="margin-top:12px;justify-content:center">${docBtns()}<a class="btn w" target="_blank" rel="noopener" href="${wa(o.customerPhone, custMsg(o))}">واتساب الزبون</a></div>`];
   }
   if (m.type === 'vprint') return [`${m.v.kind === 'in' ? 'سند قبض' : 'سند صرف'} #${m.v.no}`, `${sizeSeg()}<iframe title="معاينة السند" srcdoc="${esc(docPage('سند', thermal() ? voucherDoc80(m.v) : voucherDoc(m.v), thermal() ? rcls() : 'sz' + RS))}" style="width:100%;height:62vh;border:1px solid var(--line);border-radius:12px;background:#fff"></iframe>
     <div class="row" style="margin-top:12px;justify-content:center">${docBtns()}${vPhone(m.v) ? `<a class="btn w" target="_blank" rel="noopener" href="${wa(vPhone(m.v), `${m.v.kind === 'in' ? 'سند قبض' : 'سند صرف'} رقم #${m.v.no}\nالمبلغ: ${mny(m.v.amount)}\nالتاريخ: ${fd(m.v.at)}\nالتفاصيل: ${m.v.note || '—'}\nريو للتوصيل أسرع`)}">واتساب</a>` : ''}</div>`, 1];
@@ -457,7 +473,7 @@ function modalHtml() {
     const d = m.role === 'driver';
     return [d ? 'إضافة مندوب' : 'إضافة متجر', `<form data-f="add-user">${field('u-name', d ? 'اسم المندوب' : 'اسم المتجر', '<input class="in" id="u-name" required>')}${field('u-phone', 'رقم الهاتف', '<input class="in" id="u-phone" inputmode="tel" placeholder="07XXXXXXXXX" required>')}
     ${field('u-pass', 'كلمة المرور', `<div class="row"><input class="in grow" id="u-pass" minlength="6" required><button type="button" class="btn g" data-a="gen" data-t="u-pass">توليد</button></div>`, '6 أحرف أو أكثر')}
-    ${d ? field('u-veh', 'المركبة', '<select class="in" id="u-veh"><option value="bike">دراجة</option><option value="car">سيارة</option></select>') : field('u-area', 'منطقة المتجر', '<input class="in" id="u-area" required>', 'تحدد سعر التوصيل (نفس المنطقة / منطقة ثانية)') + field('u-disc', 'خصم على كل طلب (د.ع)', '<input class="in" id="u-disc" inputmode="numeric" value="0">', 'يُخصم من أجرة التوصيل لهذا المتجر (مثلاً لكثرة طلباته)')}
+    ${d ? field('u-veh', 'نوع المركبة', '<select class="in" id="u-veh"><option value="bike">دراجة</option><option value="car">سيارة</option></select>', 'طلبات الدراجة تصل لسائقي الدراجات فقط، وطلبات السيارة لسائقي السيارات فقط') : field('u-area', 'منطقة المتجر', '<input class="in" id="u-area" required>', 'تحدد سعر التوصيل (نفس المنطقة / منطقة ثانية)') + field('u-map', 'رابط موقع المتجر على الخرائط', '<input class="in" id="u-map" inputmode="url" dir="ltr" placeholder="https://maps.google.com/…">', 'يظهر للسائق بعد قبول الطلب ليفتحه في ويز أو أي تطبيق خرائط (اختياري)')}
     <div class="err" id="fe" role="alert"></div><button class="btn" style="width:100%">إنشاء الحساب</button></form>`];
   }
   if (m.type === 'created') {
@@ -469,11 +485,24 @@ function modalHtml() {
   if (m.type === 'chat') {
     return [`محادثة طلب #${m.o.no}`, `<div class="chatbox" id="chat-box">${chatBoxHtml(m.msgs)}</div><form data-f="chat" class="row"><input class="in grow" id="chat-in" maxlength="500" placeholder="اكتب رسالة للسائق أو التاجر…" autocomplete="off"><button class="btn">إرسال</button></form><div class="err" id="fe" role="alert"></div>`];
   }
-  if (m.type === 'discount') {
+  if (m.type === 'mloc') {
     const u = findU(m.id);
-    return [`خصم متجر ${esc(u.name)}`, `<form data-f="discount"><p class="muted">طلبات المتجر في الفترة: <b>${nf(u.orders)}</b> · الخصم الحالي: <b>${mny(u.discount)}</b> لكل طلب.</p>
-    ${field('d-v', 'قيمة الخصم لكل طلب (د.ع)', `<input class="in" id="d-v" inputmode="numeric" value="${u.discount}" required>`, 'يُطبَّق تلقائياً على أجرة التوصيل في الطلبات الجديدة لهذا المتجر. ضع 0 لإلغاء الخصم.')}
-    <div class="chips" style="margin-bottom:12px">${[500, 1000, 1500, 2000].map((v) => `<button type="button" class="chip" data-a="dv" data-v="${v}">${nf(v)}</button>`).join('')}</div><div class="err" id="fe" role="alert"></div><button class="btn" style="width:100%">حفظ الخصم</button></form>`];
+    return [`عنوان وموقع ${esc(u.name)}`, `<form data-f="mloc">${field('l-area', 'منطقة المتجر', `<input class="in" id="l-area" value="${esc(u.area)}" required>`, 'تحدد سعر التوصيل (نفس المنطقة / منطقة ثانية)')}
+    ${field('l-map', 'رابط موقع المتجر على الخرائط', `<input class="in" id="l-map" inputmode="url" dir="ltr" value="${esc(u.mapUrl || '')}" placeholder="https://maps.google.com/…">`, 'الصق رابط خرائط جوجل أو ويز أو إحداثيات. يظهر للسائق بعد قبول الطلب. اتركه فارغاً لحذفه.')}
+    <div class="err" id="fe" role="alert"></div><button class="btn" style="width:100%">حفظ</button></form>`];
+  }
+  if (m.type === 'assign') {
+    const o = m.o, car = o.vehicle === 'car';
+    const ds = D.drivers.filter((x) => x.active && (x.vehicle === 'car') === car && x.id !== o.driverId);
+    return [`${o.driverId ? 'تحويل' : 'تعيين'} الطلب #${o.no} لسائق`, `<form data-f="assign"><p class="muted">طلب ${car ? 'سيارة' : 'دراجة'} — ${esc(o.merchantName)} → ${esc(o.customerArea)}${o.driverId ? `<br>السائق الحالي: <b>${esc(o.driverName)}</b>. سيختفي الطلب منه وتُرجَع له رسوم التطبيق${o.fee ? ` (${mny(o.fee)})` : ''} كاملة.` : ''}</p>
+    ${ds.length ? field('as-d', car ? 'سائق السيارة' : 'سائق الدراجة', `<select class="in" id="as-d">${ds.map((x) => `<option value="${x.id}">${esc(x.name)} — رصيد ${nf(x.balance)} د.ع${x.active_ ? '' : ''}</option>`).join('')}</select>`) : `<div class="notice">لا يوجد سائقون فعّالون من نوع ${car ? 'سيارة' : 'دراجة'}.</div>`}
+    <label class="row" style="gap:10px;align-items:center;margin:10px 0 14px;cursor:pointer"><input type="checkbox" id="as-c" checked style="width:20px;height:20px"><span>خصم رسوم التطبيق من السائق الجديد <small class="muted">(ألغِ التحديد لتعيينه بدون خصم)</small></span></label>
+    <div class="err" id="fe" role="alert"></div><button class="btn" style="width:100%" ${ds.length ? '' : 'disabled'}>${o.driverId ? 'تحويل الطلب' : 'تعيين الطلب'}</button></form>`];
+  }
+  if (m.type === 'assigned') {
+    const d = m.d;
+    return ['تم تعيين الطلب', `<div class="card" style="background:var(--ac-soft);box-shadow:none"><p style="margin:0">الطلب <b>#${m.o.no}</b> أصبح عند <b>${esc(d.name)}</b> بحالة «${esc(ST[m.o.status])}».</p></div>
+    <div class="row" style="justify-content:center;margin-top:14px"><a class="btn w" target="_blank" rel="noopener" href="${wa(d.phone, drvMsg(m.o, d))}">إبلاغ السائق بالواتساب</a><button class="btn g" data-a="close">إغلاق</button></div>`];
   }
   if (m.type === 'pw') {
     const u = findU(m.id);
@@ -497,7 +526,10 @@ function orderReceipt(o) {
   });
 }
 const loginUrl = () => { try { return new URL('./', location.href).href; } catch { return location.origin + '/'; } };
-const credText = (c) => `مرحباً ${c.name}\nتم إنشاء حسابك في ريو للتوصيل أسرع (${c.role === 'driver' ? 'سائق' : 'تاجر'}).\nرابط الدخول: ${loginUrl()}\nرقم الهاتف: ${c.phone}\nكلمة المرور: ${c.password}\nيُفضّل تغيير كلمة المرور بعد أول دخول.`;
+const credText = (c) => (tpl('account') ? fillTpl(tpl('account'), { name: c.name, phone: c.phone, password: c.password, login_url: loginUrl(), app: APP }) : `مرحباً ${c.name}
+رقم الهاتف: ${c.phone}
+كلمة المرور: ${c.password}
+رابط الدخول: ${loginUrl()}`);
 function credDoc(c) {
   const d = c.role === 'driver';
   return doc80({ title: d ? 'بيانات حساب سائق' : 'بيانات حساب تاجر', groups: [
@@ -538,9 +570,9 @@ const stamp = () => fd(Date.now());
 function listExports(kind) {
   if (kind === 'orders') { const l = filteredOrders(); return { name: 'الطلبات', head: ORD_HEAD, rows: l.map(ordRow), pdf: { head: ordPdfHead, rows: l.map(ordPdfRow) } }; }
   if (kind === 'merchants') {
-    const h = ['المتجر', 'الهاتف', 'المنطقة', 'الطلبات', 'المسلّمة', 'الراجع', 'قيمة الراجع', 'قيمة البضائع', 'أجور التوصيل', 'الخصم/طلب', 'المطلوب منك لهم'];
-    const r = [...D.merchants].sort(SORTS[SORT][1]).map((m) => [m.name, m.phone, m.area, m.orders, m.delivered, m.returned, m.returnedValue, m.goods, m.delivery, m.discount, m.owed]);
-    return { name: 'المتاجر', head: h, rows: r, pdf: { head: ['المتجر', '#الطلبات', '#المسلّمة', '#الراجع', '#البضائع', '#التوصيل', '#المطلوب لهم'], rows: r.map((x) => [x[0], x[3], x[4], x[5], nf(x[7]), nf(x[8]), nf(x[10])]) } };
+    const h = ['المتجر', 'الهاتف', 'المنطقة', 'الطلبات', 'المسلّمة', 'الراجع', 'قيمة الراجع', 'قيمة البضائع', 'أجور التوصيل'];
+    const r = [...D.merchants].sort(SORTS[SORT][1]).map((m) => [m.name, m.phone, m.area, m.orders, m.delivered, m.returned, m.returnedValue, m.goods, m.delivery]);
+    return { name: 'المتاجر', head: h, rows: r, pdf: { head: ['المتجر', '#الطلبات', '#المسلّمة', '#الراجع', '#البضائع', '#التوصيل'], rows: r.map((x) => [x[0], x[3], x[4], x[5], nf(x[7]), nf(x[8])]) } };
   }
   if (kind === 'drivers') {
     const h = ['المندوب', 'الهاتف', 'المنجز', 'الجاري', 'المتأخر', 'الراجع', 'مشاكل', 'الرصيد', 'المحصّل', 'رسوم مخصومة', 'صافي الربح'];
@@ -572,10 +604,12 @@ const clickActs = {
   close() { closeModal(); },
   'close-bg'(el, e) { if (e.target === el) closeModal(); },
   'add-user'(el) { M = { type: 'add-user', role: el.dataset.r }; drawModal(); },
-  discount(el) { M = { type: 'discount', id: Number(el.dataset.id) }; drawModal(); },
+  'tpl-var'(el) { const t = document.getElementById(TPLF); if (!t) { toast('اختر قالباً أولاً بالضغط داخله', true); return; } const a = t.selectionStart || 0, b = t.selectionEnd || 0; t.value = t.value.slice(0, a) + el.dataset.v + t.value.slice(b); t.focus(); t.setSelectionRange(a + el.dataset.v.length, a + el.dataset.v.length); },
+  async 'tpl-reset'(el) { if (await act(() => api('PUT', '/api/admin/settings', { templates: { [el.dataset.k]: '' } }), 'تمت استعادة القالب الافتراضي')) load(); },
+  mloc(el) { M = { type: 'mloc', id: Number(el.dataset.id) }; drawModal(); },
+  assign(el) { const o = O.find((x) => x.id === Number(el.dataset.id)); if (o) { M = { type: 'assign', o }; drawModal(); } },
   pw(el) { M = { type: 'pw', id: Number(el.dataset.id) }; drawModal(); },
   adjust(el) { M = { type: 'adjust', id: Number(el.dataset.id) }; drawModal(); },
-  dv(el) { $('#d-v').value = el.dataset.v; },
   gen(el) { document.getElementById(el.dataset.t).value = rnd(); },
   async copy(el) { try { await navigator.clipboard.writeText(el.dataset.t); toast('تم النسخ'); } catch { toast('تعذّر النسخ', true); } },
   receipt(el) { const o = O.find((x) => x.id === Number(el.dataset.id)); if (o) { M = { type: 'receipt', o }; drawModal(); } },
@@ -606,7 +640,7 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && M) close
 document.addEventListener('input', (e) => {
   const t = e.target;
   if (t.id === 'q') { Q = t.value; const l = $('#list'); if (l) l.innerHTML = ({ orders: ordersList, merchants: merchantList, drivers: driverList, customers: customerList })[P](); }
-  else if (/^(ea|va|a-amt|d-v|u-disc|g-count|s-(bikeSame|bikeOther|carSame|carOther|feeSame|feeOther|lateMin))$/.test(t.id)) { const v = t.value.replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)); if (v !== t.value) t.value = v; }
+  else if (/^(ea|va|a-amt|d-v|g-count|s-(bikeSame|bikeOther|carSame|carOther|feeSame|feeOther|lateMin))$/.test(t.id)) { const v = t.value.replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)); if (v !== t.value) t.value = v; }
 });
 document.addEventListener('change', async (e) => {
   const t = e.target, c = t.dataset.c; if (!c) return;
@@ -644,7 +678,7 @@ document.addEventListener('submit', async (e) => {
     else if (k === 'add-user') {
       const d = M.role === 'driver';
       const info = { type: 'created', role: M.role, name: $('#u-name').value.trim(), phone: $('#u-phone').value.trim(), password: $('#u-pass').value, vehicle: d ? $('#u-veh').value : '', area: d ? '' : $('#u-area').value.trim() };
-      await api('POST', '/api/admin/users', { role: M.role, name: $('#u-name').value, phone: $('#u-phone').value, password: $('#u-pass').value, vehicle: d ? $('#u-veh').value : undefined, area: d ? '' : $('#u-area').value, discount: d ? 0 : $('#u-disc').value });
+      await api('POST', '/api/admin/users', { role: M.role, name: $('#u-name').value, phone: $('#u-phone').value, password: $('#u-pass').value, vehicle: d ? $('#u-veh').value : undefined, area: d ? '' : $('#u-area').value, mapUrl: d ? undefined : $('#u-map').value });
       toast('تم إنشاء الحساب'); await load(); M = info; drawModal();
     }
     else if (k === 'gen-cards') {
@@ -652,14 +686,19 @@ document.addEventListener('submit', async (e) => {
       BATCH = r.made; toast('تم توليد ' + r.made.length + ' كرت'); await load();
     }
     else if (k === 'settings') {
-      const body = {}; ['bikeSame', 'bikeOther', 'carSame', 'carOther', 'feeSame', 'feeOther', 'lateMin'].forEach((x) => { body[x] = $('#s-' + x).value; }); body.support = $('#s-support').value; body.receipts = $('#s-receipts').checked;
+      const body = {}; ['bikeSame', 'bikeOther', 'carSame', 'carOther', 'feeSame', 'feeOther', 'lateMin'].forEach((x) => { body[x] = $('#s-' + x).value; }); body.support = $('#s-support').value; body.receipts = $('#s-receipts').checked; body.templates = {}; TPL_DEFS.forEach(([k]) => { body.templates[k] = $('#t-' + k).value; });
       const r = await api('PUT', '/api/admin/settings', body); SET = r.settings; toast('تم حفظ الإعدادات'); draw();
     }
     else if (k === 'chat') {
       const inp = $('#chat-in'), t = inp.value.trim();
       if (t) { inp.value = ''; await api('POST', `/api/orders/${M.o.id}/messages`, { text: t }); M.loaded = false; await loadChat(); }
     }
-    else if (k === 'discount') { await api('PUT', '/api/admin/users/' + M.id, { discount: $('#d-v').value }); toast('تم حفظ الخصم'); closeModal(); await load(); }
+    else if (k === 'mloc') { await api('PUT', '/api/admin/users/' + M.id, { area: $('#l-area').value, mapUrl: $('#l-map').value }); toast('تم الحفظ'); closeModal(); await load(); }
+    else if (k === 'assign') {
+      const id = Number($('#as-d').value), d = D.drivers.find((x) => x.id === id);
+      const r = await api('POST', `/api/admin/orders/${M.o.id}/assign`, { driverId: id, charge: $('#as-c').checked });
+      toast('تم تعيين الطلب'); await load(); M = { type: 'assigned', o: r.order, d }; drawModal();
+    }
     else if (k === 'pw') { const p = $('#w-p').value; await api('PUT', '/api/admin/users/' + M.id, { password: p }); M.done = p; drawModal(); }
     else if (k === 'adjust') { await api('POST', `/api/admin/users/${M.id}/adjust`, { amount: $('#a-amt').value, label: $('#a-lbl').value }); toast('تم تعديل الرصيد'); closeModal(); await load(); }
   } catch (x) { if (fe) fe.textContent = x.message; else toast(x.message, true); }

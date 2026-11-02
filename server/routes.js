@@ -25,24 +25,51 @@ const weekStart = (t) => { const ds = dayStart(t); const dow = new Date(ds + OFF
 const monthStart = (t) => { const d = new Date(t + OFF); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1) - OFF; };
 const yearStart = (t) => { const d = new Date(t + OFF); return Date.UTC(d.getUTCFullYear(), 0, 1) - OFF; };
 const sumOf = (a, k) => a.reduce((s, o) => s + (Number(o[k]) || 0), 0);
-const isRet = (o) => o.status === 'returned' || o.status === 'partial';
+const isRet = (o) => o.status === 'returned' || o.status === 'partial' || o.status === 'rejected';
 
-const STATUSES = ['pending', 'picking_up', 'on_the_way', 'delivered', 'no_answer', 'problem', 'other', 'returned', 'partial', 'cancelled'];
-const DRIVER_STATUSES = ['picking_up', 'on_the_way', 'delivered', 'no_answer', 'problem', 'other', 'returned', 'partial'];
+const STATUSES = ['pending', 'picking_up', 'on_the_way', 'delivered', 'no_answer', 'postponed', 'rejected', 'problem', 'other', 'returned', 'partial', 'cancelled'];
+const DRIVER_STATUSES = ['picking_up', 'on_the_way', 'delivered', 'rejected', 'no_answer', 'postponed', 'problem', 'other', 'returned', 'partial'];
+const TROUBLE = ['no_answer', 'postponed', 'problem', 'other'];
 const DONE = ['delivered', 'partial'];
 
 const DEF_SETTINGS = { bikeSame: 3000, bikeOther: 5000, carSame: 5000, carOther: 8000, feeSame: 500, feeOther: 1000, lateMin: 45, support: '', receipts: 1 };
+
+/* قوالب رسائل الواتساب (تُعدَّل من لوحة التحكم). المتغيرات بين أقواس: {order_no} {product} ... */
+const DEF_TEMPLATES = {
+  cust_picking_up: 'مرحباً، طلبك رقم #{order_no} من {merchant} قيد الاستلام من المتجر وسيكون عندك قريباً.\nالمنتج: {product} × {qty}\nالمبلغ المطلوب: {total}\n{app}',
+  cust_on_the_way: 'مرحباً، المندوب {driver} في الطريق إليك بطلبك رقم #{order_no} من {merchant}.\nالمنتج: {product} × {qty}\nالمبلغ المطلوب: {total}\nيرجى تجهيز المبلغ وإبقاء الهاتف متاحاً.\n{app}',
+  cust_delivered: 'تم تسليم طلبك رقم #{order_no} من {merchant}. شكراً لثقتك بنا.\n{app}',
+  cust_rejected: 'بخصوص طلبك رقم #{order_no} من {merchant}: تم تسجيل الطلب كمرفوض من طرفك وسيُعاد للمتجر.\n{app}',
+  cust_no_answer: 'مرحباً، حاول المندوب {driver} الاتصال بك بخصوص طلبك رقم #{order_no} من {merchant} ولم يتم الرد. يرجى الرد أو مراسلتنا.\n{app}',
+  cust_postponed: 'مرحباً، تم تأجيل توصيل طلبك رقم #{order_no} من {merchant} حسب الاتفاق، وسنتواصل معك قبل الموعد الجديد.\n{app}',
+  cust_default: 'مرحباً، بخصوص طلبك رقم #{order_no} من {merchant}\nالمنتج: {product} × {qty}\nالمبلغ المطلوب: {total}\n{app}',
+  driver_support: 'مرحباً فريق الدعم، أنا المندوب {name} ({phone}).\nأحتاج مساعدة بخصوص الطلب رقم #{order_no} ({merchant}).',
+  admin_driver: 'مرحباً {name}، من إدارة {app}:\nبخصوص الطلب رقم #{order_no} من {merchant}.\nالمنتج: {product} × {qty}\nالمبلغ: {total}',
+  admin_merchant: 'مرحباً {name}، من إدارة {app}:\nبخصوص الطلب رقم #{order_no}.\nالمنتج: {product} × {qty}\nالمبلغ: {total}',
+  account: 'مرحباً {name}\nتم إنشاء حسابك في {app}.\nرابط الدخول: {login_url}\nرقم الهاتف: {phone}\nكلمة المرور: {password}\nيُفضّل تغيير كلمة المرور بعد أول دخول.'
+};
 
 async function getSettings() {
   const r = await q(`SELECT value FROM settings WHERE key='main'`);
   let saved = {};
   try { saved = r.rows[0] ? JSON.parse(r.rows[0].value) : {}; } catch { /* ignore */ }
-  return { ...DEF_SETTINGS, ...saved };
+  const templates = { ...DEF_TEMPLATES };
+  for (const k of Object.keys(DEF_TEMPLATES)) if (saved.templates && typeof saved.templates[k] === 'string' && saved.templates[k].trim()) templates[k] = saved.templates[k];
+  return { ...DEF_SETTINGS, ...saved, templates };
+}
+
+/* رابط موقع المتجر: يقبل رابط خرائط (https) أو إحداثيات فقط، ويُرفض غير ذلك */
+function cleanUrl(v) {
+  const t = String(v || '').trim().slice(0, 600);
+  if (!t) return '';
+  if (/^-?\d{1,3}\.\d+\s*,\s*-?\d{1,3}\.\d+$/.test(t)) return t.replace(/\s+/g, '');
+  if (!/^https?:\/\/[^\s<>"']+$/i.test(t)) fail('رابط الموقع غير صحيح. الصق رابط الخرائط كاملاً (يبدأ بـ https://)');
+  return t;
 }
 
 const pub = (u) => ({
   id: u.id, role: u.role, name: u.name, phone: u.phone, active: !!u.active,
-  area: u.area, vehicle: u.vehicle, balance: u.balance, receiving: !!u.receiving, discount: u.discount || 0, createdAt: u.created_at
+  area: u.area, vehicle: u.vehicle, balance: u.balance, receiving: !!u.receiving, discount: 0, mapUrl: u.map_url || '', createdAt: u.created_at
 });
 
 const ord = (r) => ({
@@ -51,7 +78,7 @@ const ord = (r) => ({
   product: r.product, qty: r.qty, vehicle: r.vehicle, sameArea: !!r.same_area, note: r.note,
   productPrice: r.product_price, deliveryPrice: r.delivery_price, total: r.total, status: r.status,
   driverId: r.driver_id, driverName: r.driver_name, fee: r.fee, createdAt: r.created_at, updatedAt: r.updated_at,
-  acceptedAt: r.accepted_at, deliveredAt: r.delivered_at, discount: r.discount || 0, log: safeJson(r.log, [])
+  acceptedAt: r.accepted_at, deliveredAt: r.delivered_at, discount: 0, merchantMap: r.merchant_map || '', log: safeJson(r.log, [])
 });
 
 function safeJson(s, d) { try { return JSON.parse(s); } catch { return d; } }
@@ -226,14 +253,14 @@ route('POST', '/api/merchant/orders', MERCHANT, async (c) => {
   const auto = normArea(customerArea) === normArea(c.user.area);
   const same = b.zone === 'same' ? true : b.zone === 'other' ? false : auto;
   const base = s[vehicle + (same ? 'Same' : 'Other')];
-  const disc = Math.min(base, Math.max(0, Number(c.user.discount) || 0)); // خصم المتجر الكثير الطلبات
-  const deliveryPrice = base - disc;
+  const disc = 0;
+  const deliveryPrice = base;
   const now = Date.now();
   for (let i = 0; i < 5; i++) {
     const m = await q('SELECT COALESCE(MAX(num),1042)+1 AS n FROM orders');
     try {
       const row = await db.insert('orders', {
-        num: m.rows[0].n, merchant_id: c.user.id, merchant_name: c.user.name, merchant_area: c.user.area, merchant_phone: c.user.phone,
+        num: m.rows[0].n, merchant_id: c.user.id, merchant_name: c.user.name, merchant_area: c.user.area, merchant_phone: c.user.phone, merchant_map: c.user.map_url || '',
         customer_area: customerArea, customer_phone: customerPhone, product, qty, vehicle, same_area: same ? 1 : 0,
         note: clean(b.note, 200), product_price: productPrice, delivery_price: deliveryPrice, total: productPrice + deliveryPrice, discount: disc,
         status: 'pending', driver_id: null, driver_name: '', fee: 0, created_at: now, updated_at: now,
@@ -283,7 +310,7 @@ async function walletFor(user) {
 }
 
 route('GET', '/api/driver/home', DRIVER, async (c) => {
-  const avail = await q(`SELECT * FROM orders WHERE status='pending' ORDER BY created_at DESC LIMIT 50`);
+  const avail = await q(`SELECT * FROM orders WHERE status='pending' AND vehicle=$1 ORDER BY created_at DESC LIMIT 50`, [c.user.vehicle === 'car' ? 'car' : 'bike']);
   const mine = await q('SELECT * FROM orders WHERE driver_id=$1 ORDER BY updated_at DESC LIMIT 150', [c.user.id]);
   return {
     me: pub(c.user), settings: await getSettings(), available: avail.rows.map(ord), orders: mine.rows.map(ord), wallet: await walletFor(c.user)
@@ -309,6 +336,7 @@ route('POST', '/api/driver/orders/:id/accept', DRIVER, async (c) => {
   const r = await q('SELECT * FROM orders WHERE id=$1', [Number(c.params.id)]);
   const o = r.rows[0];
   if (!o || o.status !== 'pending') fail('الطلب لم يعد متاحاً', 409);
+  if ((o.vehicle === 'car' ? 'car' : 'bike') !== (u.vehicle === 'car' ? 'car' : 'bike')) fail(o.vehicle === 'car' ? 'هذا الطلب لسائقي السيارات فقط' : 'هذا الطلب لسائقي الدراجات فقط', 403);
   const s = await getSettings();
   const fee = o.same_area ? s.feeSame : s.feeOther;
   const pay = await q('UPDATE users SET balance=balance-$1 WHERE id=$2 AND balance>=$1 RETURNING balance', [fee, u.id]);
@@ -332,6 +360,7 @@ route('POST', '/api/driver/orders/:id/status', DRIVER, async (c) => {
   const r = await q('SELECT * FROM orders WHERE id=$1 AND driver_id=$2', [Number(c.params.id), c.user.id]);
   const o = r.rows[0];
   if (!o) fail('الطلب غير موجود', 404);
+  if (o.status === 'delivered') fail('تم تسليم هذا الطلب ولا يمكن تغيير حالته', 409);
   const now = Date.now();
   const u = await db.update('orders', 'id', o.id, {
     status, updated_at: now, delivered_at: DONE.includes(status) ? (o.delivered_at || now) : null, log: pushLog(o, status, now)
@@ -366,7 +395,7 @@ route('GET', '/api/admin/overview', ADMIN, async () => {
   const active = await one(`SELECT COUNT(*) AS n FROM orders WHERE status IN ('picking_up','on_the_way')`);
   const pending = await one(`SELECT COUNT(*) AS n FROM orders WHERE status='pending'`);
   const delivered = await one(`SELECT COUNT(*) AS n FROM orders WHERE status IN ('delivered','partial') AND delivered_at>=$1`, [today]);
-  const problems = await one(`SELECT COUNT(*) AS n FROM orders WHERE status IN ('no_answer','problem','other') AND updated_at>=$1`, [today]);
+  const problems = await one(`SELECT COUNT(*) AS n FROM orders WHERE status IN ('no_answer','postponed','problem','other') AND updated_at>=$1`, [today]);
   const fees = await one('SELECT COALESCE(SUM(fee),0) AS n FROM orders WHERE accepted_at>=$1', [today]);
   const drivers = await one(`SELECT COUNT(*) AS n, COALESCE(SUM(balance),0) AS bal FROM users WHERE role='driver' AND active=1`);
   const merchants = await one(`SELECT COUNT(*) AS n FROM users WHERE role='merchant' AND active=1`);
@@ -378,7 +407,7 @@ route('GET', '/api/admin/overview', ADMIN, async () => {
     days.push({ t: from, n: recent.rows.filter((o) => o.created_at >= from && o.created_at < from + DAY).length });
   }
   const stale = await q(`SELECT * FROM orders WHERE status='pending' AND created_at<$1 ORDER BY created_at ASC LIMIT 10`, [now - 10 * 60000]);
-  const trouble = await q(`SELECT * FROM orders WHERE status IN ('no_answer','problem','other') ORDER BY updated_at DESC LIMIT 10`);
+  const trouble = await q(`SELECT * FROM orders WHERE status IN ('no_answer','postponed','problem','other') ORDER BY updated_at DESC LIMIT 10`);
   return {
     ordersToday: todayN.n, active: active.n, pending: pending.n, deliveredToday: delivered.n, problemsToday: problems.n,
     feesToday: fees.n, drivers: drivers.n, driverBalances: drivers.bal, merchants: merchants.n, days,
@@ -429,6 +458,36 @@ route('POST', '/api/admin/orders/:id/requeue', ADMIN, async (c) => {
   return { order: ord(u) };
 });
 
+/* تعيين الطلب لسائق محدد: يُسحب من السائق السابق (مع إرجاع رسومه كاملة) ويُسند للجديد */
+route('POST', '/api/admin/orders/:id/assign', ADMIN, async (c) => {
+  const r = await q('SELECT * FROM orders WHERE id=$1', [Number(c.params.id)]);
+  const o = r.rows[0];
+  if (!o) fail('الطلب غير موجود', 404);
+  if (['delivered', 'partial', 'returned', 'rejected', 'cancelled'].includes(o.status)) fail('لا يمكن تعيين طلب منتهٍ أو ملغي', 409);
+  const dr = await q(`SELECT * FROM users WHERE id=$1 AND role='driver' AND active=1`, [Number(c.body.driverId)]);
+  const d = dr.rows[0];
+  if (!d) fail('اختر سائقاً فعّالاً', 404);
+  if (o.driver_id === d.id) fail('الطلب مسند لهذا السائق أصلاً', 409);
+  if ((o.vehicle === 'car' ? 'car' : 'bike') !== (d.vehicle === 'car' ? 'car' : 'bike')) fail(o.vehicle === 'car' ? 'هذا طلب سيارة، اختر سائق سيارة' : 'هذا طلب دراجة، اختر سائق دراجة', 409);
+  const s = await getSettings();
+  const now = Date.now();
+  const charge = c.body.charge !== false;
+  const fee = charge ? (o.same_area ? s.feeSame : s.feeOther) : 0;
+  if (fee > 0) {
+    const pay = await q('UPDATE users SET balance=balance-$1 WHERE id=$2 AND balance>=$1 RETURNING balance', [fee, d.id]);
+    if (!pay.rows.length) fail('رصيد السائق لا يكفي لرسوم التطبيق. اشحن رصيده أو عيّن الطلب بدون خصم الرسوم', 402);
+  }
+  if (o.driver_id && o.fee > 0) {
+    await q('UPDATE users SET balance=balance+$1 WHERE id=$2', [o.fee, o.driver_id]);
+    await db.insert('txs', { driver_id: o.driver_id, amount: o.fee, kind: 'refund', label: 'استرجاع رسوم التطبيق (تحويل الطلب)', order_num: o.num, at: now });
+  }
+  if (fee > 0) await db.insert('txs', { driver_id: d.id, amount: -fee, kind: 'fee', label: 'رسوم التطبيق', order_num: o.num, at: now });
+  const u = await db.update('orders', 'id', o.id, {
+    status: 'picking_up', driver_id: d.id, driver_name: d.name, fee, accepted_at: now, delivered_at: null, updated_at: now, log: pushLog(o, 'picking_up', now)
+  });
+  return { order: ord(u) };
+});
+
 route('GET', '/api/admin/users', ADMIN, async (c) => {
   const role = c.query.role === 'merchant' ? 'merchant' : 'driver';
   const r = await q(`SELECT * FROM users WHERE role=$1 AND phone NOT LIKE 'deleted-%' ORDER BY created_at DESC LIMIT 500`, [role]);
@@ -449,7 +508,7 @@ route('POST', '/api/admin/users', ADMIN, async (c) => {
   if (ex.rows.length) fail('رقم الهاتف مسجّل مسبقاً', 409);
   const u = await db.insert('users', {
     role, name, phone, pass_hash: await hashPassword(password), active: 1, area: clean(b.area, 60),
-    vehicle: b.vehicle === 'car' ? 'car' : 'bike', balance: 0, receiving: 1, discount: role === 'merchant' ? Math.max(0, int(b.discount) || 0) : 0, created_at: Date.now()
+    vehicle: b.vehicle === 'car' ? 'car' : 'bike', balance: 0, receiving: 1, discount: 0, map_url: role === 'merchant' ? cleanUrl(b.mapUrl) : '', created_at: Date.now()
   });
   return { user: pub(u) };
 });
@@ -470,17 +529,15 @@ route('PUT', '/api/admin/users/:id', ADMIN, async (c) => {
   if (b.area !== undefined) patch.area = clean(b.area, 60);
   if (b.vehicle !== undefined) patch.vehicle = b.vehicle === 'car' ? 'car' : 'bike';
   if (b.active !== undefined) patch.active = b.active ? 1 : 0;
-  if (b.discount !== undefined && u.role === 'merchant') {
-    const v = int(b.discount);
-    if (!Number.isFinite(v) || v < 0 || v > 1000000) fail('قيمة الخصم غير صحيحة');
-    patch.discount = v;
-  }
+  if (b.mapUrl !== undefined && u.role === 'merchant') patch.map_url = cleanUrl(b.mapUrl);
   if (b.password) {
     if (String(b.password).length < 6) fail('كلمة المرور لا تقل عن 6 أحرف');
     patch.pass_hash = await hashPassword(String(b.password));
   }
   if (!Object.keys(patch).length) fail('لا يوجد ما يُحدَّث');
-  return { user: pub(await db.update('users', 'id', u.id, patch)) };
+  const saved = await db.update('users', 'id', u.id, patch);
+  if (patch.map_url !== undefined) await q(`UPDATE orders SET merchant_map=$1 WHERE merchant_id=$2 AND status NOT IN ('delivered','partial','returned','rejected','cancelled')`, [patch.map_url, u.id]);
+  return { user: pub(saved) };
 });
 
 route('POST', '/api/admin/users/:id/adjust', ADMIN, async (c) => {
@@ -523,6 +580,7 @@ route('DELETE', '/api/admin/cards/:number', ADMIN, async (c) => {
 
 route('PUT', '/api/admin/settings', ADMIN, async (c) => {
   const next = { ...(await getSettings()) };
+  { const r0 = await q(`SELECT value FROM settings WHERE key='main'`); let sv = {}; try { sv = r0.rows[0] ? JSON.parse(r0.rows[0].value) : {}; } catch { /* ignore */ } next.templates = sv.templates || {}; }
   for (const k of ['bikeSame', 'bikeOther', 'carSame', 'carOther', 'feeSame', 'feeOther', 'lateMin']) {
     if (c.body[k] !== undefined) {
       const v = int(c.body[k]);
@@ -530,10 +588,19 @@ route('PUT', '/api/admin/settings', ADMIN, async (c) => {
       next[k] = v;
     }
   }
+  if (c.body.templates && typeof c.body.templates === 'object') {
+    const t = { ...(next.templates || {}) };
+    for (const k of Object.keys(DEF_TEMPLATES)) {
+      if (c.body.templates[k] === undefined) continue;
+      const v = String(c.body.templates[k] || '').slice(0, 1200).trim();
+      if (!v || v === DEF_TEMPLATES[k]) delete t[k]; else t[k] = v;
+    }
+    next.templates = t;
+  }
   if (c.body.receipts !== undefined) next.receipts = [true, 1, '1', 'true'].includes(c.body.receipts) ? 1 : 0;
   if (c.body.support !== undefined) next.support = normPhone(c.body.support).slice(0, 15);
   await q(`INSERT INTO settings(key,value) VALUES('main',$1) ON CONFLICT(key) DO UPDATE SET value=excluded.value`, [JSON.stringify(next)]);
-  return { settings: next };
+  return { settings: await getSettings() };
 });
 
 route('GET', '/api/admin/stats', ADMIN, async (c) => {
@@ -577,7 +644,7 @@ route('GET', '/api/admin/stats', ADMIN, async (c) => {
       ...pub(u), orders: m.length, delivered: d.length, returned: r.length, fees: sumOf(m, 'fee'), collected: sumOf(d, 'total'),
       earned: sumOf(d, 'delivery_price') - sumOf(d, 'fee'), active: mine.length,
       late: mine.filter((o) => o.accepted_at && now - o.accepted_at > lateMs).length,
-      problems: m.filter((o) => ['no_answer', 'problem', 'other'].includes(o.status)).length,
+      problems: m.filter((o) => TROUBLE.includes(o.status)).length,
       lastAt: m.reduce((a, o) => Math.max(a, o.updated_at), 0)
     };
   });
@@ -733,7 +800,7 @@ route('GET', '/api/admin/statement', ADMIN, async (c) => {
     summary.fees = sumOf(os, 'fee'); summary.collected = summary.total; summary.earned = summary.delivery - sumOf(done, 'fee');
     summary.balance = party.balance; summary.active = mine.length;
     summary.late = mine.filter((o) => o.accepted_at && now - o.accepted_at > lateMs).length;
-    summary.problems = os.filter((o) => ['no_answer', 'problem', 'other'].includes(o.status)).length;
+    summary.problems = os.filter((o) => TROUBLE.includes(o.status)).length;
   }
   return {
     type, party, from, to, summary, orders: os.map(ord), vouchers: vs.map(vch),
