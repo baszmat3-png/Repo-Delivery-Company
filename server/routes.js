@@ -139,8 +139,30 @@ route('POST', '/api/login', { public: true }, async (c) => {
   const r = await q('SELECT * FROM users WHERE phone=$1', [phone]);
   const u = r.rows[0];
   if (!u || !(await checkPassword(pw, u.pass_hash))) fail('رقم الهاتف أو كلمة المرور غير صحيحة', 401);
-  if (!u.active) fail('هذا الحساب موقوف، تواصل مع الإدارة', 403);
+  if (!u.active) fail('هذا الحساب موقوف أو بانتظار موافقة الإدارة، تواصل مع الإدارة', 403);
   return { token: sign({ id: u.id, role: u.role }), user: pub(u) };
+});
+
+/* تسجيل ذاتي للتاجر/السائق: يُنشأ الحساب موقوفاً حتى تفعّله الإدارة من لوحة التحكم */
+route('POST', '/api/register', { public: true }, async (c) => {
+  const b = c.body;
+  throttle('reg|' + c.req.socket.remoteAddress);
+  const role = b.role === 'merchant' ? 'merchant' : 'driver';
+  const name = clean(b.name, 60);
+  const phone = normPhone(b.phone);
+  const password = String(b.password || '');
+  if (name.length < 2) fail('اكتب الاسم');
+  if (!validPhone(phone)) fail('رقم الهاتف يجب أن يبدأ بـ 07 ويتكوّن من 11 رقماً');
+  if (password.length < 6) fail('كلمة المرور لا تقل عن 6 أحرف');
+  if (role === 'merchant' && !clean(b.area, 60)) fail('اكتب منطقة المتجر');
+  if (role === 'driver' && !['bike', 'car'].includes(b.vehicle)) fail('اختر نوع المركبة: دراجة أو سيارة');
+  const ex = await q('SELECT id FROM users WHERE phone=$1', [phone]);
+  if (ex.rows.length) fail('رقم الهاتف مسجّل مسبقاً', 409);
+  await db.insert('users', {
+    role, name, phone, pass_hash: await hashPassword(password), active: 0, area: role === 'merchant' ? clean(b.area, 60) : '',
+    vehicle: b.vehicle === 'car' ? 'car' : 'bike', balance: 0, receiving: 1, discount: 0, map_url: role === 'merchant' ? cleanUrl(b.mapUrl) : '', created_at: Date.now()
+  });
+  return { ok: true, pending: true };
 });
 
 route('GET', '/api/me', async (c) => ({ user: pub(c.user) }));

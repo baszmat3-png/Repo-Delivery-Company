@@ -60,6 +60,7 @@ const IC = {
   grid: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
   bike: '<circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-8h5l3 8M10 8H8M13 12h5"/>',
   car: '<path d="M3 15v-4l2-5h14l2 5v4z"/><circle cx="7.5" cy="15.5" r="1.8"/><circle cx="16.5" cy="15.5" r="1.8"/><path d="M5 11h14"/>',
+  eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   phone: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2z"/>',
   lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/>',
   trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
@@ -89,7 +90,7 @@ const vehName = (v) => (v === 'car' ? 'سيارة' : 'دراجة');
 
 /* ============ الحالة ============ */
 const S = {
-  token: store.get(TOKEN_KEY), user: null, tab: '', data: null, loading: false, error: '',
+  token: store.get(TOKEN_KEY) || (() => { try { return sessionStorage.getItem(TOKEN_KEY); } catch { return null; } })(), user: null, tab: '', data: null, loading: false, error: '',
   sheet: null, menu: null, armed: null, filter: 'all', walletTab: 'log', ordersTab: 'current', adminFilter: 'all', cardsBatch: null, expRange: 'month'
 };
 let lastSig = '';
@@ -243,18 +244,20 @@ function loginView() {
       <p class="hint" id="l-err" style="color:var(--red)" role="alert"></p>
       <button class="btn block" type="submit" id="l-btn">دخول</button>
     </form></div></div>`;
-  return `<div class="land">
-  <div class="intro"><h1>بضائعك توصل أسرع</h1><p class="lead">التاجر يجهّز الطلب ويرفعه، والسائق يستلمه من التاجر ويوصله للزبون، والإدارة تتابع كل شي.</p></div>
-  <div class="hero">${logo('big dark')}</div>
-  <div class="stack">
-    <form class="card stack" data-form="login" autocomplete="on">
-      <h2 style="font-size:20px">تسجيل الدخول</h2>
-      <div class="field"><label for="l-phone">رقم الهاتف</label><input class="in mono" id="l-phone" name="phone" inputmode="tel" autocomplete="username" placeholder="07XX XXX XXXX" required></div>
-      <div class="field"><label for="l-pass">كلمة المرور</label><input class="in" id="l-pass" name="password" type="password" autocomplete="current-password" required></div>
-      <p class="hint" id="l-err" style="color:var(--red)" role="alert"></p>
-      <button class="btn block" type="submit" id="l-btn">دخول</button>
-    </form>
-  </div></div>`;
+  return `<div class="lg">
+  <div class="lg-hero"><img src="hero.jpg" alt="ريو للتوصيل أسرع — أسرع توصيل في بغداد"></div>
+  <form class="lg-card" data-form="login" autocomplete="on">
+    <h1>تسجيل الدخول</h1><p class="lg-sub">مرحباً بك في ريو</p>
+    <div class="lg-in">${ico('phone')}<input id="l-phone" name="phone" inputmode="tel" autocomplete="username" placeholder="رقم الجوال" aria-label="رقم الجوال" required></div>
+    <div class="lg-in">${ico('lock')}<input id="l-pass" name="password" type="password" autocomplete="current-password" placeholder="كلمة المرور" aria-label="كلمة المرور" required><button type="button" class="eye" data-act="eye" aria-label="إظهار كلمة المرور">${ico('eye')}</button></div>
+    <label class="lg-rem"><input type="checkbox" name="remember" checked> تذكرني</label>
+    <p class="hint" id="l-err" style="color:var(--red)" role="alert"></p>
+    <button class="btn block" type="submit" id="l-btn">دخول ←</button>
+    <div class="lg-or"><span>أو</span></div>
+    <button type="button" class="btn ghost block lg-reg" data-act="register" data-role="merchant">${ico('store')} تسجيل كتاجر</button>
+    <button type="button" class="btn ghost block lg-reg" data-act="register" data-role="driver">${ico('user')} تسجيل كسائق</button>
+    <p class="lg-new">ليس لديك حساب؟ <button type="button" class="lg-link" data-act="register" data-role="driver">إنشاء حساب جديد</button></p>
+  </form></div>`;
 }
 
 /* ============ التاجر ============ */
@@ -973,6 +976,20 @@ const SHEETS = {
       <a class="btn wa" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a>
     </div>`];
   },
+  register(s) {
+    const m = s.role === 'merchant';
+    return [m ? 'تسجيل كتاجر' : 'تسجيل كسائق', `<form class="stack" data-form="register">
+      <div class="seg"><button type="button" data-act="register-role" data-role="merchant" aria-pressed="${m}">${ico('store')} تاجر</button><button type="button" data-act="register-role" data-role="driver" aria-pressed="${!m}">${ico('user')} سائق</button></div>
+      ${field('r-name', m ? 'اسم المتجر' : 'اسمك الكامل', '<input class="in" id="r-name" name="name" required>')}
+      ${field('r-phone', 'رقم الهاتف', '<input class="in mono" id="r-phone" name="phone" inputmode="tel" placeholder="07XX XXX XXXX" required>')}
+      ${field('r-pass', 'كلمة المرور', '<input class="in" id="r-pass" name="password" type="password" minlength="6" autocomplete="new-password" required>', '6 أحرف أو أكثر')}
+      ${m ? field('r-area', 'منطقة المتجر', '<input class="in" id="r-area" name="area" placeholder="مثال: الكرادة" required>') + field('r-map', 'رابط موقع المتجر على الخريطة (اختياري)', '<input class="in mono" id="r-map" name="mapUrl" dir="ltr" placeholder="https://maps.app.goo.gl/...">', 'يظهر للسائق ليصل إليك بسهولة') : `<div class="field"><span class="lbl">نوع المركبة</span><div class="seg"><button type="button" data-act="nu-veh" data-v="bike" aria-pressed="${(s.vehicle || 'bike') === 'bike'}">${ico('bike')} دراجة</button><button type="button" data-act="nu-veh" data-v="car" aria-pressed="${s.vehicle === 'car'}">${ico('car')} سيارة</button></div></div>`}
+      <p class="hint">بعد التسجيل تراجع الإدارة طلبك وتفعّل حسابك، ثم تستطيع الدخول.</p>
+      <p class="hint" id="r-err" style="color:var(--red)" role="alert"></p><button class="btn block" type="submit">إنشاء الحساب</button></form>`];
+  },
+  registered() {
+    return ['تم إرسال طلبك', `<p style="text-align:center;font-size:17px;margin:8px 0 18px">تم إنشاء حسابك وهو بانتظار موافقة الإدارة. سنفعّله قريباً، وبعدها سجّل الدخول برقم هاتفك وكلمة المرور.</p><button class="btn block" data-act="close-sheet">حسناً</button>`];
+  },
   confirm(s) {
     return [s.title, `<p style="text-align:center;font-size:17px;margin:8px 0 18px">${esc(s.text)}</p><div class="row"><button class="btn danger grow" data-act="${s.yes}" data-id="${s.id}">نعم</button><button class="btn ghost grow" data-act="close-sheet">لا</button></div>`];
   },
@@ -1105,6 +1122,9 @@ const ACTIONS = {
   password: () => openSheet({ type: 'password' }),
   'delete-me': () => openSheet({ type: 'delete-me' }),
   'close-sheet': () => closeSheet(),
+  register: (el) => { openSheet({ type: 'register', role: el.dataset.role, vehicle: 'bike' }); },
+  'register-role': (el) => openSheet({ type: 'register', role: el.dataset.role, vehicle: S.sheet.vehicle || 'bike' }),
+  eye: (el) => { const i = el.parentElement.querySelector('input'); const show = i.type === 'password'; i.type = show ? 'text' : 'password'; el.setAttribute('aria-label', show ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'); },
   'ask-return': (el) => { S.menu = null; openSheet({ type: 'confirm', title: 'إرجاع الطلب', text: 'عزيزي الكابتن، هل أنت متأكد من إرجاع الطلب للتاجر؟', yes: 'do-return', id: el.dataset.id }); },
   'ask-recv': (el) => openSheet({ type: 'confirm', title: 'استلام المرتجع', text: 'هل استلمت الطلب المرتجع من السائق؟', yes: 'do-recv', id: el.dataset.id }),
   'add-user': (el) => openSheet({ type: 'add-user', role: el.dataset.role }),
@@ -1221,10 +1241,15 @@ document.addEventListener('change', async (e) => {
 });
 
 const FORMS = {
+  async register(f) {
+    const role = S.sheet.role;
+    await api('POST', '/api/register', { role, name: f.name.value, phone: f.phone.value, password: f.password.value, area: f.area ? f.area.value : '', mapUrl: f.mapUrl ? f.mapUrl.value : '', vehicle: S.sheet.vehicle || 'bike' });
+    closeSheet(); openSheet({ type: 'registered' });
+  },
   async login(f, err) {
     const r = await api('POST', '/api/login', { phone: f.phone.value, password: f.password.value });
     if (ADMIN_ONLY && r.user.role !== 'admin') throw new Error('هذه اللوحة للمدير فقط');
-    S.token = r.token; store.set(TOKEN_KEY, r.token); setUser(r.user);
+    S.token = r.token; if (f.remember && !f.remember.checked) { try { sessionStorage.setItem(TOKEN_KEY, r.token); } catch { /* ignore */ } store.del(TOKEN_KEY); } else store.set(TOKEN_KEY, r.token); setUser(r.user);
     go(S.tab && TABS[r.user.role].some((t) => t[0] === S.tab) ? S.tab : defaultTab());
     openPendingChat();
     void err;
@@ -1282,7 +1307,7 @@ const FORMS = {
     toast('تم حفظ الإعدادات'); refresh(true);
   }
 };
-const ERR_ID = { login: 'l-err', 'new-order': 'o-err', charge: 'c-err', 'edit-me': 'm-err', password: 'p-err', 'delete-me': 'd-err', 'add-user': 'u-err', 'edit-user': 'e-err', adjust: 'a-err' };
+const ERR_ID = { login: 'l-err', 'new-order': 'o-err', charge: 'c-err', 'edit-me': 'm-err', password: 'p-err', 'delete-me': 'd-err', 'add-user': 'u-err', 'edit-user': 'e-err', adjust: 'a-err', register: 'r-err' };
 
 document.addEventListener('submit', async (e) => {
   const form = e.target.closest('[data-form]');

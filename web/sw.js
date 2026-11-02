@@ -1,6 +1,6 @@
 // خدمة بسيطة: تخزّن ملفات الواجهة فقط، ولا تخزّن طلبات API أبداً.
 const CACHE = 'rio-v1';
-const FILES = ['./', 'style.css', 'app.js', 'config.js', 'manifest.webmanifest', 'icons/icon-192.png'];
+const FILES = ['./', 'style.css', 'app.js', 'config.js', 'manifest.webmanifest', 'icons/icon-192.png', 'hero.jpg'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).catch(() => {})); self.skipWaiting(); });
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
