@@ -78,10 +78,11 @@ const logo = (cls = '') => `<span class="logo ${cls}" aria-label="ريو للت�
 const ST = {
   pending: ['بانتظار سائق', 'amber'], picking_up: ['قيد الاستلام من التاجر', 'accent'], on_the_way: ['في الطريق للزبون', 'accent'],
   delivered: ['تم التسليم', 'green'], rejected: ['مرفوض من زبون', 'red'], postponed: ['تأجيل', 'amber'], no_answer: ['لا يرد', 'red'], problem: ['مشكلة', 'red'], other: ['حالة أخرى', 'red'],
-  returned: ['راجع', 'blue'], partial: ['راجع جزئي', 'blue'], cancelled: ['ملغي', '']
+  returned: ['راجع — استلمه التاجر', 'blue'], return_sent: ['أُرجع للتاجر — بانتظار تأكيده', 'amber'], partial: ['راجع جزئي', 'blue'], cancelled: ['ملغي', '']
 };
 const DRIVER_ST = ['picking_up', 'on_the_way', 'delivered', 'rejected', 'no_answer', 'postponed'];
-const ST_OK = ['pending', 'picking_up', 'on_the_way', 'delivered', 'rejected', 'no_answer', 'postponed', 'cancelled'];
+const ST_OK = ['pending', 'picking_up', 'on_the_way', 'delivered', 'rejected', 'no_answer', 'postponed', 'return_sent', 'returned', 'cancelled'];
+const RETURNABLE = ['rejected', 'no_answer', 'postponed'];
 const stKeys = (cur) => Object.keys(ST).filter((k) => ST_OK.includes(k) || k === cur);
 const pill = (s) => `<span class="pill ${ST[s]?.[1] || ''}">${esc(ST[s]?.[0] || s)}</span>`;
 const vehName = (v) => (v === 'car' ? 'سيارة' : 'دراجة');
@@ -275,9 +276,11 @@ function merchantOrderCard(o, withCancel) {
       ${o.driverName ? `<div class="full"><dt>السائق</dt><dd>${esc(o.driverName)}</dd></div>` : ''}
       ${o.note ? `<div class="full"><dt>ملاحظة</dt><dd>${esc(o.note)}</dd></div>` : ''}
     </dl>
+    ${o.status === 'return_sent' ? `<div class="notice">السائق ${esc(o.driverName || '')} أعلن أنه أرجع الطلب إليك. أكّد الاستلام عند وصول البضاعة.</div>` : ''}
     <div class="row wrapx">
       ${o.driverId ? `<button class="btn ghost sm" data-act="chat" data-id="${o.id}">${ico('chat')} محادثة السائق</button>` : ''}
       <a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a>
+      ${o.status === 'return_sent' ? `<button class="btn sm" data-act="ask-recv" data-id="${o.id}">تأكيد استلام المرتجع</button><button class="btn ghost sm" data-act="not-recv" data-id="${o.id}">لم أستلمه</button>` : ''}
       ${withCancel && o.status === 'pending' ? `<button class="btn danger sm ${armed ? 'arm' : ''}" data-act="cancel" data-id="${o.id}">${armed ? 'اضغط للتأكيد' : 'إلغاء الطلب'}</button>` : ''}
     </div></article>`;
 }
@@ -302,7 +305,7 @@ const VIEWS = {
   'merchant:orders'() {
     const o = S.data.orders;
     const f = S.filter;
-    const sets = { all: null, active: ['pending', 'picking_up', 'on_the_way'], done: ['delivered'], issues: ['rejected', 'postponed', 'no_answer', 'problem', 'other', 'returned', 'partial', 'cancelled'] };
+    const sets = { all: null, active: ['pending', 'picking_up', 'on_the_way'], done: ['delivered'], issues: ['return_sent', 'rejected', 'postponed', 'no_answer', 'problem', 'other', 'returned', 'partial', 'cancelled'] };
     const list = sets[f] ? o.filter((x) => sets[f].includes(x.status)) : o;
     const chip = (id, l) => `<button class="chip" data-act="filter" data-f="${id}" aria-pressed="${f === id}">${l}</button>`;
     return `${head('الطلبات', `${o.length} طلب`)}
@@ -328,8 +331,8 @@ const VIEWS = {
   },
   'driver:orders'() {
     const all = S.data.orders;
-    const cur = all.filter((o) => ['picking_up', 'on_the_way', 'postponed'].includes(o.status));
-    const prev = all.filter((o) => !['picking_up', 'on_the_way', 'postponed'].includes(o.status));
+    const cur = all.filter((o) => ['picking_up', 'on_the_way', 'postponed', 'rejected', 'no_answer', 'return_sent'].includes(o.status));
+    const prev = all.filter((o) => !['picking_up', 'on_the_way', 'postponed', 'rejected', 'no_answer', 'return_sent'].includes(o.status));
     const t = S.ordersTab;
     const list = t === 'current' ? cur : prev;
     return `${head('الطلبات')}
@@ -422,10 +425,10 @@ function supportLink(o) {
 }
 function driverOrderCard(o) {
   const open = S.menu === o.id;
-  const locked = o.status === 'delivered';
-  const m = open && !locked ? `<div class="menu" role="menu">${DRIVER_ST.map((s) => `<button role="menuitem" data-act="set-status" data-id="${o.id}" data-s="${s}"><span class="ck">${o.status === s ? ico('check') : ''}</span>${ST[s][0]}</button>`).join('')}</div>` : '';
+  const locked = ['delivered', 'return_sent', 'returned'].includes(o.status);
+  const m = open && !locked ? `<div class="menu" role="menu">${DRIVER_ST.map((s) => `<button role="menuitem" data-act="set-status" data-id="${o.id}" data-s="${s}"><span class="ck">${o.status === s ? ico('check') : ''}</span>${ST[s][0]}</button>`).join('')}${RETURNABLE.includes(o.status) ? `<button role="menuitem" data-act="ask-return" data-id="${o.id}"><span class="ck"></span><b>تم الإرجاع للتاجر</b></button>` : ''}</div>` : '';
   return `<article class="card ord">
-    <div class="ord-h"><div class="menuwrap">${locked ? pill('delivered') : `<button class="pill ${ST[o.status]?.[1] || ''}" data-act="menu" data-id="${o.id}" aria-haspopup="menu" aria-expanded="${open}">${esc(ST[o.status]?.[0] || o.status)} <span aria-hidden="true">▾</span></button>`}${m}</div><div class="ord-no">طلب #${o.no}</div></div>
+    <div class="ord-h"><div class="menuwrap">${locked ? pill(o.status) : `<button class="pill ${ST[o.status]?.[1] || ''}" data-act="menu" data-id="${o.id}" aria-haspopup="menu" aria-expanded="${open}">${esc(ST[o.status]?.[0] || o.status)} <span aria-hidden="true">▾</span></button>`}${m}</div><div class="ord-no">طلب #${o.no}</div></div>
     <dl class="kv">
       <div><dt>الزبون</dt><dd>${esc(o.customerArea)}</dd></div>
       <div><dt>تحصل من الزبون</dt><dd>${money(o.total)}</dd></div>
@@ -970,6 +973,9 @@ const SHEETS = {
       <a class="btn wa" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a>
     </div>`];
   },
+  confirm(s) {
+    return [s.title, `<p style="text-align:center;font-size:17px;margin:8px 0 18px">${esc(s.text)}</p><div class="row"><button class="btn danger grow" data-act="${s.yes}" data-id="${s.id}">نعم</button><button class="btn ghost grow" data-act="close-sheet">لا</button></div>`];
+  },
   'report-receipt'(s) {
     const m = s.rep.receipt;
     return ['وصل مختصر', `${rsizeSeg()}<div class="rcpt-wrap">${modelHtml(m)}</div>
@@ -1099,6 +1105,8 @@ const ACTIONS = {
   password: () => openSheet({ type: 'password' }),
   'delete-me': () => openSheet({ type: 'delete-me' }),
   'close-sheet': () => closeSheet(),
+  'ask-return': (el) => { S.menu = null; openSheet({ type: 'confirm', title: 'إرجاع الطلب', text: 'عزيزي الكابتن، هل أنت متأكد من إرجاع الطلب للتاجر؟', yes: 'do-return', id: el.dataset.id }); },
+  'ask-recv': (el) => openSheet({ type: 'confirm', title: 'استلام المرتجع', text: 'هل استلمت الطلب المرتجع من السائق؟', yes: 'do-recv', id: el.dataset.id }),
   'add-user': (el) => openSheet({ type: 'add-user', role: el.dataset.role }),
   'edit-user': (el) => openSheet({ type: 'edit-user', id: Number(el.dataset.id) }),
   adjust: (el) => openSheet({ type: 'adjust', id: Number(el.dataset.id) }),
@@ -1136,6 +1144,17 @@ const ACTIONS = {
   },
   async accept(el) {
     if (await act(() => api('POST', `/api/driver/orders/${el.dataset.id}/accept`), 'تم قبول الطلب. توجّه للتاجر لاستلامه')) { S.ordersTab = 'current'; go('orders'); } else refresh(true);
+  },
+  async 'do-return'(el) {
+    const id = el.dataset.id; closeSheet();
+    if (await act(() => api('POST', `/api/driver/orders/${id}/status`, { status: 'return_sent' }), 'تم تسجيل الإرجاع — بانتظار تأكيد التاجر')) refresh(true);
+  },
+  async 'do-recv'(el) {
+    const id = el.dataset.id; closeSheet();
+    if (await act(() => api('POST', `/api/merchant/orders/${id}/return`, { received: true }), 'تم تأكيد استلام المرتجع')) refresh(true);
+  },
+  async 'not-recv'(el) {
+    if (await act(() => api('POST', `/api/merchant/orders/${el.dataset.id}/return`, { received: false }), 'تم تسجيل أنك لم تستلم الطلب')) refresh(true);
   },
   async 'set-status'(el) {
     S.menu = null;
