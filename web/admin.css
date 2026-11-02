@@ -151,3 +151,7 @@ tfoot td{font-weight:800;background:#f8fafc;position:sticky;bottom:0}
 .cmsg small{display:block;color:#666;font-size:11px;margin-bottom:2px}
 .cmsg.me{align-self:flex-end;background:#ffd21f;border-color:#e6bd10}
 .r2{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px dotted #bbb}.r2:last-child{border:0}.r2 b{color:#555}
+
+/* وضع العرض فقط للموظفين */
+.ro [data-a=toggle],.ro [data-a=adjust],.ro [data-a=pw],.ro [data-a=assign],.ro [data-a=requeue],.ro [data-a=mloc],.ro [data-a=add-user],.ro [data-a=vdel],.ro [data-a=del-exp],.ro [data-a=del-card],.ro [data-a=gen],.ro [data-a=tpl-reset],.ro [data-a=tpl-var],.ro form[data-f=settings] button:not([type=button]),.ro form[data-f=expense] button,.ro form[data-f=voucher] button,.ro form[data-f=card] button{display:none!important}
+.ro select[data-c=status],.ro form[data-f=settings] input,.ro form[data-f=settings] textarea,.ro form[data-f=settings] select{pointer-events:none;opacity:.7}

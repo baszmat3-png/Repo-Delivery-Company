@@ -20,7 +20,18 @@ const sizeSeg = () => `<div class="row" style="justify-content:center;margin-bot
 const docBtns = () => `<button class="btn" data-a="print-doc">${ico('print')} طباعة / PDF</button><button class="btn g" data-a="save-doc">${ico('dl')} حفظ صورة</button>`;
 const DONE = ['delivered', 'partial'], RET = ['returned', 'partial', 'rejected'];
 const CATS = ['الإيجار', 'الوقود', 'السحب', 'الطعام', 'تنقلات شخصية', 'الإنترنت', 'اشتراكات تقنية', 'رواتب', 'إعلانات', 'صيانة', 'كهرباء وماء', 'أخرى'];
-const PAGES = [['home', 'لوحة المعلومات', 'home'], ['orders', 'الطلبات', 'orders'], ['merchants', 'المتاجر', 'store'], ['drivers', 'المندوبون', 'bike'], ['customers', 'العملاء', 'users'], ['finance', 'المالية والأرباح', 'money'], ['vouchers', 'سندات القبض والصرف', 'voucher'], ['cards', 'كروت الشحن', 'card'], ['settings', 'الإعدادات', 'settings']];
+const PAGES_BASE = [['home', 'لوحة المعلومات', 'home'], ['orders', 'الطلبات', 'orders'], ['merchants', 'المتاجر', 'store'], ['drivers', 'المندوبون', 'bike'], ['customers', 'العملاء', 'users'], ['finance', 'المالية والأرباح', 'money'], ['vouchers', 'سندات القبض والصرف', 'voucher'], ['cards', 'كروت الشحن', 'card'], ['settings', 'الإعدادات', 'settings']];
+const PAGES = PAGES_BASE.slice();
+const ls0 = (() => { try { return JSON.parse(localStorage.getItem('rio_admin_me') || 'null'); } catch { return null; } })();
+let ME = ls0, STAFF = [];
+const isAdm = () => !ME || ME.role === 'admin';
+const perm = (pg) => (isAdm() ? 'edit' : ((ME.perms || {})[pg] || ''));
+function applyPerms() {
+  PAGES.splice(0, PAGES.length, ...PAGES_BASE.filter((x) => perm(x[0])), ...(isAdm() ? [['staff', 'فريق الإدارة', 'users']] : []));
+  if (!PAGES.some((x) => x[0] === P)) P = PAGES.length ? PAGES[0][0] : 'home';
+}
+const setMe = (u) => { ME = u; try { localStorage.setItem('rio_admin_me', JSON.stringify(u)); } catch { /* ignore */ } applyPerms(); };
+const PERM_LV = [['', 'بدون صلاحية'], ['view', 'عرض فقط'], ['edit', 'عرض وتعديل']];
 const IC = {
   home: '<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>', orders: '<rect x="5" y="3" width="14" height="18" rx="3"/><path d="M9 8h6M9 12h6M9 16h3"/>',
   store: '<path d="M4 9l1.5-5h13L20 9"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/>', bike: '<circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-8h5l3 8M10 8H8M13 12h5"/>',
@@ -37,7 +48,7 @@ const ico = (n) => `<svg viewBox="0 0 24 24" aria-hidden="true">${IC[n] || ''}</
 let T = ls.get(KEY) || '', P = ls.get('rio_page') || 'home', R = ls.get('rio_range') || 'month', CF = ls.get('rio_cf') || '', CT = ls.get('rio_ct') || '';
 let BASIS = ls.get('rio_basis') || 'fees', SORT = ls.get('rio_sort') || 'orders', FP = 'month', VK = 'in', Q = '', FS = 'all', FM = 0;
 let MENU = false, D = null, O = [], FN = null, V = [], CARDS = [], SET = null, BATCH = null, E = '', M = null, LIVE = false, DIRTY = false, loading = false;
-if (!PAGES.some((x) => x[0] === P)) P = 'home';
+applyPerms();
 if (!['orders', 'active', 'goods'].includes(SORT)) SORT = 'orders';
 
 function range() {
@@ -83,7 +94,11 @@ async function load(silent) {
     jobs.push(P === 'vouchers' ? api('GET', `/api/admin/vouchers?from=${a}&to=${b}`) : null);
     jobs.push(P === 'cards' ? api('GET', '/api/admin/cards') : null);
     jobs.push(api('GET', '/api/settings'));
-    const [d, o, f, v, cd, st] = await Promise.all(jobs);
+    jobs.push(api('GET', '/api/me'));
+    jobs.push(P === 'staff' && isAdm() ? api('GET', '/api/admin/staff') : null);
+    const [d, o, f, v, cd, st, me, sf] = await Promise.all(jobs);
+    if (me && me.user) setMe(me.user);
+    if (sf) STAFF = sf.staff;
     D = d; if (o) O = o.orders; if (f) FN = f; if (v) V = v.vouchers; if (cd) CARDS = cd.cards; if (st) SET = st.settings; E = '';
     if (M && M.type === 'stmt') { try { M.st = await fetchStmt(M.q); } catch { /* ignore */ } }
   } catch (e) { E = e.message; }
@@ -102,7 +117,7 @@ function disconnect() { if (es) { es.close(); es = null; } LIVE = false; }
 function setLive() { document.querySelectorAll('.live').forEach((e) => { e.classList.toggle('on', LIVE); const s = e.querySelector('span'); if (s) s.textContent = LIVE ? 'مزامنة فورية' : 'غير متصل — تحديث دوري'; }); }
 setInterval(() => { if (T && !document.hidden && !LIVE) load(true); }, 20000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden && T) load(true); });
-function logout() { MENU = false; T = ''; ls.del(KEY); disconnect(); D = null; M = null; draw(); drawModal(); }
+function logout() { MENU = false; T = ''; ls.del(KEY); try { localStorage.removeItem('rio_admin_me'); } catch { /* ignore */ } ME = null; applyPerms(); disconnect(); D = null; M = null; draw(); drawModal(); }
 
 /* ---------------- أدوات عرض ---------------- */
 const kpi = (l, v, c, sub) => `<div class="kpi ${c || ''}"><small>${l}</small><b>${v}</b>${sub ? `<em>${sub}</em>` : ''}</div>`;
@@ -151,8 +166,8 @@ function chart(labels, series, o = {}) {
 function draw() {
   const r = $('#root');
   if (!T) {
-    r.innerHTML = `<div class="login-wrap"><form class="login" id="lf" autocomplete="on">${LOGO}<h2>لوحة تحكم ريو</h2><p class="s">للمدير فقط</p>
-    <input class="in" name="phone" inputmode="tel" autocomplete="username" placeholder="رقم الهاتف" required><input class="in" name="password" type="password" autocomplete="current-password" placeholder="كلمة المرور" required>
+    r.innerHTML = `<div class="login-wrap"><form class="login" id="lf" autocomplete="on">${LOGO}<h2>لوحة تحكم ريو</h2><p class="s">للإدارة</p>
+    <input class="in" name="phone" autocomplete="username" placeholder="اسم المستخدم أو رقم الهاتف" required><input class="in" name="password" type="password" autocomplete="current-password" placeholder="كلمة المرور" required>
     <div class="err" id="le" role="alert"></div><button class="btn" style="width:100%;min-height:44px">دخول</button></form></div>`;
     return;
   }
@@ -166,21 +181,30 @@ function draw() {
     if (id === 'drivers' && D.lateOrders.length) return `<span class="cnt warn">${D.lateOrders.length}</span>`;
     return '';
   };
-  const title = PAGES.find((x) => x[0] === P)[1];
+  if (!PAGES.length) { r.innerHTML = `<div class="login-wrap"><div class="login">${LOGO}<h2>لا توجد صلاحيات</h2><p class="s">لم تُمنح أي صلاحية بعد. تواصل مع المدير.</p><button class="btn" data-a="logout" style="width:100%;min-height:44px">تسجيل الخروج</button></div></div>`; return; }
+  const title = (PAGES.find((x) => x[0] === P) || PAGES[0])[1];
   const rng = ['today', 'week', 'month', 'year', 'all', 'custom'].map((k) => `<option value="${k}" ${R === k ? 'selected' : ''}>${RN[k]}</option>`).join('');
   r.innerHTML = `<div class="app${MENU ? ' open' : ''}"><div class="mbar"><button class="mb" data-a="menu" aria-label="القائمة" aria-expanded="${MENU}"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><b>${title}</b>${LOGO}</div><div class="ov" data-a="menu-x"></div><aside class="side"><div class="brand">${LOGO}<div><b>لوحة الإدارة</b><small>ريو للتوصيل أسرع</small></div></div>
   <nav class="nav" aria-label="التنقل">${PAGES.map(([k, l, i]) => `<button data-a="page" data-k="${k}" class="${P === k ? 'on' : ''}" ${P === k ? 'aria-current="page"' : ''}>${ico(i)}<span>${l}</span>${badge(k)}</button>`).join('')}</nav>
   <div class="foot"><div class="live ${LIVE ? 'on' : ''}"><i></i><span>${LIVE ? 'مزامنة فورية' : 'غير متصل — تحديث دوري'}</span></div><br><button data-a="logout">تسجيل الخروج</button></div></aside>
   <main class="main"><div class="top"><div><h2>${title}</h2><div class="sub">${esc(rangeLabel())}</div></div>
   <div class="tools"><select class="in" data-c="range" aria-label="الفترة">${rng}</select>${R === 'custom' ? `<input class="in" type="date" data-c="cf" value="${CF}" aria-label="من"><input class="in" type="date" data-c="ct" value="${CT}" aria-label="إلى">` : ''}<button class="btn g" data-a="reload">${ico('refresh')} تحديث</button></div></div>
-  <div id="view">${!D ? `<div class="card">${E ? `${esc(E)} <button class="btn sm" data-a="reload">إعادة المحاولة</button>` : 'جارٍ التحميل…'}</div>` : E ? `<div class="card" style="color:var(--red)">${esc(E)}</div>` + page() : page()}</div></main></div>`;
+  <div id="view" class="${perm(P) === 'edit' ? '' : 'ro'}">${!D ? `<div class="card">${E ? `${esc(E)} <button class="btn sm" data-a="reload">إعادة المحاولة</button>` : 'جارٍ التحميل…'}</div>` : E ? `<div class="card" style="color:var(--red)">${esc(E)}</div>` + page() : page()}</div></main></div>`;
   Object.keys(keep).forEach((id) => { const e = document.getElementById(id); if (e && e.value !== keep[id] && !e.matches('[type=date]') || (e && e.id === 'q')) e.value = keep[id]; });
   if (af) { const e = document.getElementById(af[0]); if (e) { e.focus(); try { e.setSelectionRange(af[1], af[2]); } catch { /* */ } } }
   window.scrollTo(0, sy);
 }
 
 function page() {
-  return ({ home, orders, merchants, drivers, customers, finance, vouchers, cards, settings })[P]();
+  return ({ home, orders, merchants, drivers, customers, finance, vouchers, cards, settings, staff })[P]();
+}
+
+/* ---------------- فريق الإدارة ---------------- */
+const permBadges = (u) => PAGES_BASE.filter((x) => (u.perms || {})[x[0]]).map((x) => bdg(`${x[1]}${u.perms[x[0]] === 'edit' ? ' ✎' : ''}`, u.perms[x[0]] === 'edit' ? 'green' : 'gray')).join(' ') || '<span class="muted">بدون صلاحيات</span>';
+function staff() {
+  return `<div class="row between" style="margin-bottom:12px"><p class="muted" style="margin:0">موظفون يدخلون لوحة التحكم بمستخدم وكلمة مرور، وترى كل واحد منهم الصفحات التي تسمح له بها فقط.</p><button class="btn" data-a="staff-add">${ico('plus')} إضافة موظف</button></div>
+  ${STAFF.length ? `<div class="card tblwrap"><table><thead><tr><th>الموظف</th><th>اسم المستخدم</th><th>الصلاحيات</th><th></th></tr></thead><tbody>${STAFF.map((u) => `<tr><td><b>${esc(u.name)}</b> ${u.active ? '' : bdg('موقوف', 'red')}</td><td class="num">${esc(u.username)}</td><td>${permBadges(u)}</td>
+  <td class="act"><div class="row"><button class="btn sm g" data-a="staff-edit" data-id="${u.id}">تعديل</button><button class="btn sm ${u.active ? 'g' : 'd'}" data-a="staff-toggle" data-id="${u.id}">${u.active ? 'إيقاف' : 'تفعيل'}</button><button class="btn sm d" data-a="staff-del" data-id="${u.id}">حذف</button></div></td></tr>`).join('')}</tbody></table></div>` : '<div class="card">لا يوجد موظفون بعد. اضغط «إضافة موظف».</div>'}`;
 }
 
 /* ---------------- حساب الدخل ---------------- */
@@ -488,6 +512,16 @@ function modalHtml() {
   if (m.type === 'chat') {
     return [`محادثة طلب #${m.o.no}`, `<div class="chatbox" id="chat-box">${chatBoxHtml(m.msgs)}</div><form data-f="chat" class="row"><input class="in grow" id="chat-in" maxlength="500" placeholder="اكتب رسالة للسائق أو التاجر…" autocomplete="off"><button class="btn">إرسال</button></form><div class="err" id="fe" role="alert"></div>`];
   }
+  if (m.type === 'staff') {
+    const u = m.id ? STAFF.find((x) => x.id === m.id) : null;
+    const pm = (u && u.perms) || {};
+    return [u ? `تعديل ${esc(u.name)}` : 'إضافة موظف', `<form data-f="staff">
+      ${field('st-name', 'الاسم', `<input class="in" id="st-name" value="${esc(u ? u.name : '')}" required>`)}
+      ${field('st-user', 'اسم المستخدم (للدخول)', `<input class="in mono" id="st-user" dir="ltr" value="${esc(u ? u.username : '')}" ${u ? 'disabled' : ''} autocapitalize="none" placeholder="مثال: ali.support" required>`, u ? 'لا يمكن تغيير اسم المستخدم' : 'حروف إنكليزية وأرقام فقط')}
+      ${field('st-pass', u ? 'كلمة مرور جديدة (اتركها فارغة بدون تغيير)' : 'كلمة المرور', `<input class="in" id="st-pass" autocomplete="off" minlength="6" ${u ? '' : 'required'}>`, '6 أحرف أو أكثر')}
+      <div class="field"><label>الصلاحيات</label><div class="card" style="padding:6px 12px">${PAGES_BASE.map(([k, l]) => `<div class="row between" style="padding:8px 0;border-bottom:1px solid var(--line)"><span>${l}</span><select class="in" id="pm-${k}" style="min-height:38px;max-width:160px">${PERM_LV.map(([v, t]) => `<option value="${v}" ${pm[k] === v || (!pm[k] && !v) ? 'selected' : ''}>${t}</option>`).join('')}</select></div>`).join('')}</div><span class="hint">«عرض فقط» يرى الصفحة دون تعديل. صفحة «فريق الإدارة» للمدير فقط ولا يمكن منحها.</span></div>
+      <div class="err" id="fe" role="alert"></div><button class="btn" style="width:100%">${u ? 'حفظ' : 'إنشاء الحساب'}</button></form>`];
+  }
   if (m.type === 'mloc') {
     const u = findU(m.id);
     return [`عنوان وموقع ${esc(u.name)}`, `<form data-f="mloc">${field('l-area', 'منطقة المتجر', `<input class="in" id="l-area" value="${esc(u.area)}" required>`, 'تحدد سعر التوصيل (نفس المنطقة / منطقة ثانية)')}
@@ -609,6 +643,14 @@ const clickActs = {
   'add-user'(el) { M = { type: 'add-user', role: el.dataset.r }; drawModal(); },
   'tpl-var'(el) { const t = document.getElementById(TPLF); if (!t) { toast('اختر قالباً أولاً بالضغط داخله', true); return; } const a = t.selectionStart || 0, b = t.selectionEnd || 0; t.value = t.value.slice(0, a) + el.dataset.v + t.value.slice(b); t.focus(); t.setSelectionRange(a + el.dataset.v.length, a + el.dataset.v.length); },
   async 'tpl-reset'(el) { if (await act(() => api('PUT', '/api/admin/settings', { templates: { [el.dataset.k]: '' } }), 'تمت استعادة القالب الافتراضي')) load(); },
+  'staff-add'() { M = { type: 'staff' }; drawModal(); },
+  'staff-edit'(el) { M = { type: 'staff', id: Number(el.dataset.id) }; drawModal(); },
+  async 'staff-toggle'(el) {
+    const u = STAFF.find((x) => x.id === Number(el.dataset.id)); if (!u) return;
+    const prev = u.active; u.active = !prev; draw();
+    try { await api('PUT', '/api/admin/staff/' + u.id, { active: !prev }); toast(prev ? 'تم إيقاف الموظف' : 'تم تفعيل الموظف'); load(); } catch (e) { u.active = prev; draw(); toast(e.message, true); }
+  },
+  async 'staff-del'(el) { const u = STAFF.find((x) => x.id === Number(el.dataset.id)); if (u && confirm('حذف حساب ' + u.name + ' نهائياً؟') && await act(() => api('DELETE', '/api/admin/staff/' + u.id), 'تم الحذف')) load(); },
   mloc(el) { M = { type: 'mloc', id: Number(el.dataset.id) }; drawModal(); },
   assign(el) { const o = O.find((x) => x.id === Number(el.dataset.id)); if (o) { M = { type: 'assign', o }; drawModal(); } },
   pw(el) { M = { type: 'pw', id: Number(el.dataset.id) }; drawModal(); },
@@ -667,7 +709,7 @@ document.addEventListener('change', async (e) => {
 document.addEventListener('submit', async (e) => {
   const f = e.target; e.preventDefault();
   if (f.id === 'lf') {
-    try { const r = await api('POST', '/api/login', { phone: f.phone.value, password: f.password.value }); if (r.user.role !== 'admin') throw Error('هذه اللوحة للمدير فقط'); T = r.token; ls.set(KEY, T); connect(); load(); }
+    try { const r = await api('POST', '/api/login', { phone: f.phone.value, password: f.password.value }); if (!['admin', 'staff'].includes(r.user.role)) throw Error('هذه اللوحة للإدارة فقط'); T = r.token; ls.set(KEY, T); setMe(r.user); P = PAGES.some((x) => x[0] === P) ? P : (PAGES[0] || ['home'])[0]; connect(); load(); }
     catch (x) { $('#le').textContent = x.message; }
     return;
   }
@@ -677,6 +719,12 @@ document.addEventListener('submit', async (e) => {
   const at = (id) => { const v = document.getElementById(id).value; return v ? Date.parse(v + 'T12:00:00+03:00') : Date.now(); };
   try {
     if (k === 'expense') { await api('POST', '/api/admin/expenses', { amount: $('#ea').value, category: $('#ec').value, note: $('#en').value, at: at('ed') }); toast('أُضيف المصروف'); ['ea', 'ec', 'en'].forEach((i) => { $('#' + i).value = ''; }); await load(); }
+    else if (k === 'staff') {
+      const perms = {}; PAGES_BASE.forEach(([pk]) => { const v = $('#pm-' + pk).value; if (v) perms[pk] = v; });
+      if (M.id) { const body = { name: $('#st-name').value, perms }; if ($('#st-pass').value) body.password = $('#st-pass').value; await api('PUT', '/api/admin/staff/' + M.id, body); toast('تم الحفظ'); }
+      else { await api('POST', '/api/admin/staff', { name: $('#st-name').value, username: $('#st-user').value, password: $('#st-pass').value, perms }); toast('تم إنشاء حساب الموظف'); }
+      M = null; await load();
+    }
     else if (k === 'voucher') {
       const t = $('#vt').value, p = $('#vp');
       const body = { kind: VK, partyType: t, amount: $('#va').value, note: $('#vn').value, ref: $('#vr').value, at: at('vd') };

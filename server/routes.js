@@ -68,9 +68,32 @@ function cleanUrl(v) {
   return t;
 }
 
+/* صلاحيات فريق الإدارة: {صفحة: 'view'|'edit'} */
+const PAGES_ALL = ['home', 'orders', 'merchants', 'drivers', 'customers', 'finance', 'vouchers', 'cards', 'settings'];
+function permsOf(u) {
+  const o = safeJson(u.perms, {});
+  const out = {};
+  for (const k of PAGES_ALL) if (o && (o[k] === 'view' || o[k] === 'edit')) out[k] = o[k];
+  return out;
+}
+function cleanPerms(x) {
+  const out = {};
+  for (const k of PAGES_ALL) if (x && (x[k] === 'view' || x[k] === 'edit')) out[k] = x[k];
+  return out;
+}
+/* يتحقق إن كان المستخدم (مدير أو موظف) يملك صلاحية: pages = صفحة أو قائمة (أي واحدة تكفي) ، level = view|edit */
+function can(user, pages, level = 'view') {
+  if (user.role === 'admin') return true;
+  if (user.role !== 'staff') return false;
+  const pm = permsOf(user);
+  return (Array.isArray(pages) ? pages : [pages]).some((pg) => (level === 'edit' ? pm[pg] === 'edit' : !!pm[pg]));
+}
+const need = (user, pages, level) => { if (!can(user, pages, level)) fail('ليست لديك صلاحية لهذا الإجراء', 403); };
+
 const pub = (u) => ({
   id: u.id, role: u.role, name: u.name, phone: u.phone, active: !!u.active,
-  area: u.area, vehicle: u.vehicle, balance: u.balance, receiving: !!u.receiving, discount: 0, mapUrl: u.map_url || '', createdAt: u.created_at
+  area: u.area, vehicle: u.vehicle, balance: u.balance, receiving: !!u.receiving, discount: 0, mapUrl: u.map_url || '', createdAt: u.created_at,
+  ...(u.role === 'staff' ? { username: String(u.phone).replace(/^staff:/, ''), perms: permsOf(u) } : {})
 });
 
 const ord = (r) => ({
@@ -115,6 +138,7 @@ async function dispatch(req, body, url) {
       user = await authenticate(req);
       if (!user) fail('انتهت الجلسة، سجّل الدخول مرة أخرى', 401);
       if (r.opts.roles && !r.opts.roles.includes(user.role)) fail('غير مسموح', 403);
+      if (user.role === 'staff' && r.opts.perm) need(user, r.opts.perm[0], r.opts.perm[1]);
     }
     return r.handler({ req, params, query: Object.fromEntries(url.searchParams), body: body || {}, user });
   }
@@ -132,9 +156,10 @@ function throttle(key) {
 }
 
 route('POST', '/api/login', { public: true }, async (c) => {
-  const phone = normPhone(c.body.phone);
+  const rawId = String(c.body.phone || '').trim();
+  const phone = /^[A-Za-z][A-Za-z0-9_.-]{2,29}$/.test(rawId) ? 'staff:' + rawId.toLowerCase() : normPhone(rawId);
   const pw = String(c.body.password || '');
-  if (!phone || !pw) fail('أدخل رقم الهاتف وكلمة المرور');
+  if (!phone || !pw) fail('أدخل اسم المستخدم أو رقم الهاتف وكلمة المرور');
   throttle(c.req.socket.remoteAddress + '|' + phone);
   const r = await q('SELECT * FROM users WHERE phone=$1', [phone]);
   const u = r.rows[0];
@@ -185,7 +210,7 @@ route('PUT', '/api/me/password', async (c) => {
 
 // حذف الحساب (مطلوب من متجر Play): يُلغى الحساب وتُمسح بياناته الشخصية، وتبقى سجلات الطلبات بدون هوية.
 async function deleteAccount(user, password) {
-  if (user.role === 'admin') fail('لا يمكن حذف حساب المدير من هنا', 403);
+  if (user.role === 'admin' || user.role === 'staff') fail('لا يمكن حذف هذا الحساب من هنا', 403);
   if (!(await checkPassword(String(password || ''), user.pass_hash))) fail('كلمة المرور غير صحيحة', 403);
   await db.update('users', 'id', user.id, {
     name: 'حساب محذوف', phone: 'deleted-' + user.id, active: 0, receiving: 0, area: '',
@@ -211,7 +236,7 @@ async function orderForChat(id, user) {
   const r = await q('SELECT * FROM orders WHERE id=$1', [id]);
   const o = r.rows[0];
   if (!o) fail('الطلب غير موجود', 404);
-  const allowed = user.role === 'admin' || (user.role === 'merchant' && o.merchant_id === user.id) || (user.role === 'driver' && o.driver_id === user.id);
+  const allowed = user.role === 'admin' || (user.role === 'staff' && can(user, 'orders')) || (user.role === 'merchant' && o.merchant_id === user.id) || (user.role === 'driver' && o.driver_id === user.id);
   if (!allowed) fail('غير مسموح', 403);
   return o;
 }
@@ -224,7 +249,7 @@ route('POST', '/api/orders/:id/messages', async (c) => {
   const o = await orderForChat(Number(c.params.id), c.user);
   const text = String(c.body.text || '').trim().slice(0, 500);
   if (!text) fail('اكتب رسالة');
-  const m = await db.insert('messages', { order_id: o.id, user_id: c.user.id, role: c.user.role, name: c.user.name, text, at: Date.now() });
+  const m = await db.insert('messages', { order_id: o.id, user_id: c.user.id, role: c.user.role === 'staff' ? 'admin' : c.user.role, name: c.user.name, text, at: Date.now() });
   return { message: { id: m.id, userId: m.user_id, role: m.role, name: m.name, text: m.text, at: m.at } };
 });
 
@@ -421,8 +446,10 @@ route('POST', '/api/driver/charge', DRIVER, async (c) => {
 
 /* ---------- المدير ---------- */
 const ADMIN = { roles: ['admin'] };
+const ADM = (pages, level = 'view') => ({ roles: ['admin', 'staff'], perm: [pages, level] });
+const ANYPAGE = PAGES_ALL;
 
-route('GET', '/api/admin/overview', ADMIN, async () => {
+route('GET', '/api/admin/overview', ADM('home'), async () => {
   const now = Date.now();
   const today = dayStart(now);
   const one = async (sql, p = []) => (await q(sql, p)).rows[0] || {};
@@ -450,7 +477,7 @@ route('GET', '/api/admin/overview', ADMIN, async () => {
   };
 });
 
-route('GET', '/api/admin/orders', ADMIN, async (c) => {
+route('GET', '/api/admin/orders', ADM('orders'), async (c) => {
   const w = [], p = [];
   const add = (sql, v) => { p.push(v); w.push(sql.replace('?', '$' + p.length)); };
   if (STATUSES.includes(c.query.status)) add('status=?', c.query.status);
@@ -464,7 +491,7 @@ route('GET', '/api/admin/orders', ADMIN, async (c) => {
   return { orders: r.rows.map(ord) };
 });
 
-route('POST', '/api/admin/orders/:id/status', ADMIN, async (c) => {
+route('POST', '/api/admin/orders/:id/status', ADM('orders', 'edit'), async (c) => {
   const status = String(c.body.status || '');
   if (!STATUSES.includes(status)) fail('حالة غير صحيحة');
   const r = await q('SELECT * FROM orders WHERE id=$1', [Number(c.params.id)]);
@@ -477,7 +504,7 @@ route('POST', '/api/admin/orders/:id/status', ADMIN, async (c) => {
   return { order: ord(u) };
 });
 
-route('POST', '/api/admin/orders/:id/requeue', ADMIN, async (c) => {
+route('POST', '/api/admin/orders/:id/requeue', ADM('orders', 'edit'), async (c) => {
   const r = await q('SELECT * FROM orders WHERE id=$1', [Number(c.params.id)]);
   const o = r.rows[0];
   if (!o) fail('الطلب غير موجود', 404);
@@ -494,7 +521,7 @@ route('POST', '/api/admin/orders/:id/requeue', ADMIN, async (c) => {
 });
 
 /* تعيين الطلب لسائق محدد: يُسحب من السائق السابق (مع إرجاع رسومه كاملة) ويُسند للجديد */
-route('POST', '/api/admin/orders/:id/assign', ADMIN, async (c) => {
+route('POST', '/api/admin/orders/:id/assign', ADM('orders', 'edit'), async (c) => {
   const r = await q('SELECT * FROM orders WHERE id=$1', [Number(c.params.id)]);
   const o = r.rows[0];
   if (!o) fail('الطلب غير موجود', 404);
@@ -522,15 +549,17 @@ route('POST', '/api/admin/orders/:id/assign', ADMIN, async (c) => {
   return { order: ord(u) };
 });
 
-route('GET', '/api/admin/users', ADMIN, async (c) => {
+route('GET', '/api/admin/users', ADM(['merchants', 'drivers', 'orders']), async (c) => {
   const role = c.query.role === 'merchant' ? 'merchant' : 'driver';
+  need(c.user, [role === 'merchant' ? 'merchants' : 'drivers', 'orders']);
   const r = await q(`SELECT * FROM users WHERE role=$1 AND phone NOT LIKE 'deleted-%' ORDER BY created_at DESC LIMIT 500`, [role]);
   return { users: r.rows.map(pub) };
 });
 
-route('POST', '/api/admin/users', ADMIN, async (c) => {
+route('POST', '/api/admin/users', ADM(['merchants', 'drivers'], 'edit'), async (c) => {
   const b = c.body;
   const role = b.role === 'merchant' ? 'merchant' : 'driver';
+  need(c.user, role === 'merchant' ? 'merchants' : 'drivers', 'edit');
   const name = clean(b.name, 60);
   const phone = normPhone(b.phone);
   const password = String(b.password || '');
@@ -547,11 +576,12 @@ route('POST', '/api/admin/users', ADMIN, async (c) => {
   return { user: pub(u) };
 });
 
-route('PUT', '/api/admin/users/:id', ADMIN, async (c) => {
+route('PUT', '/api/admin/users/:id', ADM(['merchants', 'drivers'], 'edit'), async (c) => {
   const b = c.body;
   const r = await q(`SELECT * FROM users WHERE id=$1 AND role IN ('driver','merchant')`, [Number(c.params.id)]);
   const u = r.rows[0];
   if (!u) fail('المستخدم غير موجود', 404);
+  need(c.user, u.role === 'merchant' ? 'merchants' : 'drivers', 'edit');
   const patch = {};
   if (b.name !== undefined) { patch.name = clean(b.name, 60); if (patch.name.length < 2) fail('اكتب الاسم'); }
   if (b.phone !== undefined) {
@@ -574,7 +604,7 @@ route('PUT', '/api/admin/users/:id', ADMIN, async (c) => {
   return { user: pub(saved) };
 });
 
-route('POST', '/api/admin/users/:id/adjust', ADMIN, async (c) => {
+route('POST', '/api/admin/users/:id/adjust', ADM('drivers', 'edit'), async (c) => {
   const amount = int(c.body.amount);
   if (!Number.isFinite(amount) || amount === 0 || Math.abs(amount) > 100000000) fail('اكتب مبلغاً صحيحاً');
   const r = amount > 0
@@ -585,12 +615,57 @@ route('POST', '/api/admin/users/:id/adjust', ADMIN, async (c) => {
   return { user: pub(r.rows[0]) };
 });
 
-route('GET', '/api/admin/cards', ADMIN, async () => {
+/* ---------- فريق الإدارة (للمدير فقط): موظفون بصلاحيات محددة ---------- */
+const validUsername = (x) => /^[A-Za-z][A-Za-z0-9_.-]{2,29}$/.test(x);
+route('GET', '/api/admin/staff', ADMIN, async () => {
+  const r = await q(`SELECT * FROM users WHERE role='staff' ORDER BY created_at DESC LIMIT 200`);
+  return { staff: r.rows.map(pub) };
+});
+route('POST', '/api/admin/staff', ADMIN, async (c) => {
+  const b = c.body;
+  const name = clean(b.name, 60);
+  const username = String(b.username || '').trim().toLowerCase();
+  const password = String(b.password || '');
+  if (name.length < 2) fail('اكتب الاسم');
+  if (!validUsername(username)) fail('اسم المستخدم: حروف إنكليزية وأرقام فقط (3 أحرف على الأقل) ويبدأ بحرف');
+  if (password.length < 6) fail('كلمة المرور لا تقل عن 6 أحرف');
+  const ex = await q('SELECT id FROM users WHERE phone=$1', ['staff:' + username]);
+  if (ex.rows.length) fail('اسم المستخدم مستخدم مسبقاً', 409);
+  const u = await db.insert('users', {
+    role: 'staff', name, phone: 'staff:' + username, pass_hash: await hashPassword(password), active: 1, area: '', vehicle: 'bike', balance: 0, receiving: 0,
+    discount: 0, map_url: '', perms: JSON.stringify(cleanPerms(b.perms)), created_at: Date.now()
+  });
+  return { user: pub(u) };
+});
+route('PUT', '/api/admin/staff/:id', ADMIN, async (c) => {
+  const b = c.body;
+  const r = await q(`SELECT * FROM users WHERE id=$1 AND role='staff'`, [Number(c.params.id)]);
+  const u = r.rows[0];
+  if (!u) fail('الموظف غير موجود', 404);
+  const patch = {};
+  if (b.name !== undefined) { patch.name = clean(b.name, 60); if (patch.name.length < 2) fail('اكتب الاسم'); }
+  if (b.perms !== undefined) patch.perms = JSON.stringify(cleanPerms(b.perms));
+  if (b.active !== undefined) patch.active = b.active ? 1 : 0;
+  if (b.password) {
+    if (String(b.password).length < 6) fail('كلمة المرور لا تقل عن 6 أحرف');
+    patch.pass_hash = await hashPassword(String(b.password));
+  }
+  if (!Object.keys(patch).length) fail('لا يوجد ما يُحدَّث');
+  return { user: pub(await db.update('users', 'id', u.id, patch)) };
+});
+route('DELETE', '/api/admin/staff/:id', ADMIN, async (c) => {
+  const r = await q(`SELECT id FROM users WHERE id=$1 AND role='staff'`, [Number(c.params.id)]);
+  if (!r.rows.length) fail('الموظف غير موجود', 404);
+  await q('DELETE FROM users WHERE id=$1', [r.rows[0].id]);
+  return { ok: true };
+});
+
+route('GET', '/api/admin/cards', ADM('cards'), async () => {
   const r = await q('SELECT * FROM cards ORDER BY created_at DESC, number DESC LIMIT 400');
   return { cards: r.rows.map((k) => ({ number: k.number, amount: k.amount, used: !!k.used, usedBy: k.used_by, usedAt: k.used_at, createdAt: k.created_at })) };
 });
 
-route('POST', '/api/admin/cards', ADMIN, async (c) => {
+route('POST', '/api/admin/cards', ADM('cards', 'edit'), async (c) => {
   const amount = int(c.body.amount);
   const count = Math.min(50, Math.max(1, int(c.body.count) || 1));
   if (!Number.isFinite(amount) || amount < 1000 || amount > 10000000) fail('اختر قيمة صحيحة للبطاقة');
@@ -606,13 +681,13 @@ route('POST', '/api/admin/cards', ADMIN, async (c) => {
   return { made };
 });
 
-route('DELETE', '/api/admin/cards/:number', ADMIN, async (c) => {
+route('DELETE', '/api/admin/cards/:number', ADM('cards', 'edit'), async (c) => {
   const r = await q('DELETE FROM cards WHERE number=$1 AND used=0', [c.params.number]);
   if (!r.count) fail('لا يمكن حذف بطاقة مستخدمة', 409);
   return { ok: true };
 });
 
-route('PUT', '/api/admin/settings', ADMIN, async (c) => {
+route('PUT', '/api/admin/settings', ADM('settings', 'edit'), async (c) => {
   const next = { ...(await getSettings()) };
   { const r0 = await q(`SELECT value FROM settings WHERE key='main'`); let sv = {}; try { sv = r0.rows[0] ? JSON.parse(r0.rows[0].value) : {}; } catch { /* ignore */ } next.templates = sv.templates || {}; }
   for (const k of ['bikeSame', 'bikeOther', 'carSame', 'carOther', 'feeSame', 'feeOther', 'lateMin']) {
@@ -637,7 +712,7 @@ route('PUT', '/api/admin/settings', ADMIN, async (c) => {
   return { settings: await getSettings() };
 });
 
-route('GET', '/api/admin/stats', ADMIN, async (c) => {
+route('GET', '/api/admin/stats', ADM(ANYPAGE), async (c) => {
   const from = Number(c.query.from) || 0;
   const to = Number(c.query.to) || Date.now() + DAY;
   const now = Date.now();
@@ -692,20 +767,20 @@ route('GET', '/api/admin/stats', ADMIN, async (c) => {
     total: os.length, counts, delivered: done.length, goods: sumOf(done, 'product_price'), delivery: sumOf(done, 'delivery_price'),
     fees, cards, expenses: expTotal, net: fees - expTotal, days: Object.values(days).sort((a, b) => a.t - b.t),
     expensesList: ex.map((e) => ({ id: e.id, amount: e.amount, category: e.category, note: e.note, at: e.at })), merchants, drivers,
-    customers: Object.values(cm).sort((a, b) => b.orders - a.orders).slice(0, 1000),
+    customers: can(c.user, 'customers') ? Object.values(cm).sort((a, b) => b.orders - a.orders).slice(0, 1000) : [],
     lateOrders: live.filter((o) => o.accepted_at && now - o.accepted_at > lateMs).map(ord),
     staleOrders: stale.map(ord), lateMin: Number(set.lateMin) || 45, now
   };
 });
 
-route('POST', '/api/admin/expenses', ADMIN, async (c) => {
+route('POST', '/api/admin/expenses', ADM('finance', 'edit'), async (c) => {
   const amount = int(c.body.amount);
   if (!Number.isFinite(amount) || amount <= 0 || amount > 10000000000) fail('اكتب مبلغاً صحيحاً');
   const e = await db.insert('expenses', { amount, category: clean(c.body.category, 40) || 'عام', note: clean(c.body.note, 160), at: Number(c.body.at) || Date.now(), created_at: Date.now() });
   return { expense: e };
 });
 
-route('DELETE', '/api/admin/expenses/:id', ADMIN, async (c) => {
+route('DELETE', '/api/admin/expenses/:id', ADM('finance', 'edit'), async (c) => {
   const r = await q('DELETE FROM expenses WHERE id=$1', [Number(c.params.id)]);
   if (!r.count) fail('المصروف غير موجود', 404);
   return { ok: true };
@@ -713,7 +788,7 @@ route('DELETE', '/api/admin/expenses/:id', ADMIN, async (c) => {
 
 
 /* ---------- المالية: الدخل اليومي/الأسبوعي/الشهري/السنوي ---------- */
-route('GET', '/api/admin/finance', ADMIN, async () => {
+route('GET', '/api/admin/finance', ADM(['finance', 'home']), async () => {
   const now = Date.now();
   const today = dayStart(now), week = weekStart(now), month = monthStart(now), year = yearStart(now);
   const yd = new Date(now + OFF);
@@ -750,14 +825,14 @@ route('GET', '/api/admin/finance', ADMIN, async () => {
 /* ---------- سندات القبض والصرف ---------- */
 const vch = (v) => ({ id: v.id, no: v.num, kind: v.kind, partyType: v.party_type, partyId: v.party_id, partyName: v.party_name, amount: v.amount, note: v.note, ref: v.ref, at: v.at, createdAt: v.created_at });
 
-route('GET', '/api/admin/vouchers', ADMIN, async (c) => {
+route('GET', '/api/admin/vouchers', ADM('vouchers'), async (c) => {
   const from = Number(c.query.from) || 0;
   const to = Number(c.query.to) || Date.now() + DAY;
   const r = await q('SELECT * FROM vouchers WHERE at>=$1 AND at<$2 ORDER BY at DESC, id DESC LIMIT 3000', [from, to]);
   return { vouchers: r.rows.map(vch) };
 });
 
-route('POST', '/api/admin/vouchers', ADMIN, async (c) => {
+route('POST', '/api/admin/vouchers', ADM('vouchers', 'edit'), async (c) => {
   const b = c.body;
   const kind = b.kind === 'out' ? 'out' : b.kind === 'in' ? 'in' : fail('اختر نوع السند (قبض أو صرف)');
   const amount = int(b.amount);
@@ -784,15 +859,16 @@ route('POST', '/api/admin/vouchers', ADMIN, async (c) => {
   fail('تعذّر إنشاء السند، حاول مرة أخرى', 503);
 });
 
-route('DELETE', '/api/admin/vouchers/:id', ADMIN, async (c) => {
+route('DELETE', '/api/admin/vouchers/:id', ADM('vouchers', 'edit'), async (c) => {
   const r = await q('DELETE FROM vouchers WHERE id=$1', [Number(c.params.id)]);
   if (!r.count) fail('السند غير موجود', 404);
   return { ok: true };
 });
 
 /* ---------- كشف حساب (متجر / مندوب / عميل) ---------- */
-route('GET', '/api/admin/statement', ADMIN, async (c) => {
+route('GET', '/api/admin/statement', ADM(['merchants', 'drivers', 'customers', 'finance']), async (c) => {
   const type = ['merchant', 'driver', 'customer'].includes(c.query.type) ? c.query.type : fail('نوع الكشف غير صحيح');
+  need(c.user, type === 'merchant' ? 'merchants' : type === 'driver' ? 'drivers' : 'customers');
   const from = Number(c.query.from) || 0;
   const to = Number(c.query.to) || Date.now() + DAY;
   const now = Date.now();

@@ -1248,6 +1248,7 @@ const FORMS = {
   },
   async login(f, err) {
     const r = await api('POST', '/api/login', { phone: f.phone.value, password: f.password.value });
+    if (r.user.role === 'staff') throw new Error('حساب الإدارة يدخل من لوحة التحكم (صفحة admin.html)');
     if (ADMIN_ONLY && r.user.role !== 'admin') throw new Error('هذه اللوحة للمدير فقط');
     S.token = r.token; if (f.remember && !f.remember.checked) { try { sessionStorage.setItem(TOKEN_KEY, r.token); } catch { /* ignore */ } store.del(TOKEN_KEY); } else store.set(TOKEN_KEY, r.token); setUser(r.user);
     go(S.tab && TABS[r.user.role].some((t) => t[0] === S.tab) ? S.tab : defaultTab());
@@ -1343,7 +1344,7 @@ async function boot() {
   if (S.token) {
     try {
       const r = await api('GET', '/api/me');
-      if (ADMIN_ONLY && r.user.role !== 'admin') throw new Error('not admin');
+      if (r.user.role === 'staff' || (ADMIN_ONLY && r.user.role !== 'admin')) throw new Error('not admin');
       setUser(r.user);
       const ok = TABS[r.user.role].some((t) => t[0] === wanted);
       go(ok ? wanted : defaultTab());
