@@ -821,6 +821,11 @@ function exportCard(title, hint) {
 let nBusy = false, audioCtx = null, notifReg = null;
 const nKey = (k) => `rio_${k}_${S.user ? S.user.id : 0}`;
 const isNative = () => { const c = window.Capacitor; return !!(c && typeof c.isNativePlatform === 'function' && c.isNativePlatform()); };
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isStandalone = () => navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+// الآيفون لا يسمح بالإشعارات إلا للتطبيق المُثبَّت على الشاشة الرئيسية (iOS 16.4 فأحدث)
+const needsIosInstall = () => !isNative() && isIOS() && !isStandalone();
+const IOS_HELP = 'على الآيفون: اضغط زر المشاركة ⬆︎ في Safari ← «إضافة إلى الشاشة الرئيسية» ← افتح ريو من الأيقونة الجديدة ← اسمح بالإشعارات';
 const unreadCount = () => (S.user && S.user.role !== 'admin' ? S.unread || 0 : 0);
 function updateBell() {
   const b = $('#bell-n'); if (!b) return;
@@ -966,29 +971,38 @@ async function ensureNativePush() {
   try {
     const PN = window.Capacitor.registerPlugin('PushNotifications');
     const LN = window.Capacitor.registerPlugin('LocalNotifications');
-    if (!nativeBound) {
-      nativeBound = true;
-      // قناة عالية الأهمية: يظهر الإشعار منبثقاً مع صوت واهتزاز فور وصوله
-      try { await PN.createChannel({ id: 'rio_orders', name: 'الطلبات وتغيّر حالاتها', description: 'إشعارات فورية بالطلبات الجديدة وتغيّر حالتها', importance: 5, visibility: 1, vibration: true, lights: true }); } catch { /* ignore */ }
-      await PN.addListener('registration', async (t) => { store.set('rio_fcm', t.value); try { await api('POST', '/api/push/subscribe', { type: 'fcm', token: t.value }); store.set('rio_native_push', '1'); S.pushOn = true; updateNBanner(); if (S.tab === 'me' && !S.sheet) render(); } catch { /* ignore */ } });
-      await PN.addListener('registrationError', () => { store.del('rio_native_push'); });
-      await PN.addListener('pushNotificationActionPerformed', (a) => { const d = (a.notification && a.notification.data) || {}; handleNotifTap({ kind: d.kind, orderId: d.orderId, orderNo: d.orderNo, id: d.id }); });
-      // التطبيق مفتوح: أندرويد لا يعرض إشعار الدفع وحده، فنعرضه في لوحة الإشعارات يدوياً
-      await PN.addListener('pushNotificationReceived', async (n) => {
-        const d = n.data || {};
-        beep();
-        try { await LN.schedule({ notifications: [{ id: (Number(d.id) || Date.now()) % 2147483000, title: n.title || d.title || 'ريو للتوصيل أسرع', body: n.body || d.body || '', channelId: 'rio_orders', extra: d }] }); } catch { /* ignore */ }
-      });
-      try { await LN.addListener('localNotificationActionPerformed', (a) => { const d = (a.notification && a.notification.extra) || {}; handleNotifTap({ kind: d.kind, orderId: d.orderId, orderNo: d.orderNo, id: d.id }); }); } catch { /* ignore */ }
-    }
+    // 1) الإذن أولاً: يظهر نافذة النظام فور الدخول دون أي خطوة قبلها يمكن أن تفشل
     const perm = await PN.requestPermissions();
     S.nperm = perm.receive || '';
+    S.nerr = '';
     updateNBanner();
     if (perm.receive !== 'granted') return false;
+    // 2) قناة عالية الأهمية: يظهر الإشعار منبثقاً مع صوت واهتزاز فور وصوله
+    try { await PN.createChannel({ id: 'rio_orders', name: 'الطلبات وتغيّر حالاتها', description: 'إشعارات فورية بالطلبات الجديدة وتغيّر حالتها', importance: 5, visibility: 1, vibration: true, lights: true }); } catch { /* ignore */ }
+    // 3) المستمعات (مرة واحدة)
+    if (!nativeBound) {
+      nativeBound = true;
+      try { await PN.addListener('registration', async (t) => { store.set('rio_fcm', t.value); try { await api('POST', '/api/push/subscribe', { type: 'fcm', token: t.value }); store.set('rio_native_push', '1'); S.pushOn = true; updateNBanner(); if (S.tab === 'me' && !S.sheet) render(); } catch { /* ignore */ } }); } catch { /* ignore */ }
+      try { await PN.addListener('registrationError', (e) => { store.del('rio_native_push'); S.nerr = 'تعذّر التسجيل في Firebase: ' + ((e && e.error) || 'تأكد من ملف google-services.json'); }); } catch { /* ignore */ }
+      try { await PN.addListener('pushNotificationActionPerformed', (a) => { const d = (a.notification && a.notification.data) || {}; handleNotifTap({ kind: d.kind, orderId: d.orderId, orderNo: d.orderNo, id: d.id }); }); } catch { /* ignore */ }
+      // التطبيق مفتوح: أندرويد لا يعرض إشعار الدفع وحده، فنعرضه في لوحة الإشعارات يدوياً
+      try {
+        await PN.addListener('pushNotificationReceived', async (n) => {
+          const d = n.data || {};
+          beep();
+          try { await LN.schedule({ notifications: [{ id: (Number(d.id) || Date.now()) % 2147483000, title: n.title || d.title || 'ريو للتوصيل أسرع', body: n.body || d.body || '', channelId: 'rio_orders', extra: d }] }); } catch { /* ignore */ }
+        });
+      } catch { /* ignore */ }
+      try { await LN.addListener('localNotificationActionPerformed', (a) => { const d = (a.notification && a.notification.extra) || {}; handleNotifTap({ kind: d.kind, orderId: d.orderId, orderNo: d.orderNo, id: d.id }); }); } catch { /* ignore */ }
+    }
     try { await LN.requestPermissions(); } catch { /* ignore */ }
     await PN.register();
     return true;
-  } catch { return false; }
+  } catch (e) {
+    S.nerr = 'تعذّر تفعيل الإشعارات: ' + ((e && e.message) || e);
+    updateNBanner();
+    return false;
+  }
 }
 const ensurePush = () => (isNative() ? ensureNativePush() : ensureWebPush());
 async function unsubscribePush() {
@@ -1007,6 +1021,7 @@ const nOff = () => store.get(nKey('notif_off')) === '1';
 let entryAsked = false, clickAsked = false;
 function notifState() {
   if (isNative()) return nOff() ? 'off' : S.nperm === 'granted' ? 'on' : S.nperm === 'denied' ? 'blocked' : 'ask';
+  if (needsIosInstall()) return 'ios';
   if (typeof Notification === 'undefined') return 'na';
   const p = Notification.permission;
   if (p === 'denied') return 'blocked';
@@ -1017,7 +1032,8 @@ const blockedHelp = () => (isNative() ? 'افتح إعدادات الهاتف �
 function nbannerHtml() {
   if (!S.user || S.user.role === 'admin') return '';
   const st = notifState();
-  if (st === 'ask') return `<div class="nbanner">${ico('bell')}<div class="grow"><b>اسمح بالإشعارات</b><small>لتصلك الطلبات وتغيّر حالاتها فوراً في لوحة إشعارات جهازك</small></div><button class="btn sm" data-act="enable-notifs">سماح</button></div>`;
+  if (st === 'ask') return `<div class="nbanner">${ico('bell')}<div class="grow"><b>اسمح بالإشعارات</b><small>لتصلك الطلبات وتغيّر حالاتها فوراً في لوحة إشعارات جهازك</small>${isNative() && S.nerr ? `<small>${esc(S.nerr)}</small>` : ''}</div><button class="btn sm" data-act="enable-notifs">سماح</button></div>`;
+  if (st === 'ios') return `<div class="nbanner warn">${ico('bell')}<div class="grow"><b>ثبّت التطبيق ليصلك الإشعار وهو مغلق</b><small>${IOS_HELP}</small></div></div>`;
   if (st === 'blocked') return `<div class="nbanner warn">${ico('bell')}<div class="grow"><b>الإشعارات محظورة</b><small>${blockedHelp()}</small></div>${isNative() ? '' : '<button class="btn ghost sm" data-act="reload">تحديث</button>'}</div>`;
   return '';
 }
@@ -1027,7 +1043,18 @@ const requestWebPerm = () => new Promise((res) => { try { const r = Notification
 async function promptOnEntry() {
   if (!S.user || S.user.role === 'admin' || entryAsked) return;
   entryAsked = true;
-  if (isNative()) { await refreshNativePerm(); if (!nOff()) await ensureNativePush(); updateNBanner(); return; }
+  if (isNative()) {
+    await refreshNativePerm();
+    if (!nOff()) {
+      // يطلب الإذن فور الدخول، ويعيد المحاولة تلقائياً إذا لم تكن واجهة التطبيق جاهزة بعد
+      for (const wait of [0, 2500, 7000]) {
+        if (wait) await new Promise((r) => setTimeout(r, wait));
+        if (!S.user) return;
+        if (await ensureNativePush() || S.nperm === 'denied') break;
+      }
+    }
+    updateNBanner(); return;
+  }
   if (typeof Notification === 'undefined') return;
   if (Notification.permission === 'default' && !nOff()) {
     const t0 = Date.now();
@@ -1056,22 +1083,40 @@ async function askNotifPermission() {
 async function toggleNotifs() {
   const st = notifState();
   if (st === 'on') { store.set(nKey('notif_off'), '1'); await unsubscribePush(); toast('تم إيقاف الإشعارات'); updateNBanner(); if (S.tab === 'me' && !S.sheet) render(); }
+  else if (st === 'ios') toast(IOS_HELP, true);
   else if (st === 'blocked') toast(blockedHelp(), true);
   else askNotifPermission();
 }
 async function testNotif() {
-  try { await api('POST', '/api/push/test'); toast('تم إرسال إشعار تجريبي — سيظهر في لوحة الإشعارات خلال ثوانٍ'); setTimeout(checkNotifs, 400); } catch (e) { toast('تعذّر إرسال الإشعار التجريبي', true); }
+  try {
+    const r = await api('POST', '/api/push/test');
+    if (!r.devices) toast('لا يوجد جهاز مسجّل للإشعارات — أغلق التطبيق وافتحه من جديد ثم اسمح بالإشعارات', true);
+    else if (r.fcm && !r.fcmConfigured && !r.sent) toast('إعداد Firebase ناقص في الخادم (FIREBASE_SERVICE_ACCOUNT)', true);
+    else if (!r.sent) toast('فشل الإرسال: ' + ((r.errors && r.errors[0]) || 'سبب غير معروف'), true);
+    else toast('تم الإرسال ✓ — سيظهر خلال ثوانٍ في لوحة إشعارات جهازك');
+  } catch (e) { toast('تعذّر إرسال الإشعار التجريبي', true); }
+  setTimeout(checkNotifs, 400);
 }
 function notifSetting() {
   const st = notifState();
-  if (st === 'na') return `<div class="list-item">${ico('bell')}<span class="grow"><b>إشعارات الطلبات</b><small>هذا المتصفح لا يدعم الإشعارات — جرّب Chrome أو ثبّت التطبيق</small></span></div>`;
+  if (st === 'na') return `<div class="list-item">${ico('bell')}<span class="grow"><b>إشعارات الطلبات</b><small>${isIOS() ? 'حدّث الآيفون إلى iOS 16.4 أو أحدث لتصلك الإشعارات' : 'هذا المتصفح لا يدعم الإشعارات — جرّب Chrome أو ثبّت التطبيق'}</small></span></div>`;
+  if (st === 'ios') return `<div class="list-item">${ico('bell')}<span class="grow"><b>إشعارات الطلبات</b><small>${IOS_HELP}</small></span></div>`;
   const bg = isNative() || (webPushOk() && S.pushOn);
   const sub = { on: bg ? 'مفعّلة ✓ — تصلك الطلبات وتغيّر حالاتها فوراً حتى لو كان التطبيق مغلقاً' : webPushOk() ? 'مفعّلة ✓ — جارٍ تفعيل الاستقبال في الخلفية…' : 'مفعّلة ✓ — تظهر ما دام الموقع مفتوحاً (ثبّت التطبيق على الشاشة الرئيسية لتصل وهو مغلق)', off: 'متوقفة — اضغط المفتاح لتفعيلها', ask: 'غير مفعّلة — اضغط المفتاح وسيظهر طلب السماح', blocked: 'محظورة — ' + blockedHelp() }[st];
   return `<div class="list-item">${ico('bell')}<span class="grow"><b>إشعارات الطلبات</b><small>${sub}</small></span><button type="button" class="toggle" role="switch" aria-checked="${st === 'on'}" aria-label="تفعيل الإشعارات" data-act="toggle-notifs"></button></div>${st === 'on' ? `<button class="list-item" data-act="test-notif">${ico('check')}<span class="grow"><b>إرسال إشعار تجريبي</b><small>للتأكد أنه يصل إلى لوحة إشعارات جهازك</small></span><span class="chev">${ico('chev')}</span></button>` : ''}`;
 }
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', (e) => { const d = e.data || {}; if (d.type === 'open-notif') handleNotifTap(d.data); else if (d.type === 'open-chat') openChatFor(d.orderId, d.orderNo); });
+let lastPushSync = 0;
+function resyncPush() {
+  if (!S.user || S.user.role === 'admin' || nOff()) return;
+  const granted = isNative() ? S.nperm === 'granted' : (webPushOk() && Notification.permission === 'granted');
+  if (granted && Date.now() - lastPushSync < 600000) return;
+  lastPushSync = Date.now();
+  if (isNative()) { if (S.nperm !== 'denied') ensureNativePush(); }
+  else if (granted) ensureWebPush();
+}
 setInterval(checkNotifs, 15000);
-document.addEventListener('visibilitychange', () => { if (!document.hidden) { checkNotifs(); refreshNativePerm().then(updateNBanner); updateNBanner(); } });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { checkNotifs(); refreshNativePerm().then(() => { updateNBanner(); resyncPush(); }); updateNBanner(); } });
 
 /* ============ النوافذ المنبثقة ============ */
 function sheetShell(title, body) {
