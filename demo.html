@@ -338,9 +338,9 @@ a.btn{text-decoration:none}
 }
 
 /* ===== شاشة الدخول الجديدة ===== */
-.lg{max-width:480px;margin:0 auto;display:flex;flex-direction:column;min-height:100vh;background:#fff;color:#111}
-.lg-hero img{display:block;width:100%;height:auto}
-.lg-card{display:flex;flex-direction:column;gap:12px;padding:8px 22px 36px;text-align:center}
+.lg{width:100vw;margin-inline:calc(50% - 50vw);display:flex;flex-direction:column;min-height:100vh;background:#fff;color:#111}
+.lg-hero img{display:block;width:100%;height:auto;max-height:46vh;object-fit:cover;object-position:top}
+.lg-card{width:100%;max-width:520px;margin-inline:auto;box-sizing:border-box;display:flex;flex-direction:column;gap:12px;padding:8px 22px 36px;text-align:center}
 .lg-card h1{font-size:26px;font-weight:900;margin:0}
 .lg-sub{margin:-6px 0 6px;font-size:14px;color:#333}
 .lg-in{display:flex;align-items:center;gap:10px;background:#f3f4f6;border:1px solid #e1e4e8;border-radius:16px;padding:0 14px;min-height:52px}
@@ -351,7 +351,11 @@ a.btn{text-decoration:none}
 .lg-rem input{width:20px;height:20px}
 .lg-or{display:flex;align-items:center;gap:12px;color:#555;font-size:13px}
 .lg-or::before,.lg-or::after{content:"";flex:1;border-top:1px solid #ddd}
-.lg-reg{background:#fff;color:#111;border:1.5px solid #111;border-radius:16px;min-height:52px;font-weight:800}
+.lg-reg{display:flex;align-items:center;justify-content:center;gap:10px;border:0;border-radius:16px;min-height:56px;font-weight:900;font-size:18px;cursor:pointer;box-shadow:0 6px 16px rgba(0,0,0,.22)}
+.lg-reg .ic{width:24px;height:24px;stroke-width:2.2}
+.lg-reg[data-role="merchant"]{background:#8a3a10;color:#fff}
+.lg-reg[data-role="driver"]{background:#111;color:#ffd21f}
+.lg-reg:active{transform:scale(.98)}
 .lg-new{font-size:14px;color:#111;margin:4px 0 0}
 .lg-link{background:none;border:0;padding:0;font:inherit;color:#1a6fe0;font-weight:700;text-decoration:underline;cursor:pointer}
 
@@ -425,6 +429,253 @@ a.btn{text-decoration:none}
 .oc-no{white-space:nowrap;font-size:20px}
 .oc-cb{min-width:104px;font-size:14.5px;padding:7px 10px}
 .oc-r{font-size:15px}
+
+/* ===== بطاقة الطلب: حجم وسط وأزرار داخل الحدود ===== */
+.oc{box-sizing:border-box;max-width:100%;min-width:0;overflow:hidden;border-radius:18px;padding:14px 22px 13px 12px}
+.oc::after{width:7px;top:24%;bottom:24%}
+.oc-top{gap:8px;flex-wrap:nowrap;min-width:0}
+.oc-top>:first-child{min-width:0;flex:1 1 auto}
+.oc-corner{flex:0 0 auto;gap:6px;max-width:46%}
+.oc-no{font-size:17px;line-height:1.35;white-space:nowrap}
+.oc-no small{font-size:11.5px}
+.oc-cb{min-width:0;width:100%;box-sizing:border-box;gap:6px;padding:5px 9px;font-size:13px;border-radius:8px;white-space:nowrap}
+.oc-cb .ic,.oc-cb svg{width:17px;height:17px}
+.oc-ex{width:18px;height:18px;font-size:12px}
+.oc-r{font-size:13.5px;gap:3px 7px;margin-top:9px}
+.oc-r+.oc-r.sub{margin-top:6px}
+.oc-i{width:26px;height:26px}
+.oc-i svg.ic,.oc .oc-i svg{width:22px;height:22px}
+.oc-d{width:24px;height:24px;font-size:14px}
+.oc-plus{font-size:20px}
+.oc-chip{padding:3px 12px;border-radius:10px;font-size:13.5px}
+.oc-sep{margin-top:10px}
+.oc-act{gap:6px;margin-top:11px}
+.oc-act .btn,.oc .btn.sm{font-size:12.5px;padding:6px 10px;min-height:34px}
+.oc .pill{font-size:12.5px}
+.oc .notice{margin-top:9px;font-size:12.5px}
+
+/* ===== شريط طلب السماح بالإشعارات ===== */
+.nbanner{display:flex;align-items:center;gap:12px;background:var(--accent-soft);color:var(--fg);border:1.5px solid var(--accent);border-radius:18px;padding:12px 14px;margin-bottom:14px}
+.nbanner:empty,#nbanner:empty{display:none}
+.nbanner>.ic,.nbanner>svg{width:26px;height:26px;flex:none;color:var(--accent-text)}
+.nbanner b{display:block;font-size:15.5px}
+.nbanner small{display:block;color:var(--muted);font-size:13px;line-height:1.5;margin-top:2px}
+.nbanner.warn{background:var(--amber-soft);border-color:var(--amber)}
+.nbanner.warn>.ic,.nbanner.warn>svg{color:var(--amber)}
+.nbanner .btn{flex:none}
+
+/* ===== تصميم الوصولات: قسم الاختيار ===== */
+.oc-c{font-style:normal}
+.odp{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-width:392px;margin:0 auto 6px}
+.odp-o{display:flex;flex-direction:column;gap:2px;padding:6px 6px 10px;border-radius:18px;background:var(--surface);border:2px solid var(--line);color:var(--fg);cursor:pointer;text-align:center}
+.odp-o b{font-size:14px;margin-top:6px}
+.odp-o small{font-size:12px;color:var(--muted)}
+.odp-o[aria-checked="true"]{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.odp-box{position:relative;height:178px;overflow:hidden;border-radius:12px;pointer-events:none;background:rgba(128,128,128,.12)}
+.odp-in{position:absolute;top:6px;right:4px;width:360px;transform-origin:top right;transform:scale(.42)}
+.odp-in .oc,.odp-in .od{margin:0}
+@media (max-width:359px){.odp-in{transform:scale(.38)}}
+
+/* ===== التصاميم البديلة لبطاقة الطلب (.od) ===== */
+.od{
+  --fg:#111;--muted:#7a6a58;--line:#eadfce;--surface:#fff;--surface-2:#faf6ee;--input:#fff;
+  --amber:#a4660a;--green:#1d7f4a;--red:#c4372e;--blue:#2f55c4;
+  --amber-soft:rgba(240,169,60,.2);--green-soft:rgba(76,200,132,.2);--red-soft:rgba(242,118,109,.2);--blue-soft:rgba(116,153,242,.2);
+  --accent:#ffd21f;--accent-ink:#171200;--accent-text:#7d5f00;--accent-soft:rgba(255,210,31,.3);--accent-bg:#ffd21f;
+  --od-bg:#fff;--od-lbl:#8a3a10;--od-r:20px;--od-box:#fff;--od-boxbd:2px solid #111;--od-det:#faf7ec;
+  --od-btn:#111;--od-btn-fg:#ffd21f;--od-note:#e0303f;--od-note-bg:#fff;--od-note-bd:2.5px solid #e0303f;
+  --od-waze:#ffd21f;--od-waze-fg:#111;--od-sup-bd:2px solid #111;--od-tg:2px dashed #111;--od-tg-fg:#111;--od-notice:#fff3c4;--od-notice-fg:#6b5000;
+  position:relative;box-sizing:border-box;max-width:100%;min-width:0;color:var(--fg);background:var(--od-bg);font-family:var(--font-display);font-size:15px;line-height:1.5;margin-bottom:0
+}
+.od *{box-sizing:border-box}
+.od small{display:block}
+.od-hd{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.od-no{font-weight:900;font-size:28px;line-height:1.2;display:flex;flex-direction:column}
+.od-nol{display:none;font-size:13px;font-weight:700;color:var(--od-lbl)}
+.od-ago{font-size:13px;font-weight:600;white-space:nowrap}
+.od-body{padding:16px 20px 20px}
+.od-st{display:flex;justify-content:space-between;align-items:center;gap:10px;font-weight:900;font-size:17px}
+.od-sl{font-size:14px;font-weight:600}
+.od[data-st="delivered"] .od-sv::before{content:"✓ "}
+.od .od-sv .pill{background:none;border:0;padding:0;color:inherit;font:inherit;font-weight:900;font-size:inherit}
+.od .od-sv select.in{min-width:140px;color:#111;background:#fff}
+.od-store{display:flex;align-items:center;gap:12px}
+.od-av{display:none;flex:none;place-items:center;font-weight:900}
+.od-sn small{font-size:13px;font-weight:600;color:var(--od-lbl)}
+.od-sn b{display:block;font-size:21px;font-weight:900;line-height:1.3}
+.od-pr{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:6px 10px;margin-top:14px}
+.od-pl{flex:1 0 100%;font-size:13px;font-weight:600;color:var(--od-lbl)}
+.od-pm{display:flex;align-items:baseline;gap:8px}
+.od-pv{display:inline-flex;align-items:baseline;gap:8px}
+.od-big{font-size:40px;font-weight:900;line-height:1.05;white-space:nowrap}
+.od-pr em{font-style:normal;font-size:15px;font-weight:600;opacity:.75}
+.od-dl{display:inline-block;white-space:nowrap;font-weight:800;font-size:13.5px;padding:5px 12px;border-radius:12px;border:2px solid #111}
+.od-ad{display:flex;gap:10px;align-items:stretch;margin-top:14px}
+.od-ab{flex:1 1 0;min-width:0;padding:12px 16px;border-radius:var(--od-r);background:var(--od-box);border:var(--od-boxbd)}
+.od-ab small{font-size:13px;font-weight:600;color:var(--od-lbl)}
+.od-ab b{display:block;font-size:19px;font-weight:900;line-height:1.3;overflow-wrap:anywhere}
+.od-arrow{display:none}
+.od .notice{margin-top:12px;font-size:13.5px;background:var(--od-notice);color:var(--od-notice-fg);border-radius:14px}
+.od .hint{color:var(--od-lbl);margin-top:12px}
+.od-tg{display:block;width:100%;margin-top:14px;padding:15px;border:var(--od-tg);border-radius:var(--od-r);background:transparent;color:var(--od-tg-fg);font:900 17px var(--font-display);cursor:pointer}
+.od-det{margin-top:14px;padding:4px 18px;border-radius:var(--od-r);background:var(--od-det)}
+.od .oc-r{margin:0;padding:11px 0;gap:4px 10px;flex-wrap:nowrap;justify-content:space-between;align-items:center;font-size:14.5px;border-bottom:1.5px solid rgba(128,100,60,.16)}
+.od .oc-r:last-child{border-bottom:0}
+.od .oc-i,.od .oc-c{display:none}
+.od .oc-l{color:var(--od-lbl);font-weight:600;font-size:14.5px}
+.od .oc-v{margin-inline-start:auto;text-align:start;font-weight:800;color:var(--fg)}
+.od .phone{color:var(--fg);font-family:var(--font-display);font-weight:800;font-size:15px}
+.od-links{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+.od-links>*{flex:1 1 38%;order:1}
+.od .od-links .btn{min-height:52px;border-radius:var(--od-r);font:800 15px var(--font-display);padding:8px 12px}
+.od .od-links .btn.soft{flex:1 1 100%;order:0;background:var(--od-waze);color:var(--od-waze-fg)}
+.od .od-links .btn.wa{background:#25d366;color:#fff}
+.od .od-links .btn.ghost{background:var(--od-bg);color:var(--fg);border:var(--od-sup-bd)}
+.od-main{display:flex;gap:10px;margin-top:14px}
+.od .oc-cb{flex:1 1 0;min-width:0;justify-content:center;gap:8px;min-height:56px;padding:8px 12px;border-radius:var(--od-r);font:900 18px var(--font-display);white-space:nowrap;width:auto}
+.od .oc-cb.g{flex:2 1 0;background:var(--od-btn);color:var(--od-btn-fg)}
+.od .oc-cb.r{background:var(--od-note-bg);color:var(--od-note);border:var(--od-note-bd)}
+.od .oc-cb svg{display:none}
+.od .oc-cb[data-act="accept"] svg{display:inline-block;width:18px;height:18px;stroke-width:2.6}
+.od .oc-ex{background:none;color:inherit;width:auto;height:auto;font-size:20px;font-weight:900}
+.od .menu{background:#fff;color:#111;border:1px solid #ddd;box-shadow:0 10px 30px rgba(0,0,0,.25);inset-inline-start:auto;inset-inline-end:0}
+.od .menu button{color:#111}
+
+/* --- 1) أسود وأصفر --- */
+.od-bold{border:3px solid #111;border-radius:26px}
+.od-bold .od-top{background:#111;color:#ffd21f;border-radius:23px 23px 0 0;padding:18px 22px 14px}
+.od-bold .od-ago{color:#c9c3b0}
+.od-bold .od-st{background:#ffd21f;color:#111;padding:14px 22px}
+.od-bold .od-av{display:none}
+.od-bold .od-sn b{font-size:24px}
+.od-bold .od-pl{display:none}
+.od-bold .od-pr{margin-top:18px}
+.od-bold .od-pr::before{content:"سعر الطلب";flex:1 0 100%;font-size:13px;font-weight:600;color:var(--od-lbl)}
+.od-bold .od-pv{background:linear-gradient(transparent 64%,#ffd21f 64%);padding-inline:2px}
+.od-bold .od-big{font-size:42px}
+.od-bold .od-ab{border-radius:20px}
+.od-bold .od-body{padding-bottom:22px}
+
+/* --- 2) أخضر متدرّج --- */
+.od-green{--od-r:999px;--od-box:#f1f5f2;--od-boxbd:0 solid transparent;--od-det:#f6f8f6;--od-btn:#166b43;--od-btn-fg:#fff;--od-note-bd:1.5px solid #d6303f;--od-note:#d6303f;--od-waze:#fdf0bd;--od-waze-fg:#6b4d00;--od-sup-bd:1.5px solid #cfdcd7;--od-tg:1.5px solid #cfdcd7;--od-tg-fg:#166b43;border-radius:30px}
+.od-green .od-top{background:linear-gradient(135deg,#0e3a29,#1f8a5b);color:#fff;border-radius:30px 30px 0 0;padding:20px 22px 22px}
+.od-green .od-no{color:#c7f24a;font-size:26px}
+.od-green .od-ago{color:#cfe7da}
+.od-green .od-store{margin-top:12px}
+.od-green .od-sn small{display:none}
+.od-green .od-sn b{font-size:19px;font-weight:600}
+.od-green .od-pl{display:none}
+.od-green .od-pr{flex-direction:column;align-items:flex-start;margin-top:8px;gap:12px}
+.od-green .od-pr em{color:#cfe7da}
+.od-green .od-dl{background:#c7f24a;color:#13361f;border:0;border-radius:999px;font-size:15px}
+.od-green .od-body{padding:18px 20px 22px}
+.od-green .od-st{justify-content:flex-start;gap:6px;color:#166b43;font-size:16px}
+.od-green .od-sl{order:-1;color:#8a3a10;font-size:16px;font-weight:700}
+.od-green .od-sl::after{content:":"}
+.od-green[data-st="delivered"] .od-sv::before{content:none}
+.od-steps{display:flex;align-items:flex-start;margin:12px 0 4px}
+.od-s{display:flex;flex-direction:column;align-items:center;gap:6px;flex:none;width:58px}
+.od-s i{display:grid;place-items:center;width:52px;height:52px;border-radius:50%;background:#e4eae6;color:#fff}
+.od-s.on i{background:#22c55e}
+.od-s i svg{width:24px;height:24px;stroke-width:3}
+.od-s small{font-size:14px;font-weight:700;color:#8a9a90}
+.od-s.on small{color:#166b43}
+.od-ln{flex:1;height:5px;border-radius:5px;background:#e4eae6;margin-top:24px}
+.od-ln.on{background:#22c55e}
+.od-green .od-ab{padding:14px 16px;border-radius:18px}
+.od-green .od-ad{margin-top:16px}
+
+/* --- 3) تذكرة --- */
+.od-ticket{--od-box:#f3f1ed;--od-boxbd:0 solid transparent;--od-det:#faf6ec;--od-r:22px;--od-btn:#1f9d4d;--od-btn-fg:#fff;--od-note:#d6303f;--od-note-bg:#fce9ea;--od-note-bd:0 solid transparent;--od-waze:#fcefc0;--od-waze-fg:#6b4d00;--od-sup-bd:2px solid #e5dcc6;--od-tg:2px dashed #d8cfb8;background:transparent;filter:drop-shadow(0 6px 14px rgba(0,0,0,.22))}
+.od-half{position:relative;isolation:isolate}
+.od-half::before{content:"";position:absolute;inset:0;z-index:-1;background:#fff}
+.od-ticket .od-top{padding:22px 22px 24px}
+.od-ticket .od-top::before{border-radius:30px 30px 0 0;-webkit-mask:radial-gradient(circle 15px at 0 100%,#0000 97%,#000) left/51% 100% no-repeat,radial-gradient(circle 15px at 100% 100%,#0000 97%,#000) right/51% 100% no-repeat;mask:radial-gradient(circle 15px at 0 100%,#0000 97%,#000) left/51% 100% no-repeat,radial-gradient(circle 15px at 100% 100%,#0000 97%,#000) right/51% 100% no-repeat}
+.od-ticket .od-top::after{content:"";position:absolute;left:22px;right:22px;bottom:0;border-bottom:3px dashed #e6e0cf}
+.od-ticket .od-bot{padding:20px 22px 22px}
+.od-ticket .od-bot::before{border-radius:0 0 30px 30px;-webkit-mask:radial-gradient(circle 15px at 0 0,#0000 97%,#000) left/51% 100% no-repeat,radial-gradient(circle 15px at 100% 0,#0000 97%,#000) right/51% 100% no-repeat;mask:radial-gradient(circle 15px at 0 0,#0000 97%,#000) left/51% 100% no-repeat,radial-gradient(circle 15px at 100% 0,#0000 97%,#000) right/51% 100% no-repeat}
+.od-ticket .od-no{color:#d97706;font-size:34px}
+.od-ticket .od-nol{display:block}
+.od-ticket .od-ago{background:#f1ece0;color:#7a6f5c;padding:8px 18px;border-radius:999px;font-size:14px}
+.od-ticket .od-st{margin-top:16px;padding:14px 18px;border-radius:18px;background:#e0f2e5;color:#1d7f4a}
+.od-ticket .od-sl{color:#8a3a10}
+.od-ticket .od-store{margin-top:18px}
+.od-ticket .od-av{display:grid;width:90px;height:90px;border-radius:24px;background:#124a31;color:#a3e635;font-size:36px;flex:none}
+.od-ticket .od-av{width:56px;height:56px;border-radius:16px;font-size:26px}
+.od-ticket .od-pr{margin-top:0}
+.od-ticket .od-big{font-size:42px}
+.od-ticket .od-dl{background:#e8f5ec;color:#1d7f4a;border:0;border-radius:14px;font-size:15px}
+.od-ticket .od-ad{align-items:center}
+.od-ticket .od-ab{flex:0 0 auto;max-width:38%;border-radius:18px;padding:10px 16px}
+.od-ticket .od-arrow{display:block;flex:1;height:0;border-top:4px dotted #d3c4a0;position:relative;min-width:20px}
+.od-ticket .od-arrow::before{content:"";position:absolute;left:-4px;top:-9px;border:8px solid transparent;border-right:10px solid #d97706;border-left:0}
+.od-ticket .oc-c{display:inline}
+.od-ticket .oc-r{justify-content:flex-start;border-bottom:0;padding:8px 0;font-size:16px}
+.od-ticket .oc-v{margin-inline-start:0}
+.od-ticket .oc-l{font-weight:600}
+.od-ticket .phone{color:#8a3a10}
+.od-ticket .od-det{padding:12px 18px}
+.od-ticket .od-main .oc-cb.g{background:#1f9d4d}
+
+/* --- 4) أصفر وبني --- */
+.od-sun{--od-bg:#fffaee;--od-box:#fff;--od-boxbd:2px solid #f0e5cf;--od-det:#fff3d6;--od-r:999px;--od-btn:#229e4e;--od-btn-fg:#fff;--od-note:#d6303f;--od-note-bg:transparent;--od-note-bd:2.5px solid #d6303f;--od-waze:#fdf0c0;--od-waze-fg:#6b4d00;--od-sup-bd:2px solid #ecdcb8;--od-tg:2px dashed #e2cf9f;border-radius:34px}
+.od-sun .od-top{background:#fdbf26;color:#3f2a00;border-radius:34px 34px 0 0;padding:20px 26px}
+.od-sun .od-no{font-size:30px;color:#3f2a00}
+.od-sun .od-ago{color:#6b4d00;font-size:15px}
+.od-sun .od-body{padding:20px 22px 24px}
+.od-sun .od-st{background:#fdf0c0;color:#6b4d00;padding:12px 18px;border-radius:18px;margin-bottom:16px}
+.od-sun .od-av{display:grid;width:54px;height:54px;border-radius:50%;background:#8a3a10;color:#fff;font-size:24px}
+.od-sun .od-sn small{display:none}
+.od-sun .od-sn b{font-size:22px}
+.od-sun .od-pr{flex-wrap:nowrap;gap:12px;align-items:stretch;margin-top:16px}
+.od-sun .od-pb,.od-sun .od-db{border-radius:26px;padding:14px 20px}
+.od-sun .od-pb{flex:1.7 1 0;min-width:0;background:#8a3a10;color:#fff}
+.od-sun .od-db{flex:1 1 0;min-width:0;background:#fdf0c0;color:#4a3500}
+.od-sun .od-pb small{color:#f1d9c6}
+.od-sun .od-db small{color:#6b4d00}
+.od-sun .od-pb div,.od-sun .od-db div{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.od-sun .od-pb .od-big{font-size:28px}
+.od-sun .od-db b{font-size:22px;font-weight:900}
+.od-sun .od-ab{border-radius:24px}
+.od-sun .od-tg,.od-sun .od-det{border-radius:26px}
+.od-sun .od-links .btn,.od-sun .oc-cb{border-radius:999px}
+
+/* --- 5) داكن --- */
+.od-night{--od-bg:#0a2a1d;--fg:#fff;--input:#0a2a1d;--line:#2f6b50;--od-lbl:#9bc0ad;--od-r:20px;--od-box:transparent;--od-boxbd:0 solid transparent;--od-det:#123d2b;--od-btn:#a3e635;--od-btn-fg:#0a2410;--od-note:#ff5d6c;--od-note-bg:transparent;--od-note-bd:2px solid #ff5d6c;--od-waze:rgba(163,230,53,.16);--od-waze-fg:#d7f78a;--od-sup-bd:2px solid #2f6b50;--od-tg:2px dashed #2f6b50;--od-tg-fg:#a3e635;--od-notice:rgba(163,230,53,.14);--od-notice-fg:#d7f78a;border:1px solid #17503a;border-radius:30px;padding:22px 22px 24px;color:#fff}
+.od-night .od-body{padding:0}
+.od-night .od-no{color:#a3e635;font-size:32px}
+.od-night .od-ago{color:#8fb3a1}
+.od-night .od-st{margin-top:14px;padding:10px 16px;border-radius:16px;background:rgba(163,230,53,.12);color:#a3e635}
+.od-night .od-sl{color:#9bc0ad}
+.od-night .od-store{margin-top:14px;gap:10px;color:#e6f5ec}
+.od-night .od-av{display:block;width:14px;height:14px;border-radius:50%;background:#a3e635;font-size:0}
+.od-night .od-sn small{display:none}
+.od-night .od-sn b{font-size:19px;font-weight:600}
+.od-night .od-pr{margin-top:16px;padding:18px 20px;border-radius:28px;background:#123d2b;align-items:center;flex-wrap:wrap}
+.od-night .od-pm{flex-direction:column;align-items:flex-start;gap:0}
+.od-night .od-pl{color:#9bc0ad;font-size:14px}
+.od-night .od-big{font-size:44px}
+.od-night .od-pr em{color:#9bc0ad;font-size:16px}
+.od-night .od-dl{background:#27501f;border:1.5px solid #4c8a2c;color:#a3e635;border-radius:16px;text-align:center;font-size:14px;white-space:nowrap}
+.od-night .od-ad{flex-direction:column;gap:18px;margin-top:20px;position:relative}
+.od-night .od-ab{position:relative;padding:0 50px 0 0;background:none}
+.od-night .od-ab::before{content:"";position:absolute;right:0;top:10px;width:24px;height:24px;border-radius:50%;border:3px solid #a3e635}
+.od-night .od-ab+.od-arrow+.od-ab::before{background:#a3e635}
+.od-night .od-ab:first-child::after{content:"";position:absolute;right:11px;top:38px;bottom:-22px;border-right:4px dotted #3b6e55}
+.od-night .od-ab small{color:#9bc0ad}
+.od-night .od-ab b{color:#fff;font-size:21px}
+.od-night .oc-r{border-bottom-color:rgba(255,255,255,.1)}
+.od-night .phone{color:#a3e635}
+.od-night .od-links .btn.ghost{background:transparent;color:#fff}
+.od-night .menu{background:#123d2b;color:#fff;border-color:#2f6b50}
+.od-night .menu button{color:#fff}
+.od-night .od-sv select.in{background:#0a2a1d;color:#fff;border-color:#2f6b50}
+
+@media (max-width:380px){.od-big{font-size:38px}.od-night .od-big{font-size:42px}.od-ticket .od-big{font-size:40px}.od-no{font-size:24px}.od-sun .od-pb .od-big{font-size:28px}}
+
+/* قائمة تغيير الحالة كانت تُقصّ داخل البطاقة فلا يظهر خيار «تم الإرجاع للتاجر»: نسمح لها بالخروج من البطاقة */
+.oc:has(.menu){overflow:visible}
+.oc .menu{max-height:70vh;overflow:auto}
 </style>
 </head>
 <body>
@@ -694,6 +945,17 @@ const store = {
   del(k) { try { localStorage.removeItem(k); } catch { /* ignore */ } }
 };
 let RSIZE = RSIZES[store.get('rio_rsize')] ? store.get('rio_rsize') : '80';
+/* تصميم الوصولات (بطاقة الطلب): يُحفظ في جهاز المستخدم ويُطبَّق فوراً على كل بطاقات الطلبات */
+const OC_DESIGNS = [
+  ['classic', 'كلاسيكي', 'الشكل الحالي'],
+  ['bold', 'أسود وأصفر', 'عريض وواضح'],
+  ['green', 'أخضر متدرّج', 'مع شريط تقدّم الطلب'],
+  ['ticket', 'تذكرة', 'بشكل قسيمة'],
+  ['sun', 'أصفر وبني', 'بطاقات ملوّنة'],
+  ['night', 'داكن', 'مسار التوصيل']
+];
+const ocdValid = (k) => OC_DESIGNS.some((d) => d[0] === k);
+let OCD = ocdValid(store.get('rio_ocd')) ? store.get('rio_ocd') : 'classic';
 /* تشغيل/إيقاف الوصولات من الإدارة: يخفي زر «وصل» عن التاجر والسائق فقط */
 const receiptsOn = () => !S.user || S.user.role === 'admin' || !S.data || !S.data.settings || ![0, false, '0'].includes(S.data.settings.receipts);
 const rsizeSeg = () => `<div class="seg" role="group" aria-label="حجم الوصل" style="display:flex;justify-content:center;width:max-content;max-width:100%;margin:0 auto 10px">${Object.keys(RSIZES).map((k) => `<button type="button" data-act="rsize" data-k="${k}" aria-pressed="${RSIZE === k}">${RSIZES[k][0]}</button>`).join('')}</div>`;
@@ -769,7 +1031,7 @@ const vehName = (v) => (v === 'car' ? 'سيارة' : 'دراجة');
 /* ============ الحالة ============ */
 const S = {
   token: store.get(TOKEN_KEY) || (() => { try { return sessionStorage.getItem(TOKEN_KEY); } catch { return null; } })(), user: null, tab: '', data: null, loading: false, error: '',
-  unread: 0, pushOn: false, sheet: null, menu: null, armed: null, filter: 'all', walletTab: 'log', ordersTab: 'current', adminFilter: 'all', cardsBatch: null, expRange: 'month'
+  unread: 0, pushOn: false, sheet: null, menu: null, armed: null, filter: 'all', walletTab: 'log', ordersTab: 'current', adminFilter: 'all', cardsBatch: null, expRange: 'month', det: {}
 };
 let lastSig = '';
 let chatTimer = null;
@@ -869,9 +1131,9 @@ function liveRefresh() {
   if (S.sheet || S.menu || (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))) { S.dirty = true; return; }
   refresh();
 }
-function setUser(u) { S.user = u; connectLive(); setTimeout(checkNotifs, 600); if (u && u.role !== 'admin') setTimeout(ensurePush, 1200); }
+function setUser(u) { S.user = u; connectLive(); setTimeout(checkNotifs, 600); if (u && u.role !== 'admin') setTimeout(promptOnEntry, 500); }
 function logout() {
-  S.token = null; S.user = null; S.data = null; S.sheet = null; S.menu = null; lastSig = ''; S.unread = 0; S.pushOn = false;
+  S.token = null; S.user = null; S.data = null; S.sheet = null; S.menu = null; lastSig = ''; S.unread = 0; S.pushOn = false; entryAsked = false; S.nperm = '';
   store.del(TOKEN_KEY);
   history.replaceState(null, '', location.pathname);
   stopChat(); disconnectLive();
@@ -901,7 +1163,7 @@ function shell() {
   const bell = role === 'admin' ? '' : `<button class="bell" id="bell" data-act="notifs" aria-label="الإشعارات">${ico('bell')}<span class="badge" id="bell-n" ${un ? '' : 'hidden'}>${un}</span></button>`;
   const fab = role === 'merchant' && S.tab !== 'me' ? `<button class="btn fab" data-act="new-order">${ico('plus')} إنشاء طلب</button>` : '';
   return `<header class="topbar"><div class="grp">${logo()}<span class="rolechip">${ico(ROLE_ICON[role])}${ROLE_NAME[role]}</span></div><div class="grp">${bell}</div></header>
-<div class="shell"><nav class="nav" aria-label="التنقل">${nav}</nav><main class="main"><div class="col ${role === 'admin' ? 'wide' : ''}">${view()}</div></main></div>${fab}`;
+<div class="shell"><nav class="nav" aria-label="التنقل">${nav}</nav><main class="main"><div class="col ${role === 'admin' ? 'wide' : ''}"><div id="nbanner">${nbannerHtml()}</div>${view()}</div></main></div>${fab}`;
 }
 
 function view() {
@@ -934,8 +1196,8 @@ function loginView() {
     <p class="hint" id="l-err" style="color:var(--red)" role="alert"></p>
     <button class="btn block" type="submit" id="l-btn">دخول ←</button>
     <div class="lg-or"><span>أو</span></div>
-    <button type="button" class="btn ghost block lg-reg" data-act="register" data-role="merchant">${ico('store')} تسجيل كتاجر</button>
-    <button type="button" class="btn ghost block lg-reg" data-act="register" data-role="driver">${ico('user')} تسجيل كسائق</button>
+    <button type="button" class="lg-reg" data-act="register" data-role="merchant">${ico('store')} تسجيل كتاجر</button>
+    <button type="button" class="lg-reg" data-act="register" data-role="driver">${ico('user')} تسجيل كسائق</button>
     <p class="lg-new">ليس لديك حساب؟ <button type="button" class="lg-link" data-act="register" data-role="driver">إنشاء حساب جديد</button></p>
   </form></div>`;
 }
@@ -950,7 +1212,7 @@ function tile(label, sub, n, color) {
 /* ============ بطاقة الطلب الموحّدة (التاجر / السائق / المدير) ============ */
 const dinar = (n) => `<span class="num">${nf.format(Math.round(n || 0))}</span> دينار`;
 const OCI = { store: ico('store'), pin: ico('pin'), phone: ico('phone'), box: ico('orders'), cash: ico('wallet'), user: ico('user'), status: ico('orders') };
-const ocRow = (i, l, v, cls = '') => `<div class="oc-r ${cls}"><span class="oc-i">${OCI[i]}</span><span class="oc-l">${l}:</span><span class="oc-v">${v}</span></div>`;
+const ocRow = (i, l, v, cls = '') => `<div class="oc-r ${cls}"><span class="oc-i">${OCI[i]}</span><span class="oc-l">${l}<i class="oc-c">:</i></span><span class="oc-v">${v}</span></div>`;
 const noteBtn = (o) => `<button class="oc-cb r" data-act="note" data-id="${o.id}"><span>ملاحظة</span><span class="oc-ex">!</span></button>`;
 const chatBtn = (o) => `<button class="oc-cb g" data-act="chat" data-id="${o.id}"><span>محادثة</span>${ico('chat')}</button>`;
 function wazeLinks(o) {
@@ -960,26 +1222,77 @@ function wazeLinks(o) {
   const wz = c ? `https://waze.com/ul?ll=${c[0]},${c[1]}&navigate=yes` : `https://waze.com/ul?q=${encodeURIComponent((o.merchantName || '') + ' ' + (o.merchantArea || ''))}&navigate=yes`;
   return `<a class="btn soft sm" href="${esc(wz)}" target="_blank" rel="noopener">${ico('pin')} Waze · موقع المتجر</a>${url ? `<a class="btn ghost sm" href="${esc(url)}" target="_blank" rel="noopener">الخريطة</a>` : ''}`;
 }
-/* opt: corner (أزرار الزاوية العلوية)، rows (تفاصيل إضافية)، after (تنبيهات)، actions (الأزرار السفلية) */
-function orderCard(o, opt = {}) {
+/* opt: corner (أزرار الزاوية العلوية)، status (الحالة)، rows (تفاصيل إضافية)، after (تنبيهات)، actions (الأزرار السفلية) */
+function orderCard(o, opt = {}) { return OCD === 'classic' ? ocClassic(o, opt) : odCard(o, opt, OCD); }
+function ocClassic(o, opt = {}) {
   const corner = (opt.corner || '') + (opt.noteBtn ? noteBtn(o) : '');
+  const rows = (opt.status ? ocRow('status', 'الحالة', opt.status) : '') + (opt.rows || '');
   return `<article class="oc">
     <div class="oc-top"><div class="oc-no">رقم الطلب : <bdi>#${o.no}</bdi><small>${ago(o.createdAt)}</small></div>${corner ? `<div class="oc-corner">${corner}</div>` : ''}</div>
     ${ocRow('store', 'اسم المتجر', esc(o.merchantName))}
     <div class="oc-r"><span class="oc-i"><span class="oc-d">$</span></span><span class="oc-l">سعر الطلب:</span><span class="oc-v">${dinar(o.productPrice)}</span><span class="oc-grp"><span class="oc-plus">+</span><span class="oc-l">التوصيل:</span><span class="oc-v">${dinar(o.deliveryPrice)}</span></span></div>
     ${ocRow('pin', 'عنوان المتجر', `<span class="oc-chip">${esc(o.merchantArea || '—')}</span>`)}
     ${ocRow('pin', 'عنوان الزبون', `<span class="oc-chip">${esc(o.customerArea)}</span>`)}
-    ${opt.rows ? `<hr class="oc-sep">${opt.rows}` : ''}${opt.after || ''}
+    ${rows ? `<hr class="oc-sep">${rows}` : ''}${opt.after || ''}
     ${opt.actions ? `<div class="oc-act">${opt.actions}</div>` : ''}
   </article>`;
 }
+
+/* ===== التصاميم البديلة لبطاقة الطلب (تصميم الوصولات) ===== */
+const OD_STEPS = ['قبول', 'استلام', 'تسليم'];
+const OD_DONE = { picking_up: 1, on_the_way: 2, delivered: 3, rejected: 2, no_answer: 2, postponed: 2, return_sent: 2, returned: 2, partial: 2 };
+function odSteps(st) {
+  const n = OD_DONE[st] || 0;
+  return `<div class="od-steps">${OD_STEPS.map((t, i) => `${i ? `<span class="od-ln ${i < n ? 'on' : ''}"></span>` : ''}<span class="od-s ${i < n ? 'on' : ''}"><i>${i < n ? ico('check') : ''}</i><small>${t}</small></span>`).join('')}</div>`;
+}
+function odCard(o, opt = {}, d = 'bold') {
+  const open = !!S.det[o.id];
+  const hasDet = !!(opt.rows || opt.actions);
+  const initial = esc((o.merchantName || '؟').trim().charAt(0));
+  const main = (opt.corner || '') + (opt.noteBtn ? noteBtn(o) : '');
+  const delivery = `<span class="od-dl">+ توصيل ${num(o.deliveryPrice)}</span>`;
+  const head = `<div class="od-hd"><div class="od-no"><span class="od-nol">رقم الطلب</span><bdi>#${o.no}</bdi></div><span class="od-ago">${ago(o.createdAt)}</span></div>`;
+  const stat = opt.status ? `<div class="od-st"><span class="od-sv">${opt.status}</span><span class="od-sl">الحالة</span></div>` : '';
+  const store = `<div class="od-store"><span class="od-av">${initial}</span><span class="od-sn"><small>اسم المتجر</small><b>${esc(o.merchantName)}</b></span></div>`;
+  const price = d === 'sun'
+    ? `<div class="od-pr"><div class="od-pb"><small>سعر الطلب</small><div><b class="od-big">${num(o.productPrice)}</b> <em>دينار</em></div></div><div class="od-db"><small>التوصيل</small><div><b>${num(o.deliveryPrice)}</b> <em>دينار</em></div></div></div>`
+    : d === 'night'
+      ? `<div class="od-pr"><div class="od-pm"><small class="od-pl">سعر الطلب</small><b class="od-big">${num(o.productPrice)}</b><em>دينار</em></div>${delivery}</div>`
+      : `<div class="od-pr"><small class="od-pl">سعر الطلب</small><div class="od-pm"><span class="od-pv"><b class="od-big">${num(o.productPrice)}</b><em>دينار</em></span></div>${d === 'green' ? '' : delivery}${d === 'green' ? delivery : ''}</div>`;
+  const addr = `<div class="od-ad"><div class="od-ab"><small>عنوان المتجر</small><b>${esc(o.merchantArea || '—')}</b></div><span class="od-arrow" aria-hidden="true"></span><div class="od-ab"><small>عنوان الزبون</small><b>${esc(o.customerArea)}</b></div></div>`;
+  const toggle = hasDet ? `<button type="button" class="od-tg" data-act="det" data-id="${o.id}" aria-expanded="${open}">${open ? '▴ إخفاء التفاصيل' : '▾ عرض التفاصيل'}</button>` : '';
+  const det = hasDet && open ? `<div class="od-det">${opt.rows || ''}</div>${opt.actions ? `<div class="od-links">${opt.actions}</div>` : ''}` : '';
+  const btns = main ? `<div class="od-main">${main}</div>` : '';
+  const tail = `${opt.after || ''}${toggle}${det}${btns}`;
+  let inner;
+  if (d === 'green') inner = `<div class="od-top">${head}${store}${price}</div><div class="od-body">${opt.status ? stat + odSteps(o.status) : ''}${addr}${tail}</div>`;
+  else if (d === 'ticket') inner = `<div class="od-half od-top">${head}${stat}${store}</div><div class="od-half od-bot">${price}${addr}${tail}</div>`;
+  else if (d === 'sun') inner = `<div class="od-top">${head}</div><div class="od-body">${stat}${store}${price}${addr}${tail}</div>`;
+  else if (d === 'night') inner = `<div class="od-body">${head}${stat}${store}${price}${addr}${tail}</div>`;
+  else inner = `<div class="od-top">${head}</div>${stat}<div class="od-body">${store}${price}${addr}${tail}</div>`;
+  return `<article class="od od-${d}" data-st="${esc(o.status || '')}">${inner}</article>`;
+}
+/* معاينة مصغّرة داخل قسم «تصميم الوصولات» (غير تفاعلية) */
+function ocPreview(d) {
+  const o = { id: 0, no: 1069, createdAt: Date.now() - 14 * 3600000, merchantName: 'متجر الرافدين', productPrice: 1000000, deliveryPrice: 5000, merchantArea: 'الكرادة', customerArea: 'حي اور', status: 'delivered' };
+  const opt = { status: pill('delivered'), corner: chatBtn(o), noteBtn: true, rows: d === 'classic' ? '' : ocRow('phone', 'رقم الزبون', '0782 118 9947') };
+  const prev = S.det[0]; S.det[0] = false;
+  const html = (d === 'classic' ? ocClassic(o, opt) : odCard(o, opt, d)).replace(/\sdata-act="[^"]*"/g, '').replace(/\shref="[^"]*"/g, '');
+  S.det[0] = prev;
+  return html;
+}
+function ocDesignPicker() {
+  return `<h2 class="sec">تصميم الوصولات</h2><p class="hint" style="margin:-4px 4px 10px">اختر شكل بطاقة الطلب، ويتغيّر فوراً في الرئيسية والطلبات.</p>
+  <div class="odp" role="radiogroup" aria-label="تصميم الوصولات">${OC_DESIGNS.map(([k, n, sub]) => `<div class="odp-o" role="radio" tabindex="0" aria-checked="${OCD === k}" data-act="ocd" data-d="${k}"><div class="odp-box" aria-hidden="true"><div class="odp-in">${ocPreview(k)}</div></div><b>${n}</b><small>${sub}</small></div>`).join('')}</div>`;
+}
+
 const customerRows = (o) => ocRow('phone', 'رقم الزبون', telLink(o.customerPhone)) + ocRow('cash', 'المطلوب من الزبون', money(o.total)) + ocRow('box', 'المنتج', `${esc(o.product)} × ${o.qty} · ${vehName(o.vehicle)}`);
 
 function merchantOrderCard(o, withCancel) {
   const armed = S.armed === 'c' + o.id;
   return orderCard(o, {
     corner: o.driverId ? chatBtn(o) : '', noteBtn: !!o.note,
-    rows: ocRow('status', 'الحالة', pill(o.status)) + customerRows(o) + (o.driverName ? ocRow('user', 'السائق', esc(o.driverName)) : ''),
+    status: pill(o.status), rows: customerRows(o) + (o.driverName ? ocRow('user', 'السائق', esc(o.driverName)) : ''),
     after: o.status === 'return_sent' ? `<div class="notice">السائق ${esc(o.driverName || '')} أعلن أنه أرجع الطلب إليك. أكّد الاستلام عند وصول البضاعة.</div>` : '',
     actions: `<a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a>${wazeLinks(o)}${o.status === 'return_sent' ? `<button class="btn sm" data-act="ask-recv" data-id="${o.id}">تأكيد استلام المرتجع</button><button class="btn ghost sm" data-act="not-recv" data-id="${o.id}">لم أستلمه</button>` : ''}${withCancel && o.status === 'pending' ? `<button class="btn danger sm ${armed ? 'arm' : ''}" data-act="cancel" data-id="${o.id}">${armed ? 'اضغط للتأكيد' : 'إلغاء الطلب'}</button>` : ''}`
   });
@@ -1001,7 +1314,7 @@ function driverOrderCard(o) {
   const st = locked ? pill(o.status) : `<span class="menuwrap"><button class="pill ${ST[o.status]?.[1] || ''}" data-act="menu" data-id="${o.id}" aria-haspopup="menu" aria-expanded="${open}">${esc(ST[o.status]?.[0] || o.status)} <span aria-hidden="true">▾</span></button>${m}</span>`;
   return orderCard(o, {
     corner: chatBtn(o), noteBtn: !!o.note,
-    rows: ocRow('status', 'الحالة', st) + customerRows(o) + ocRow('phone', 'هاتف المتجر', telLink(o.merchantPhone)),
+    status: st, rows: customerRows(o) + ocRow('phone', 'هاتف المتجر', telLink(o.merchantPhone)),
     after: o.status === 'picking_up' ? `<div class="notice">ادفع للتاجر ${money(o.productPrice)} عند الاستلام، وبعدها غيّر الحالة إلى «في الطريق للزبون».</div>` : '',
     actions: `${receiptsOn() ? `<button class="btn ghost sm" data-act="receipt" data-id="${o.id}">وصل</button>` : ''}<a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a><a class="btn ghost sm" href="${supportLink(o)}" target="_blank" rel="noopener">واتساب الدعم</a>${wazeLinks(o)}`
   });
@@ -1011,7 +1324,7 @@ function driverOrderCard(o) {
 function adminOrderCard(o) {
   return orderCard(o, {
     corner: o.driverId ? chatBtn(o) : '', noteBtn: !!o.note,
-    rows: ocRow('status', 'الحالة', statusSelect(o)) + customerRows(o) + ocRow('user', 'السائق', esc(o.driverName || '—')),
+    status: statusSelect(o), rows: customerRows(o) + ocRow('user', 'السائق', esc(o.driverName || '—')),
     actions: `<a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a>${receiptsOn() || true ? `<button class="btn ghost sm" data-act="receipt" data-id="${o.id}">وصل</button>` : ''}${wazeLinks(o)}${o.driverId && o.status !== 'pending' ? `<button class="btn soft sm" data-act="requeue" data-id="${o.id}">إعادة للسائقين</button>` : ''}`
   });
 }
@@ -1109,6 +1422,7 @@ function accountLinks(settings) {
   const sp = settings.support;
   const msg = encodeURIComponent(`مرحباً، أحتاج مساعدة في تطبيق ريو\nالاسم: ${S.user.name}\nالهاتف: ${S.user.phone}`);
   return `<h2 class="sec">المظهر</h2>${RioTheme.picker('data-act')}
+  ${ocDesignPicker()}
   <h2 class="sec">الإشعارات</h2>${notifSetting()}${li('bell', 'كل الإشعارات', 'سجل كامل بالطلبات والمحفظة والمحادثات', 'notifs')}
   <h2 class="sec">الدعم والسياسات</h2>
   ${sp ? `<a class="list-item" href="https://wa.me/${waNumber(sp)}?text=${msg}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${ico('wa')}<span class="grow"><b>التواصل مع الدعم</b><small dir="ltr" style="text-align:right">${esc(fmtPhone(sp))} · واتساب</small></span><span class="chev">${ico('chev')}</span></a>
@@ -1211,6 +1525,7 @@ VIEWS['admin:settings'] = () => {
     <div class="card stack"><h2 style="font-size:18px">الدعم</h2><div class="field"><label for="s-support">رقم الدعم (يظهر للتجار والسائقين)</label><input class="in mono" id="s-support" name="support" inputmode="tel" value="${esc(s.support)}" placeholder="07XX XXX XXXX"></div></div>
     <button class="btn" type="submit" style="align-self:flex-start">حفظ الإعدادات</button></form>
   <h2 class="sec">المظهر</h2>${RioTheme.picker('data-act')}
+  ${ocDesignPicker()}
   <button class="btn ghost block" style="margin-top:16px" data-act="logout">${ico('out')} تسجيل الخروج</button>`;
 };
 
@@ -1324,7 +1639,7 @@ async function saveBlob(b, name) {
   if (cap && typeof cap.isNativePlatform === 'function' && cap.isNativePlatform()) {
     try {
       const data = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(b); });
-      await cap.registerPlugin('Filesystem').writeFile({ path: 'Rio/' + name, data, directory: 'DOCUMENTS', recursive: true });
+      await capPlugin('Filesystem').writeFile({ path: 'Rio/' + name, data, directory: 'DOCUMENTS', recursive: true });
       toast('تم حفظ الصورة في المستندات ← Rio');
       return;
     } catch { /* نكمل بالتنزيل العادي */ }
@@ -1496,9 +1811,21 @@ function exportCard(title, hint) {
 }
 
 /* ============ الإشعارات: قائمة كاملة من الخادم + دفع للهاتف ============ */
+/* Capacitor يُحمَّل هنا بدون حزمة JS، فلا توجد registerPlugin: نستخدم كائن Plugins الذي يحقنه الجسر الأصلي */
+function capPlugin(name) {
+  const c = window.Capacitor || {};
+  if (typeof c.registerPlugin === 'function') return c.registerPlugin(name);
+  if (c.Plugins && c.Plugins[name]) return c.Plugins[name];
+  throw new Error('إضافة ' + name + ' غير متاحة (نفّذ npx cap sync android وأعد البناء)');
+}
 let nBusy = false, audioCtx = null, notifReg = null;
 const nKey = (k) => `rio_${k}_${S.user ? S.user.id : 0}`;
 const isNative = () => { const c = window.Capacitor; return !!(c && typeof c.isNativePlatform === 'function' && c.isNativePlatform()); };
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isStandalone = () => navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+// الآيفون لا يسمح بالإشعارات إلا للتطبيق المُثبَّت على الشاشة الرئيسية (iOS 16.4 فأحدث)
+const needsIosInstall = () => !isNative() && isIOS() && !isStandalone();
+const IOS_HELP = 'على الآيفون: اضغط زر المشاركة ⬆︎ في Safari ← «إضافة إلى الشاشة الرئيسية» ← افتح ريو من الأيقونة الجديدة ← اسمح بالإشعارات';
 const unreadCount = () => (S.user && S.user.role !== 'admin' ? S.unread || 0 : 0);
 function updateBell() {
   const b = $('#bell-n'); if (!b) return;
@@ -1544,9 +1871,9 @@ async function notifyReg() {
   try { const reg = await navigator.serviceWorker.register('notify-sw.js', { scope: './__notify/' }); notifReg = await whenActive(reg); return notifReg; } catch { return null; }
 }
 async function systemNotify(m) {
-  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted' || nOff()) return;
   const data = { kind: m.kind, orderId: m.orderId, orderNo: m.orderNo, id: m.id };
-  const opts = { body: m.body, tag: 'rio-' + m.id, renotify: true, vibrate: [200], dir: 'rtl', lang: 'ar', data };
+  const opts = { body: m.body, icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', tag: 'rio-' + m.id, renotify: true, requireInteraction: m.kind === 'order_new', vibrate: [250, 100, 250], dir: 'rtl', lang: 'ar', data };
   try {
     const reg = await notifyReg();
     if (reg) { await reg.showNotification(m.title, opts); return; }
@@ -1570,7 +1897,8 @@ async function checkNotifs() {
     if (S.tab === 'notifs' && !document.hidden) refresh();
     if (!fresh.length) return;
     const m = fresh[fresh.length - 1];
-    if (document.hidden) { if (!S.pushOn) systemNotify(m); } else { beep(); toast(m.title); }
+    if (!S.pushOn) fresh.slice(-3).forEach(systemNotify); // بديل الدفع: يظهر في لوحة إشعارات الجهاز فوراً
+    if (!document.hidden) { beep(); toast(m.title); }
   } catch { /* ignore */ } finally { nBusy = false; }
 }
 
@@ -1620,7 +1948,7 @@ const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeo
 const key64 = (b64) => { const pad = '='.repeat((4 - (b64.length % 4)) % 4); const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(raw, (c) => c.charCodeAt(0)); };
 const webPushOk = () => !isNative() && 'serviceWorker' in navigator && 'PushManager' in window && typeof Notification !== 'undefined';
 async function ensureWebPush() {
-  if (!webPushOk() || Notification.permission !== 'granted' || !S.user || ADMIN_ONLY) return false;
+  if (!webPushOk() || Notification.permission !== 'granted' || nOff() || !S.user || ADMIN_ONLY) return false;
   try {
     const reg = await withTimeout(navigator.serviceWorker.ready, 5000);
     const k = await api('GET', '/api/push/key');
@@ -1634,21 +1962,47 @@ async function ensureWebPush() {
   } catch { return false; }
 }
 let nativeBound = false;
+async function refreshNativePerm() {
+  if (!isNative()) return;
+  try { const r = await capPlugin('PushNotifications').checkPermissions(); S.nperm = r.receive || ''; } catch { /* ignore */ }
+}
 async function ensureNativePush() {
   if (!isNative() || !S.user) return false;
   try {
-    const PN = window.Capacitor.registerPlugin('PushNotifications');
+    const PN = capPlugin('PushNotifications');
+    const LN = capPlugin('LocalNotifications');
+    // 1) الإذن أولاً: يظهر نافذة النظام فور الدخول دون أي خطوة قبلها يمكن أن تفشل
+    const perm = await PN.requestPermissions();
+    S.nperm = perm.receive || '';
+    S.nerr = '';
+    updateNBanner();
+    if (perm.receive !== 'granted') return false;
+    // 2) قناة عالية الأهمية: يظهر الإشعار منبثقاً مع صوت واهتزاز فور وصوله
+    try { await PN.createChannel({ id: 'rio_orders', name: 'الطلبات وتغيّر حالاتها', description: 'إشعارات فورية بالطلبات الجديدة وتغيّر حالتها', importance: 5, visibility: 1, vibration: true, lights: true }); } catch { /* ignore */ }
+    // 3) المستمعات (مرة واحدة)
     if (!nativeBound) {
       nativeBound = true;
-      await PN.addListener('registration', async (t) => { store.set('rio_fcm', t.value); try { await api('POST', '/api/push/subscribe', { type: 'fcm', token: t.value }); store.set('rio_native_push', '1'); S.pushOn = true; if (S.tab === 'me') render(); } catch { /* ignore */ } });
-      await PN.addListener('registrationError', () => { store.del('rio_native_push'); });
-      await PN.addListener('pushNotificationActionPerformed', (a) => { const d = (a.notification && a.notification.data) || {}; handleNotifTap({ kind: d.kind, orderId: d.orderId, orderNo: d.orderNo, id: d.id }); });
+      try { await PN.addListener('registration', async (t) => { store.set('rio_fcm', t.value); try { await api('POST', '/api/push/subscribe', { type: 'fcm', token: t.value }); store.set('rio_native_push', '1'); S.pushOn = true; updateNBanner(); if (S.tab === 'me' && !S.sheet) render(); } catch { /* ignore */ } }); } catch { /* ignore */ }
+      try { await PN.addListener('registrationError', (e) => { store.del('rio_native_push'); S.nerr = 'تعذّر التسجيل في Firebase: ' + ((e && e.error) || 'تأكد من ملف google-services.json'); }); } catch { /* ignore */ }
+      try { await PN.addListener('pushNotificationActionPerformed', (a) => { const d = (a.notification && a.notification.data) || {}; handleNotifTap({ kind: d.kind, orderId: d.orderId, orderNo: d.orderNo, id: d.id }); }); } catch { /* ignore */ }
+      // التطبيق مفتوح: أندرويد لا يعرض إشعار الدفع وحده، فنعرضه في لوحة الإشعارات يدوياً
+      try {
+        await PN.addListener('pushNotificationReceived', async (n) => {
+          const d = n.data || {};
+          beep();
+          try { await LN.schedule({ notifications: [{ id: (Number(d.id) || Date.now()) % 2147483000, title: n.title || d.title || 'ريو للتوصيل أسرع', body: n.body || d.body || '', channelId: 'rio_orders', extra: d }] }); } catch { /* ignore */ }
+        });
+      } catch { /* ignore */ }
+      try { await LN.addListener('localNotificationActionPerformed', (a) => { const d = (a.notification && a.notification.extra) || {}; handleNotifTap({ kind: d.kind, orderId: d.orderId, orderNo: d.orderNo, id: d.id }); }); } catch { /* ignore */ }
     }
-    const perm = await PN.requestPermissions();
-    if (perm.receive !== 'granted') return false;
+    try { await LN.requestPermissions(); } catch { /* ignore */ }
     await PN.register();
     return true;
-  } catch { return false; }
+  } catch (e) {
+    S.nerr = 'تعذّر تفعيل الإشعارات: ' + ((e && e.message) || e);
+    updateNBanner();
+    return false;
+  }
 }
 const ensurePush = () => (isNative() ? ensureNativePush() : ensureWebPush());
 async function unsubscribePush() {
@@ -1662,25 +2016,107 @@ async function doLogout() {
   if (S.user && S.user.role !== 'admin') { try { await withTimeout(unsubscribePush(), 2500); } catch { /* ignore */ } }
   logout();
 }
+/* ---- حالة الإذن + طلبه فور الدخول ---- */
+const nOff = () => store.get(nKey('notif_off')) === '1';
+let entryAsked = false, clickAsked = false;
+function notifState() {
+  if (isNative()) return nOff() ? 'off' : S.nperm === 'granted' ? 'on' : S.nperm === 'denied' ? 'blocked' : 'ask';
+  if (needsIosInstall()) return 'ios';
+  if (typeof Notification === 'undefined') return 'na';
+  const p = Notification.permission;
+  if (p === 'denied') return 'blocked';
+  if (p === 'default') return 'ask';
+  return nOff() ? 'off' : 'on';
+}
+const blockedHelp = () => (isNative() ? 'افتح إعدادات الهاتف ← التطبيقات ← ريو للتوصيل ← الإشعارات ← تفعيل' : 'اضغط على أيقونة القفل بجانب عنوان الموقع ← الإشعارات ← سماح، ثم حدّث الصفحة');
+function nbannerHtml() {
+  if (!S.user || S.user.role === 'admin') return '';
+  const st = notifState();
+  if (st === 'ask') return `<div class="nbanner">${ico('bell')}<div class="grow"><b>اسمح بالإشعارات</b><small>لتصلك الطلبات وتغيّر حالاتها فوراً في لوحة إشعارات جهازك</small>${isNative() && S.nerr ? `<small>${esc(S.nerr)}</small>` : ''}</div><button class="btn sm" data-act="enable-notifs">سماح</button></div>`;
+  if (st === 'ios') return `<div class="nbanner warn">${ico('bell')}<div class="grow"><b>ثبّت التطبيق ليصلك الإشعار وهو مغلق</b><small>${IOS_HELP}</small></div></div>`;
+  if (st === 'blocked') return `<div class="nbanner warn">${ico('bell')}<div class="grow"><b>الإشعارات محظورة</b><small>${blockedHelp()}</small></div>${isNative() ? '' : '<button class="btn ghost sm" data-act="reload">تحديث</button>'}</div>`;
+  return '';
+}
+function updateNBanner() { const b = $('#nbanner'); if (b) b.innerHTML = nbannerHtml(); }
+const requestWebPerm = () => new Promise((res) => { try { const r = Notification.requestPermission(res); if (r && r.then) r.then(res, () => res('default')); } catch { res('default'); } });
+/* يُنفَّذ فور دخول التاجر/السائق: يظهر طلب السماح مباشرة */
+async function promptOnEntry() {
+  if (!S.user || S.user.role === 'admin' || entryAsked) return;
+  entryAsked = true;
+  if (isNative()) {
+    await refreshNativePerm();
+    if (!nOff()) {
+      // يطلب الإذن فور الدخول، ويعيد المحاولة تلقائياً إذا لم تكن واجهة التطبيق جاهزة بعد
+      for (const wait of [0, 2500, 7000]) {
+        if (wait) await new Promise((r) => setTimeout(r, wait));
+        if (!S.user) return;
+        if (await ensureNativePush() || S.nperm === 'denied') break;
+      }
+    }
+    updateNBanner(); return;
+  }
+  if (typeof Notification === 'undefined') return;
+  if (Notification.permission === 'default' && !nOff()) {
+    const t0 = Date.now();
+    await requestWebPerm();
+    // رجع فوراً دون أن يرى المستخدم نافذة (متصفح يشترط ضغطة) ← نطلب عند أول ضغطة
+    clickAsked = Date.now() - t0 > 400;
+    updateNBanner();
+  }
+  if (Notification.permission === 'granted') await ensureWebPush();
+  updateNBanner();
+  if (S.tab === 'me' && !S.sheet) render();
+}
 async function askNotifPermission() {
-  if (isNative()) { const ok = await ensureNativePush(); toast(ok ? 'تم تفعيل الإشعارات' : 'لم يتم منح إذن الإشعارات', !ok); if (S.user && S.tab === 'me') render(); return; }
+  store.del(nKey('notif_off'));
+  if (isNative()) { const ok = await ensureNativePush(); toast(ok ? 'تم تفعيل الإشعارات' : 'لم يتم منح إذن الإشعارات', !ok); updateNBanner(); if (S.user && S.tab === 'me' && !S.sheet) render(); return; }
   if (typeof Notification === 'undefined') return;
   try {
-    const r = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
-    if (r === 'granted') { const ok = await ensureWebPush(); toast(ok ? 'تم تفعيل الإشعارات' : 'تم تفعيل الإشعارات داخل التطبيق'); }
-    else if (r === 'denied') toast('الإشعارات محظورة من إعدادات المتصفح', true);
+    const r = Notification.permission === 'granted' ? 'granted' : await requestWebPerm();
+    updateNBanner();
+    if (r === 'granted') { const ok = await ensureWebPush(); toast(ok ? 'تم تفعيل الإشعارات' : 'تم تفعيل الإشعارات داخل المتصفح'); }
+    else if (r === 'denied') toast('الإشعارات محظورة — ' + blockedHelp(), true);
   } catch { /* ignore */ }
-  if (S.user && S.tab === 'me') render();
+  updateNBanner();
+  if (S.user && S.tab === 'me' && !S.sheet) render();
+}
+async function toggleNotifs() {
+  const st = notifState();
+  if (st === 'on') { store.set(nKey('notif_off'), '1'); await unsubscribePush(); toast('تم إيقاف الإشعارات'); updateNBanner(); if (S.tab === 'me' && !S.sheet) render(); }
+  else if (st === 'ios') toast(IOS_HELP, true);
+  else if (st === 'blocked') toast(blockedHelp(), true);
+  else askNotifPermission();
+}
+async function testNotif() {
+  try {
+    const r = await api('POST', '/api/push/test');
+    if (!r.devices) toast('لا يوجد جهاز مسجّل للإشعارات — أغلق التطبيق وافتحه من جديد ثم اسمح بالإشعارات', true);
+    else if (r.fcm && !r.fcmConfigured && !r.sent) toast('إعداد Firebase ناقص في الخادم (FIREBASE_SERVICE_ACCOUNT)', true);
+    else if (!r.sent) toast('فشل الإرسال: ' + ((r.errors && r.errors[0]) || 'سبب غير معروف'), true);
+    else toast('تم الإرسال ✓ — سيظهر خلال ثوانٍ في لوحة إشعارات جهازك');
+  } catch (e) { toast('تعذّر إرسال الإشعار التجريبي', true); }
+  setTimeout(checkNotifs, 400);
 }
 function notifSetting() {
-  if (isNative()) return li('bell', 'إشعارات الهاتف', store.get('rio_native_push') === '1' ? 'مفعّلة — تصلك حتى لو كان التطبيق مغلقاً' : 'اضغط لتفعيل الإشعارات', 'enable-notifs');
-  if (typeof Notification === 'undefined') return '';
-  const p = Notification.permission;
-  return li('bell', 'إشعارات الهاتف', p === 'granted' ? (S.pushOn ? 'مفعّلة — تصلك حتى لو كان التطبيق مغلقاً' : 'مفعّلة — اضغط لإكمال التفعيل') : p === 'denied' ? 'محظورة من إعدادات المتصفح — فعّلها من إعدادات الموقع' : 'اضغط لتفعيل الإشعارات', 'enable-notifs');
+  const st = notifState();
+  if (st === 'na') return `<div class="list-item">${ico('bell')}<span class="grow"><b>إشعارات الطلبات</b><small>${isIOS() ? 'حدّث الآيفون إلى iOS 16.4 أو أحدث لتصلك الإشعارات' : 'هذا المتصفح لا يدعم الإشعارات — جرّب Chrome أو ثبّت التطبيق'}</small></span></div>`;
+  if (st === 'ios') return `<div class="list-item">${ico('bell')}<span class="grow"><b>إشعارات الطلبات</b><small>${IOS_HELP}</small></span></div>`;
+  const bg = isNative() || (webPushOk() && S.pushOn);
+  const sub = { on: bg ? 'مفعّلة ✓ — تصلك الطلبات وتغيّر حالاتها فوراً حتى لو كان التطبيق مغلقاً' : webPushOk() ? 'مفعّلة ✓ — جارٍ تفعيل الاستقبال في الخلفية…' : 'مفعّلة ✓ — تظهر ما دام الموقع مفتوحاً (ثبّت التطبيق على الشاشة الرئيسية لتصل وهو مغلق)', off: 'متوقفة — اضغط المفتاح لتفعيلها', ask: 'غير مفعّلة — اضغط المفتاح وسيظهر طلب السماح', blocked: 'محظورة — ' + blockedHelp() }[st];
+  return `<div class="list-item">${ico('bell')}<span class="grow"><b>إشعارات الطلبات</b><small>${sub}</small></span><button type="button" class="toggle" role="switch" aria-checked="${st === 'on'}" aria-label="تفعيل الإشعارات" data-act="toggle-notifs"></button></div>${st === 'on' ? `<button class="list-item" data-act="test-notif">${ico('check')}<span class="grow"><b>إرسال إشعار تجريبي</b><small>للتأكد أنه يصل إلى لوحة إشعارات جهازك</small></span><span class="chev">${ico('chev')}</span></button>` : ''}`;
 }
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', (e) => { const d = e.data || {}; if (d.type === 'open-notif') handleNotifTap(d.data); else if (d.type === 'open-chat') openChatFor(d.orderId, d.orderNo); });
+let lastPushSync = 0;
+function resyncPush() {
+  if (!S.user || S.user.role === 'admin' || nOff()) return;
+  const granted = isNative() ? S.nperm === 'granted' : (webPushOk() && Notification.permission === 'granted');
+  if (granted && Date.now() - lastPushSync < 600000) return;
+  lastPushSync = Date.now();
+  if (isNative()) { if (S.nperm !== 'denied') ensureNativePush(); }
+  else if (granted) ensureWebPush();
+}
 setInterval(checkNotifs, 15000);
-document.addEventListener('visibilitychange', () => { if (!document.hidden) checkNotifs(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { checkNotifs(); refreshNativePerm().then(() => { updateNBanner(); resyncPush(); }); updateNBanner(); } });
 
 /* ============ النوافذ المنبثقة ============ */
 function sheetShell(title, body) {
@@ -1861,6 +2297,13 @@ const ACTIONS = {
   'tab-wallet': () => { S.walletTab = 'rep'; go('wallet'); },
   logout: () => doLogout(),
   theme: (el) => { RioTheme.set(el.dataset.t); render(); },
+  ocd: (el) => {
+    const k = el.dataset.d;
+    if (!ocdValid(k) || k === OCD) return;
+    OCD = k; store.set('rio_ocd', k); S.det = {}; render();
+    toast('تم تطبيق تصميم «' + OC_DESIGNS.find((x) => x[0] === k)[1] + '»');
+  },
+  det: (el) => { const id = el.dataset.id; S.det[id] = !S.det[id]; render(); },
   retry: () => refresh(true),
   filter: (el) => { S.filter = el.dataset.f; render(); },
   afilter: (el) => { S.adminFilter = el.dataset.f; S.data = null; lastSig = ''; render(); refresh(); },
@@ -1911,6 +2354,9 @@ const ACTIONS = {
     if (r) { S.data.items = items.concat(r.items); S.data.hasMore = r.hasMore; render(); }
   },
   'enable-notifs': () => askNotifPermission(),
+  'toggle-notifs': () => toggleNotifs(),
+  'test-notif': () => testNotif(),
+  reload: () => location.reload(),
   async chat(el) {
     const id = Number(el.dataset.id);
     markChatRead(id);
@@ -1973,7 +2419,7 @@ function syncVeh(el) { el.parentElement.querySelectorAll('button').forEach((b) =
 
 document.addEventListener('click', (e) => {
   unlockAudio();
-  if (S.user && S.user.role !== 'admin' && !store.get('rio_asked') && (isNative() || (typeof Notification !== 'undefined' && Notification.permission === 'default'))) { store.set('rio_asked', '1'); askNotifPermission(); }
+  if (S.user && S.user.role !== 'admin' && !clickAsked && !nOff() && notifState() === 'ask') { clickAsked = true; askNotifPermission(); }
   const el = e.target.closest('[data-act]');
   if (S.menu && !(el && el.dataset.act === 'menu') && !e.target.closest('.menu')) { S.menu = null; if (!el) render(); }
   if (!el) return;
@@ -1981,7 +2427,7 @@ document.addEventListener('click', (e) => {
   if (fn) { if (el.tagName === 'A') return; fn(el); }
 });
 
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { if (S.sheet) closeSheet(); else if (S.menu) { S.menu = null; render(); } } });
+document.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('.odp-o')) { e.preventDefault(); ACTIONS.ocd(e.target); return; } if (e.key === 'Escape') { if (S.sheet) closeSheet(); else if (S.menu) { S.menu = null; render(); } } });
 
 document.addEventListener('input', (e) => {
   const t = e.target;
