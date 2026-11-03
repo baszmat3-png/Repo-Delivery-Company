@@ -330,9 +330,9 @@ a.btn{text-decoration:none}
 }
 
 /* ===== شاشة الدخول الجديدة ===== */
-.lg{max-width:480px;margin:0 auto;display:flex;flex-direction:column;min-height:100vh;background:#fff;color:#111}
-.lg-hero img{display:block;width:100%;height:auto}
-.lg-card{display:flex;flex-direction:column;gap:12px;padding:8px 22px 36px;text-align:center}
+.lg{width:100vw;margin-inline:calc(50% - 50vw);display:flex;flex-direction:column;min-height:100vh;background:#fff;color:#111}
+.lg-hero img{display:block;width:100%;height:auto;max-height:46vh;object-fit:cover;object-position:top}
+.lg-card{width:100%;max-width:520px;margin-inline:auto;box-sizing:border-box;display:flex;flex-direction:column;gap:12px;padding:8px 22px 36px;text-align:center}
 .lg-card h1{font-size:26px;font-weight:900;margin:0}
 .lg-sub{margin:-6px 0 6px;font-size:14px;color:#333}
 .lg-in{display:flex;align-items:center;gap:10px;background:#f3f4f6;border:1px solid #e1e4e8;border-radius:16px;padding:0 14px;min-height:52px}
@@ -343,7 +343,11 @@ a.btn{text-decoration:none}
 .lg-rem input{width:20px;height:20px}
 .lg-or{display:flex;align-items:center;gap:12px;color:#555;font-size:13px}
 .lg-or::before,.lg-or::after{content:"";flex:1;border-top:1px solid #ddd}
-.lg-reg{background:#fff;color:#111;border:1.5px solid #111;border-radius:16px;min-height:52px;font-weight:800}
+.lg-reg{display:flex;align-items:center;justify-content:center;gap:10px;border:0;border-radius:16px;min-height:56px;font-weight:900;font-size:18px;cursor:pointer;box-shadow:0 6px 16px rgba(0,0,0,.22)}
+.lg-reg .ic{width:24px;height:24px;stroke-width:2.2}
+.lg-reg[data-role="merchant"]{background:#8a3a10;color:#fff}
+.lg-reg[data-role="driver"]{background:#111;color:#ffd21f}
+.lg-reg:active{transform:scale(.98)}
 .lg-new{font-size:14px;color:#111;margin:4px 0 0}
 .lg-link{background:none;border:0;padding:0;font:inherit;color:#1a6fe0;font-weight:700;text-decoration:underline;cursor:pointer}
 

@@ -256,8 +256,8 @@ function loginView() {
     <p class="hint" id="l-err" style="color:var(--red)" role="alert"></p>
     <button class="btn block" type="submit" id="l-btn">دخول ←</button>
     <div class="lg-or"><span>أو</span></div>
-    <button type="button" class="btn ghost block lg-reg" data-act="register" data-role="merchant">${ico('store')} تسجيل كتاجر</button>
-    <button type="button" class="btn ghost block lg-reg" data-act="register" data-role="driver">${ico('user')} تسجيل كسائق</button>
+    <button type="button" class="lg-reg" data-act="register" data-role="merchant">${ico('store')} تسجيل كتاجر</button>
+    <button type="button" class="lg-reg" data-act="register" data-role="driver">${ico('user')} تسجيل كسائق</button>
     <p class="lg-new">ليس لديك حساب؟ <button type="button" class="lg-link" data-act="register" data-role="driver">إنشاء حساب جديد</button></p>
   </form></div>`;
 }
