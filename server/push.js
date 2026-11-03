@@ -69,8 +69,11 @@ async function sendWeb(row, payload) {
     body,
     signal: AbortSignal.timeout(10000)
   });
-  if (res.status === 404 || res.status === 410) await q('DELETE FROM push_subs WHERE id=$1', [row.id]);
-  else if (!res.ok) console.warn('[push] web', res.status);
+  if (res.ok) return { ok: true };
+  if (res.status === 404 || res.status === 410) { await q('DELETE FROM push_subs WHERE id=$1', [row.id]); return { ok: false, why: 'اشتراك منتهي (حُذف)' }; }
+  const t = await res.text().catch(() => '');
+  console.warn('[push] web', res.status, new URL(row.endpoint).host, t.slice(0, 200));
+  return { ok: false, why: `web ${res.status}` };
 }
 
 /* ---------------- FCM (تطبيق أندرويد) ---------------- */
@@ -83,6 +86,7 @@ function fcmConfig() {
   try {
     const t = raw.trim().startsWith('{') ? raw : Buffer.from(raw, 'base64').toString('utf8');
     const j = JSON.parse(t);
+    if (j.private_key) j.private_key = String(j.private_key).replace(/\\n/g, '\n');
     if (j.client_email && j.private_key && j.project_id) fcmCfg = j;
   } catch { console.warn('[push] FIREBASE_SERVICE_ACCOUNT غير صالح'); }
   return fcmCfg;
@@ -104,9 +108,9 @@ async function fcmAccessToken() {
   fcmTok = { v: j.access_token, exp: Date.now() + (Number(j.expires_in) || 3600) * 1000 };
   return fcmTok.v;
 }
-async function sendFcm(row, payload) {
+async function sendFcm(row, payload, retry = true) {
   const c = fcmConfig();
-  if (!c) return;
+  if (!c) return { ok: false, why: 'Firebase غير مضبوط على الخادم' };
   const data = {};
   for (const [k, v] of Object.entries(payload)) if (v !== undefined && v !== null) data[k] = String(v);
   const res = await fetch(`https://fcm.googleapis.com/v1/projects/${c.project_id}/messages:send`, {
@@ -114,15 +118,30 @@ async function sendFcm(row, payload) {
     body: JSON.stringify({ message: { token: row.endpoint, notification: { title: payload.title, body: payload.body }, data, android: { priority: 'HIGH', ttl: '86400s', notification: { sound: 'default', tag: payload.tag, channel_id: 'rio_orders', default_vibrate_timings: true, notification_priority: 'PRIORITY_MAX', visibility: 'PUBLIC' } } } }),
     signal: AbortSignal.timeout(10000)
   });
-  if (res.status === 404 || res.status === 400) {
-    const j = await res.json().catch(() => ({}));
-    if (/UNREGISTERED|NOT_FOUND|INVALID_ARGUMENT/.test(JSON.stringify(j))) await q('DELETE FROM push_subs WHERE id=$1', [row.id]);
-  } else if (!res.ok) console.warn('[push] fcm', res.status);
+  if (res.ok) return { ok: true };
+  const txt = await res.text().catch(() => '');
+  if (res.status === 401 && retry) { fcmTok = { v: '', exp: 0 }; return sendFcm(row, payload, false); }
+  // نحذف الرمز فقط إذا كان فعلاً غير صالح (لا نحذفه بسبب خطأ في بنية الرسالة)
+  if (res.status === 404 || /UNREGISTERED|registration token is not a valid|Requested entity was not found/i.test(txt)) {
+    await q('DELETE FROM push_subs WHERE id=$1', [row.id]);
+    return { ok: false, why: 'رمز الجهاز منتهٍ (حُذف)' };
+  }
+  console.warn('[push] fcm', res.status, txt.slice(0, 300));
+  return { ok: false, why: `fcm ${res.status}` };
 }
 
 async function pushTo(userId, payload) {
   const subs = (await q('SELECT * FROM push_subs WHERE user_id=$1', [userId])).rows;
-  await Promise.allSettled(subs.map((s) => (s.type === 'fcm' ? sendFcm(s, payload) : VAPID ? sendWeb(s, payload) : null)));
+  const out = { devices: subs.length, web: 0, fcm: 0, sent: 0, errors: [] };
+  await Promise.all(subs.map(async (s) => {
+    const isFcm = s.type === 'fcm';
+    if (isFcm) out.fcm++; else out.web++;
+    try {
+      const r = isFcm ? await sendFcm(s, payload) : VAPID ? await sendWeb(s, payload) : { ok: false, why: 'مفاتيح VAPID غير جاهزة' };
+      if (r.ok) out.sent++; else out.errors.push(r.why);
+    } catch (e) { console.warn('[push] send', s.type, e.message); out.errors.push(e.message); }
+  }));
+  return out;
 }
 
 /* ---------------- الواجهة العامة ---------------- */
@@ -130,7 +149,8 @@ async function pushTo(userId, payload) {
  * يحفظ إشعاراً لكل مستخدم ويدفعه لهاتفه في الخلفية.
  * n = { kind, title, body, orderId, orderNo }
  */
-async function notify(userIds, n) {
+async function notify(userIds, n, opts = {}) {
+  const results = [];
   const ids = [...new Set((Array.isArray(userIds) ? userIds : [userIds]).map(Number).filter(Boolean))];
   for (const uid of ids) {
     try {
@@ -138,9 +158,11 @@ async function notify(userIds, n) {
       const row = await db.insert('notifs', { user_id: uid, kind: n.kind, title: n.title, body: n.body || '', order_id: n.orderId || null, order_no: n.orderNo || null, at, is_read: 0 });
       await q('DELETE FROM notifs WHERE user_id=$1 AND id NOT IN (SELECT id FROM notifs WHERE user_id=$1 ORDER BY id DESC LIMIT 300)', [uid]);
       const payload = { id: row.id, kind: n.kind, title: n.title, body: n.body || '', orderId: n.orderId || '', orderNo: n.orderNo || '', tag: `rio-${n.kind}-${n.orderId || row.id}`, url: n.url || '' };
-      pushTo(uid, payload).catch(() => {});
+      const p = pushTo(uid, payload).catch((e) => ({ devices: 0, web: 0, fcm: 0, sent: 0, errors: [e.message] }));
+      if (opts.wait) results.push(await p);
     } catch (e) { console.warn('[notify]', e.message); }
   }
+  return results;
 }
 
 const ST_AR = {
@@ -153,7 +175,7 @@ const ST_AR = {
 async function notifyNewOrder(o, exceptId) {
   const r = await q(`SELECT id FROM users WHERE role='driver' AND active=1 AND receiving=1 AND vehicle=$1`, [o.vehicle === 'car' ? 'car' : 'bike']);
   await notify(r.rows.map((x) => x.id).filter((id) => id !== exceptId), {
-    kind: 'order_new', title: `طلب جديد #${o.num}`, orderId: o.id, orderNo: o.num,
+    kind: 'order_new', title: `يوجد طلب متاح #${o.num}`, orderId: o.id, orderNo: o.num,
     body: `${o.merchant_name} — ${o.merchant_area} ← ${o.customer_area}\nسعر الطلب ${iqd(o.product_price)} + توصيل ${iqd(o.delivery_price)}`
   });
 }

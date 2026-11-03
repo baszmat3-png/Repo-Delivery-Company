@@ -326,9 +326,9 @@ route('POST', '/api/push/subscribe', PUSH_ROLES, async (c) => {
 });
 /* إشعار تجريبي من الإعدادات: يتأكد المستخدم أن الإشعارات تصله فعلاً */
 route('POST', '/api/push/test', PUSH_ROLES, async (c) => {
-  const n = Number((await q('SELECT COUNT(*) AS n FROM push_subs WHERE user_id=$1', [c.user.id])).rows[0].n);
-  await notify(c.user.id, { kind: 'test', title: 'الإشعارات تعمل ✓', body: 'ستصلك الطلبات وتغيّر حالاتها فور حدوثها' });
-  return { ok: true, devices: n };
+  const [r] = await notify(c.user.id, { kind: 'test', title: 'الإشعارات تعمل ✓', body: 'ستصلك الطلبات وتغيّر حالاتها فور حدوثها' }, { wait: true });
+  const x = r || { devices: 0, web: 0, fcm: 0, sent: 0, errors: [] };
+  return { ok: true, devices: x.devices, web: x.web, fcm: x.fcm, sent: x.sent, errors: x.errors, fcmConfigured: hasFcm() };
 });
 route('POST', '/api/push/unsubscribe', PUSH_ROLES, async (c) => {
   const e = String(c.body.endpoint || c.body.token || '');
