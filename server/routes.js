@@ -272,8 +272,17 @@ route('GET', '/api/notifications', { roles: ['merchant', 'driver'] }, async (c) 
 
 /* ---------- قائمة الإشعارات + الدفع للهاتف ---------- */
 const USERS_ONLY = { roles: ['merchant', 'driver'] };
+const PUSH_ROLES = { roles: ['merchant', 'driver', 'admin', 'staff'] };
+/* المدير والموظفون (صلاحية الطلبات) يستلمون إشعارات الطلبات أيضاً */
+async function notifyAdmins(n) {
+  try {
+    const r = await q(`SELECT * FROM users WHERE role IN ('admin','staff') AND active=1`);
+    const ids = r.rows.filter((u) => can(u, 'orders')).map((u) => u.id);
+    if (ids.length) await notify(ids, { ...n, url: 'admin.html' });
+  } catch (e) { console.warn('[notifyAdmins]', e.message); }
+}
 const notifOut = (n) => ({ id: n.id, kind: n.kind, title: n.title, body: n.body, orderId: n.order_id, orderNo: n.order_no, at: n.at, read: !!n.is_read });
-route('GET', '/api/notifs', USERS_ONLY, async (c) => {
+route('GET', '/api/notifs', PUSH_ROLES, async (c) => {
   const uid = c.user.id;
   const unread = Number((await q('SELECT COUNT(*) AS n FROM notifs WHERE user_id=$1 AND is_read=0', [uid])).rows[0].n);
   const mx = Number((await q('SELECT COALESCE(MAX(id),0) AS n FROM notifs WHERE user_id=$1', [uid])).rows[0].n);
@@ -300,7 +309,7 @@ route('POST', '/api/notifs/read', USERS_ONLY, async (c) => {
 route('POST', '/api/notifs/clear', USERS_ONLY, async (c) => { await q('DELETE FROM notifs WHERE user_id=$1', [c.user.id]); return { ok: true }; });
 
 route('GET', '/api/push/key', { public: true }, async () => ({ key: vapidPublicKey(), fcm: hasFcm() }));
-route('POST', '/api/push/subscribe', USERS_ONLY, async (c) => {
+route('POST', '/api/push/subscribe', PUSH_ROLES, async (c) => {
   const b = c.body;
   let type, endpoint, data = '';
   if (b.type === 'fcm') {
@@ -316,12 +325,12 @@ route('POST', '/api/push/subscribe', USERS_ONLY, async (c) => {
   return { ok: true };
 });
 /* إشعار تجريبي من الإعدادات: يتأكد المستخدم أن الإشعارات تصله فعلاً */
-route('POST', '/api/push/test', USERS_ONLY, async (c) => {
+route('POST', '/api/push/test', PUSH_ROLES, async (c) => {
   const n = Number((await q('SELECT COUNT(*) AS n FROM push_subs WHERE user_id=$1', [c.user.id])).rows[0].n);
   await notify(c.user.id, { kind: 'test', title: 'الإشعارات تعمل ✓', body: 'ستصلك الطلبات وتغيّر حالاتها فور حدوثها' });
   return { ok: true, devices: n };
 });
-route('POST', '/api/push/unsubscribe', USERS_ONLY, async (c) => {
+route('POST', '/api/push/unsubscribe', PUSH_ROLES, async (c) => {
   const e = String(c.body.endpoint || c.body.token || '');
   if (e) await q('DELETE FROM push_subs WHERE endpoint=$1 AND user_id=$2', [e, c.user.id]);
   return { ok: true };
@@ -373,6 +382,7 @@ route('POST', '/api/merchant/orders', MERCHANT, async (c) => {
         accepted_at: null, delivered_at: null, log: JSON.stringify([{ s: 'pending', at: now }])
       });
       await notifyNewOrder(row);
+      notifyAdmins({ kind: 'order_new', orderId: row.id, orderNo: row.num, title: `طلب جديد #${row.num}`, body: `${row.merchant_name} — ${row.merchant_area} ← ${row.customer_area}\nالمطلوب ${iqd(row.total)}` });
       return { order: ord(row) };
     } catch (e) {
       if (!/unique|duplicate/i.test(String(e.message))) throw e;
@@ -388,6 +398,7 @@ route('POST', '/api/merchant/orders/:id/cancel', MERCHANT, async (c) => {
   const now = Date.now();
   const u = await q(`UPDATE orders SET status='cancelled',updated_at=$1,log=$2 WHERE id=$3 AND status='pending' RETURNING *`, [now, pushLog(o, 'cancelled', now), o.id]);
   if (!u.rows.length) fail('لا يمكن إلغاء الطلب بعد قبول السائق له', 409);
+  notifyAdmins({ kind: 'order_status', orderId: o.id, orderNo: o.num, title: `التاجر ألغى الطلب #${o.num}`, body: o.merchant_name });
   return { order: ord(u.rows[0]) };
 });
 
@@ -470,6 +481,7 @@ route('POST', '/api/driver/orders/:id/accept', DRIVER, async (c) => {
     fail('سائق آخر قبل هذا الطلب قبلك', 409);
   }
   await db.insert('txs', { driver_id: u.id, amount: -fee, kind: 'fee', label: 'رسوم التطبيق', order_num: o.num, at: now });
+  notifyAdmins({ kind: 'order_status', orderId: o.id, orderNo: o.num, title: `السائق ${u.name} قبل الطلب #${o.num}`, body: `${o.merchant_name} · ${o.customer_area}` });
   await notify(o.merchant_id, { kind: 'order_accepted', orderId: o.id, orderNo: o.num, title: `تم قبول طلبك #${o.num}`, body: `السائق ${u.name} قبل الطلب وهو في طريقه لاستلامه من المتجر` });
   if (fee > 0) await notify(u.id, { kind: 'wallet_debit', orderId: o.id, orderNo: o.num, title: `خصم رسوم التطبيق −${iqd(fee)}`, body: `طلب #${o.num} · رصيدك الحالي ${iqd(pay.rows[0].balance)}` });
   return { order: ord(claim.rows[0]) };
@@ -490,6 +502,7 @@ route('POST', '/api/driver/orders/:id/status', DRIVER, async (c) => {
   });
   if (status !== o.status) {
     const T = { picking_up: 'السائق في طريقه لاستلام الطلب', on_the_way: 'الطلب في الطريق إلى الزبون', delivered: 'تم تسليم الطلب للزبون', rejected: 'الزبون رفض الطلب', no_answer: 'الزبون لا يرد على السائق', postponed: 'تم تأجيل الطلب', return_sent: 'السائق أرجع الطلب إليك، أكّد استلامه' };
+    notifyAdmins({ kind: 'order_status', orderId: o.id, orderNo: o.num, title: `طلب #${o.num}: ${ST_AR[status]}`, body: `${o.merchant_name} · السائق ${c.user.name}` });
     await notify(o.merchant_id, { kind: 'order_status', orderId: o.id, orderNo: o.num, title: `طلب #${o.num}: ${ST_AR[status]}`, body: `${T[status] || ST_AR[status]} · السائق ${c.user.name}` });
   }
   return { order: ord(u) };

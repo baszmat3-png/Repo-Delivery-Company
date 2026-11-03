@@ -137,7 +137,7 @@ async function notify(userIds, n) {
       const at = Date.now();
       const row = await db.insert('notifs', { user_id: uid, kind: n.kind, title: n.title, body: n.body || '', order_id: n.orderId || null, order_no: n.orderNo || null, at, is_read: 0 });
       await q('DELETE FROM notifs WHERE user_id=$1 AND id NOT IN (SELECT id FROM notifs WHERE user_id=$1 ORDER BY id DESC LIMIT 300)', [uid]);
-      const payload = { id: row.id, kind: n.kind, title: n.title, body: n.body || '', orderId: n.orderId || '', orderNo: n.orderNo || '', tag: `rio-${n.kind}-${n.orderId || row.id}` };
+      const payload = { id: row.id, kind: n.kind, title: n.title, body: n.body || '', orderId: n.orderId || '', orderNo: n.orderNo || '', tag: `rio-${n.kind}-${n.orderId || row.id}`, url: n.url || '' };
       pushTo(uid, payload).catch(() => {});
     } catch (e) { console.warn('[notify]', e.message); }
   }
