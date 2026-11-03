@@ -455,3 +455,216 @@ a.btn{text-decoration:none}
 .nbanner.warn{background:var(--amber-soft);border-color:var(--amber)}
 .nbanner.warn>.ic,.nbanner.warn>svg{color:var(--amber)}
 .nbanner .btn{flex:none}
+
+/* ===== تصميم الوصولات: قسم الاختيار ===== */
+.oc-c{font-style:normal}
+.odp{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-width:392px;margin:0 auto 6px}
+.odp-o{display:flex;flex-direction:column;gap:2px;padding:6px 6px 10px;border-radius:18px;background:var(--surface);border:2px solid var(--line);color:var(--fg);cursor:pointer;text-align:center}
+.odp-o b{font-size:14px;margin-top:6px}
+.odp-o small{font-size:12px;color:var(--muted)}
+.odp-o[aria-checked="true"]{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.odp-box{position:relative;height:178px;overflow:hidden;border-radius:12px;pointer-events:none;background:rgba(128,128,128,.12)}
+.odp-in{position:absolute;top:6px;right:4px;width:360px;transform-origin:top right;transform:scale(.42)}
+.odp-in .oc,.odp-in .od{margin:0}
+@media (max-width:359px){.odp-in{transform:scale(.38)}}
+
+/* ===== التصاميم البديلة لبطاقة الطلب (.od) ===== */
+.od{
+  --fg:#111;--muted:#7a6a58;--line:#eadfce;--surface:#fff;--surface-2:#faf6ee;--input:#fff;
+  --amber:#a4660a;--green:#1d7f4a;--red:#c4372e;--blue:#2f55c4;
+  --amber-soft:rgba(240,169,60,.2);--green-soft:rgba(76,200,132,.2);--red-soft:rgba(242,118,109,.2);--blue-soft:rgba(116,153,242,.2);
+  --accent:#ffd21f;--accent-ink:#171200;--accent-text:#7d5f00;--accent-soft:rgba(255,210,31,.3);--accent-bg:#ffd21f;
+  --od-bg:#fff;--od-lbl:#8a3a10;--od-r:20px;--od-box:#fff;--od-boxbd:2px solid #111;--od-det:#faf7ec;
+  --od-btn:#111;--od-btn-fg:#ffd21f;--od-note:#e0303f;--od-note-bg:#fff;--od-note-bd:2.5px solid #e0303f;
+  --od-waze:#ffd21f;--od-waze-fg:#111;--od-sup-bd:2px solid #111;--od-tg:2px dashed #111;--od-tg-fg:#111;--od-notice:#fff3c4;--od-notice-fg:#6b5000;
+  position:relative;box-sizing:border-box;max-width:100%;min-width:0;color:var(--fg);background:var(--od-bg);font-family:var(--font-display);font-size:15px;line-height:1.5;margin-bottom:0
+}
+.od *{box-sizing:border-box}
+.od small{display:block}
+.od-hd{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.od-no{font-weight:900;font-size:28px;line-height:1.2;display:flex;flex-direction:column}
+.od-nol{display:none;font-size:13px;font-weight:700;color:var(--od-lbl)}
+.od-ago{font-size:13px;font-weight:600;white-space:nowrap}
+.od-body{padding:16px 20px 20px}
+.od-st{display:flex;justify-content:space-between;align-items:center;gap:10px;font-weight:900;font-size:17px}
+.od-sl{font-size:14px;font-weight:600}
+.od[data-st="delivered"] .od-sv::before{content:"✓ "}
+.od .od-sv .pill{background:none;border:0;padding:0;color:inherit;font:inherit;font-weight:900;font-size:inherit}
+.od .od-sv select.in{min-width:140px;color:#111;background:#fff}
+.od-store{display:flex;align-items:center;gap:12px}
+.od-av{display:none;flex:none;place-items:center;font-weight:900}
+.od-sn small{font-size:13px;font-weight:600;color:var(--od-lbl)}
+.od-sn b{display:block;font-size:21px;font-weight:900;line-height:1.3}
+.od-pr{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:6px 10px;margin-top:14px}
+.od-pl{flex:1 0 100%;font-size:13px;font-weight:600;color:var(--od-lbl)}
+.od-pm{display:flex;align-items:baseline;gap:8px}
+.od-pv{display:inline-flex;align-items:baseline;gap:8px}
+.od-big{font-size:40px;font-weight:900;line-height:1.05;white-space:nowrap}
+.od-pr em{font-style:normal;font-size:15px;font-weight:600;opacity:.75}
+.od-dl{display:inline-block;white-space:nowrap;font-weight:800;font-size:13.5px;padding:5px 12px;border-radius:12px;border:2px solid #111}
+.od-ad{display:flex;gap:10px;align-items:stretch;margin-top:14px}
+.od-ab{flex:1 1 0;min-width:0;padding:12px 16px;border-radius:var(--od-r);background:var(--od-box);border:var(--od-boxbd)}
+.od-ab small{font-size:13px;font-weight:600;color:var(--od-lbl)}
+.od-ab b{display:block;font-size:19px;font-weight:900;line-height:1.3;overflow-wrap:anywhere}
+.od-arrow{display:none}
+.od .notice{margin-top:12px;font-size:13.5px;background:var(--od-notice);color:var(--od-notice-fg);border-radius:14px}
+.od .hint{color:var(--od-lbl);margin-top:12px}
+.od-tg{display:block;width:100%;margin-top:14px;padding:15px;border:var(--od-tg);border-radius:var(--od-r);background:transparent;color:var(--od-tg-fg);font:900 17px var(--font-display);cursor:pointer}
+.od-det{margin-top:14px;padding:4px 18px;border-radius:var(--od-r);background:var(--od-det)}
+.od .oc-r{margin:0;padding:11px 0;gap:4px 10px;flex-wrap:nowrap;justify-content:space-between;align-items:center;font-size:14.5px;border-bottom:1.5px solid rgba(128,100,60,.16)}
+.od .oc-r:last-child{border-bottom:0}
+.od .oc-i,.od .oc-c{display:none}
+.od .oc-l{color:var(--od-lbl);font-weight:600;font-size:14.5px}
+.od .oc-v{margin-inline-start:auto;text-align:start;font-weight:800;color:var(--fg)}
+.od .phone{color:var(--fg);font-family:var(--font-display);font-weight:800;font-size:15px}
+.od-links{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+.od-links>*{flex:1 1 38%;order:1}
+.od .od-links .btn{min-height:52px;border-radius:var(--od-r);font:800 15px var(--font-display);padding:8px 12px}
+.od .od-links .btn.soft{flex:1 1 100%;order:0;background:var(--od-waze);color:var(--od-waze-fg)}
+.od .od-links .btn.wa{background:#25d366;color:#fff}
+.od .od-links .btn.ghost{background:var(--od-bg);color:var(--fg);border:var(--od-sup-bd)}
+.od-main{display:flex;gap:10px;margin-top:14px}
+.od .oc-cb{flex:1 1 0;min-width:0;justify-content:center;gap:8px;min-height:56px;padding:8px 12px;border-radius:var(--od-r);font:900 18px var(--font-display);white-space:nowrap;width:auto}
+.od .oc-cb.g{flex:2 1 0;background:var(--od-btn);color:var(--od-btn-fg)}
+.od .oc-cb.r{background:var(--od-note-bg);color:var(--od-note);border:var(--od-note-bd)}
+.od .oc-cb svg{display:none}
+.od .oc-cb[data-act="accept"] svg{display:inline-block;width:18px;height:18px;stroke-width:2.6}
+.od .oc-ex{background:none;color:inherit;width:auto;height:auto;font-size:20px;font-weight:900}
+.od .menu{background:#fff;color:#111;border:1px solid #ddd;box-shadow:0 10px 30px rgba(0,0,0,.25);inset-inline-start:auto;inset-inline-end:0}
+.od .menu button{color:#111}
+
+/* --- 1) أسود وأصفر --- */
+.od-bold{border:3px solid #111;border-radius:26px}
+.od-bold .od-top{background:#111;color:#ffd21f;border-radius:23px 23px 0 0;padding:18px 22px 14px}
+.od-bold .od-ago{color:#c9c3b0}
+.od-bold .od-st{background:#ffd21f;color:#111;padding:14px 22px}
+.od-bold .od-av{display:none}
+.od-bold .od-sn b{font-size:24px}
+.od-bold .od-pl{display:none}
+.od-bold .od-pr{margin-top:18px}
+.od-bold .od-pr::before{content:"سعر الطلب";flex:1 0 100%;font-size:13px;font-weight:600;color:var(--od-lbl)}
+.od-bold .od-pv{background:linear-gradient(transparent 64%,#ffd21f 64%);padding-inline:2px}
+.od-bold .od-big{font-size:42px}
+.od-bold .od-ab{border-radius:20px}
+.od-bold .od-body{padding-bottom:22px}
+
+/* --- 2) أخضر متدرّج --- */
+.od-green{--od-r:999px;--od-box:#f1f5f2;--od-boxbd:0 solid transparent;--od-det:#f6f8f6;--od-btn:#166b43;--od-btn-fg:#fff;--od-note-bd:1.5px solid #d6303f;--od-note:#d6303f;--od-waze:#fdf0bd;--od-waze-fg:#6b4d00;--od-sup-bd:1.5px solid #cfdcd7;--od-tg:1.5px solid #cfdcd7;--od-tg-fg:#166b43;border-radius:30px}
+.od-green .od-top{background:linear-gradient(135deg,#0e3a29,#1f8a5b);color:#fff;border-radius:30px 30px 0 0;padding:20px 22px 22px}
+.od-green .od-no{color:#c7f24a;font-size:26px}
+.od-green .od-ago{color:#cfe7da}
+.od-green .od-store{margin-top:12px}
+.od-green .od-sn small{display:none}
+.od-green .od-sn b{font-size:19px;font-weight:600}
+.od-green .od-pl{display:none}
+.od-green .od-pr{flex-direction:column;align-items:flex-start;margin-top:8px;gap:12px}
+.od-green .od-pr em{color:#cfe7da}
+.od-green .od-dl{background:#c7f24a;color:#13361f;border:0;border-radius:999px;font-size:15px}
+.od-green .od-body{padding:18px 20px 22px}
+.od-green .od-st{justify-content:flex-start;gap:6px;color:#166b43;font-size:16px}
+.od-green .od-sl{order:-1;color:#8a3a10;font-size:16px;font-weight:700}
+.od-green .od-sl::after{content:":"}
+.od-green[data-st="delivered"] .od-sv::before{content:none}
+.od-steps{display:flex;align-items:flex-start;margin:12px 0 4px}
+.od-s{display:flex;flex-direction:column;align-items:center;gap:6px;flex:none;width:58px}
+.od-s i{display:grid;place-items:center;width:52px;height:52px;border-radius:50%;background:#e4eae6;color:#fff}
+.od-s.on i{background:#22c55e}
+.od-s i svg{width:24px;height:24px;stroke-width:3}
+.od-s small{font-size:14px;font-weight:700;color:#8a9a90}
+.od-s.on small{color:#166b43}
+.od-ln{flex:1;height:5px;border-radius:5px;background:#e4eae6;margin-top:24px}
+.od-ln.on{background:#22c55e}
+.od-green .od-ab{padding:14px 16px;border-radius:18px}
+.od-green .od-ad{margin-top:16px}
+
+/* --- 3) تذكرة --- */
+.od-ticket{--od-box:#f3f1ed;--od-boxbd:0 solid transparent;--od-det:#faf6ec;--od-r:22px;--od-btn:#1f9d4d;--od-btn-fg:#fff;--od-note:#d6303f;--od-note-bg:#fce9ea;--od-note-bd:0 solid transparent;--od-waze:#fcefc0;--od-waze-fg:#6b4d00;--od-sup-bd:2px solid #e5dcc6;--od-tg:2px dashed #d8cfb8;background:transparent;filter:drop-shadow(0 6px 14px rgba(0,0,0,.22))}
+.od-half{position:relative;isolation:isolate}
+.od-half::before{content:"";position:absolute;inset:0;z-index:-1;background:#fff}
+.od-ticket .od-top{padding:22px 22px 24px}
+.od-ticket .od-top::before{border-radius:30px 30px 0 0;-webkit-mask:radial-gradient(circle 15px at 0 100%,#0000 97%,#000) left/51% 100% no-repeat,radial-gradient(circle 15px at 100% 100%,#0000 97%,#000) right/51% 100% no-repeat;mask:radial-gradient(circle 15px at 0 100%,#0000 97%,#000) left/51% 100% no-repeat,radial-gradient(circle 15px at 100% 100%,#0000 97%,#000) right/51% 100% no-repeat}
+.od-ticket .od-top::after{content:"";position:absolute;left:22px;right:22px;bottom:0;border-bottom:3px dashed #e6e0cf}
+.od-ticket .od-bot{padding:20px 22px 22px}
+.od-ticket .od-bot::before{border-radius:0 0 30px 30px;-webkit-mask:radial-gradient(circle 15px at 0 0,#0000 97%,#000) left/51% 100% no-repeat,radial-gradient(circle 15px at 100% 0,#0000 97%,#000) right/51% 100% no-repeat;mask:radial-gradient(circle 15px at 0 0,#0000 97%,#000) left/51% 100% no-repeat,radial-gradient(circle 15px at 100% 0,#0000 97%,#000) right/51% 100% no-repeat}
+.od-ticket .od-no{color:#d97706;font-size:34px}
+.od-ticket .od-nol{display:block}
+.od-ticket .od-ago{background:#f1ece0;color:#7a6f5c;padding:8px 18px;border-radius:999px;font-size:14px}
+.od-ticket .od-st{margin-top:16px;padding:14px 18px;border-radius:18px;background:#e0f2e5;color:#1d7f4a}
+.od-ticket .od-sl{color:#8a3a10}
+.od-ticket .od-store{margin-top:18px}
+.od-ticket .od-av{display:grid;width:90px;height:90px;border-radius:24px;background:#124a31;color:#a3e635;font-size:36px;flex:none}
+.od-ticket .od-av{width:56px;height:56px;border-radius:16px;font-size:26px}
+.od-ticket .od-pr{margin-top:0}
+.od-ticket .od-big{font-size:42px}
+.od-ticket .od-dl{background:#e8f5ec;color:#1d7f4a;border:0;border-radius:14px;font-size:15px}
+.od-ticket .od-ad{align-items:center}
+.od-ticket .od-ab{flex:0 0 auto;max-width:38%;border-radius:18px;padding:10px 16px}
+.od-ticket .od-arrow{display:block;flex:1;height:0;border-top:4px dotted #d3c4a0;position:relative;min-width:20px}
+.od-ticket .od-arrow::before{content:"";position:absolute;left:-4px;top:-9px;border:8px solid transparent;border-right:10px solid #d97706;border-left:0}
+.od-ticket .oc-c{display:inline}
+.od-ticket .oc-r{justify-content:flex-start;border-bottom:0;padding:8px 0;font-size:16px}
+.od-ticket .oc-v{margin-inline-start:0}
+.od-ticket .oc-l{font-weight:600}
+.od-ticket .phone{color:#8a3a10}
+.od-ticket .od-det{padding:12px 18px}
+.od-ticket .od-main .oc-cb.g{background:#1f9d4d}
+
+/* --- 4) أصفر وبني --- */
+.od-sun{--od-bg:#fffaee;--od-box:#fff;--od-boxbd:2px solid #f0e5cf;--od-det:#fff3d6;--od-r:999px;--od-btn:#229e4e;--od-btn-fg:#fff;--od-note:#d6303f;--od-note-bg:transparent;--od-note-bd:2.5px solid #d6303f;--od-waze:#fdf0c0;--od-waze-fg:#6b4d00;--od-sup-bd:2px solid #ecdcb8;--od-tg:2px dashed #e2cf9f;border-radius:34px}
+.od-sun .od-top{background:#fdbf26;color:#3f2a00;border-radius:34px 34px 0 0;padding:20px 26px}
+.od-sun .od-no{font-size:30px;color:#3f2a00}
+.od-sun .od-ago{color:#6b4d00;font-size:15px}
+.od-sun .od-body{padding:20px 22px 24px}
+.od-sun .od-st{background:#fdf0c0;color:#6b4d00;padding:12px 18px;border-radius:18px;margin-bottom:16px}
+.od-sun .od-av{display:grid;width:54px;height:54px;border-radius:50%;background:#8a3a10;color:#fff;font-size:24px}
+.od-sun .od-sn small{display:none}
+.od-sun .od-sn b{font-size:22px}
+.od-sun .od-pr{flex-wrap:nowrap;gap:12px;align-items:stretch;margin-top:16px}
+.od-sun .od-pb,.od-sun .od-db{border-radius:26px;padding:14px 20px}
+.od-sun .od-pb{flex:1.7 1 0;min-width:0;background:#8a3a10;color:#fff}
+.od-sun .od-db{flex:1 1 0;min-width:0;background:#fdf0c0;color:#4a3500}
+.od-sun .od-pb small{color:#f1d9c6}
+.od-sun .od-db small{color:#6b4d00}
+.od-sun .od-pb div,.od-sun .od-db div{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.od-sun .od-pb .od-big{font-size:28px}
+.od-sun .od-db b{font-size:22px;font-weight:900}
+.od-sun .od-ab{border-radius:24px}
+.od-sun .od-tg,.od-sun .od-det{border-radius:26px}
+.od-sun .od-links .btn,.od-sun .oc-cb{border-radius:999px}
+
+/* --- 5) داكن --- */
+.od-night{--od-bg:#0a2a1d;--fg:#fff;--input:#0a2a1d;--line:#2f6b50;--od-lbl:#9bc0ad;--od-r:20px;--od-box:transparent;--od-boxbd:0 solid transparent;--od-det:#123d2b;--od-btn:#a3e635;--od-btn-fg:#0a2410;--od-note:#ff5d6c;--od-note-bg:transparent;--od-note-bd:2px solid #ff5d6c;--od-waze:rgba(163,230,53,.16);--od-waze-fg:#d7f78a;--od-sup-bd:2px solid #2f6b50;--od-tg:2px dashed #2f6b50;--od-tg-fg:#a3e635;--od-notice:rgba(163,230,53,.14);--od-notice-fg:#d7f78a;border:1px solid #17503a;border-radius:30px;padding:22px 22px 24px;color:#fff}
+.od-night .od-body{padding:0}
+.od-night .od-no{color:#a3e635;font-size:32px}
+.od-night .od-ago{color:#8fb3a1}
+.od-night .od-st{margin-top:14px;padding:10px 16px;border-radius:16px;background:rgba(163,230,53,.12);color:#a3e635}
+.od-night .od-sl{color:#9bc0ad}
+.od-night .od-store{margin-top:14px;gap:10px;color:#e6f5ec}
+.od-night .od-av{display:block;width:14px;height:14px;border-radius:50%;background:#a3e635;font-size:0}
+.od-night .od-sn small{display:none}
+.od-night .od-sn b{font-size:19px;font-weight:600}
+.od-night .od-pr{margin-top:16px;padding:18px 20px;border-radius:28px;background:#123d2b;align-items:center;flex-wrap:wrap}
+.od-night .od-pm{flex-direction:column;align-items:flex-start;gap:0}
+.od-night .od-pl{color:#9bc0ad;font-size:14px}
+.od-night .od-big{font-size:44px}
+.od-night .od-pr em{color:#9bc0ad;font-size:16px}
+.od-night .od-dl{background:#27501f;border:1.5px solid #4c8a2c;color:#a3e635;border-radius:16px;text-align:center;font-size:14px;white-space:nowrap}
+.od-night .od-ad{flex-direction:column;gap:18px;margin-top:20px;position:relative}
+.od-night .od-ab{position:relative;padding:0 50px 0 0;background:none}
+.od-night .od-ab::before{content:"";position:absolute;right:0;top:10px;width:24px;height:24px;border-radius:50%;border:3px solid #a3e635}
+.od-night .od-ab+.od-arrow+.od-ab::before{background:#a3e635}
+.od-night .od-ab:first-child::after{content:"";position:absolute;right:11px;top:38px;bottom:-22px;border-right:4px dotted #3b6e55}
+.od-night .od-ab small{color:#9bc0ad}
+.od-night .od-ab b{color:#fff;font-size:21px}
+.od-night .oc-r{border-bottom-color:rgba(255,255,255,.1)}
+.od-night .phone{color:#a3e635}
+.od-night .od-links .btn.ghost{background:transparent;color:#fff}
+.od-night .menu{background:#123d2b;color:#fff;border-color:#2f6b50}
+.od-night .menu button{color:#fff}
+.od-night .od-sv select.in{background:#0a2a1d;color:#fff;border-color:#2f6b50}
+
+@media (max-width:380px){.od-big{font-size:38px}.od-night .od-big{font-size:42px}.od-ticket .od-big{font-size:40px}.od-no{font-size:24px}.od-sun .od-pb .od-big{font-size:28px}}
+
+/* قائمة تغيير الحالة كانت تُقصّ داخل البطاقة فلا يظهر خيار «تم الإرجاع للتاجر»: نسمح لها بالخروج من البطاقة */
+.oc:has(.menu){overflow:visible}
+.oc .menu{max-height:70vh;overflow:auto}

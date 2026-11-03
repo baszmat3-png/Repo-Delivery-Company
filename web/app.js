@@ -16,6 +16,17 @@ const store = {
   del(k) { try { localStorage.removeItem(k); } catch { /* ignore */ } }
 };
 let RSIZE = RSIZES[store.get('rio_rsize')] ? store.get('rio_rsize') : '80';
+/* تصميم الوصولات (بطاقة الطلب): يُحفظ في جهاز المستخدم ويُطبَّق فوراً على كل بطاقات الطلبات */
+const OC_DESIGNS = [
+  ['classic', 'كلاسيكي', 'الشكل الحالي'],
+  ['bold', 'أسود وأصفر', 'عريض وواضح'],
+  ['green', 'أخضر متدرّج', 'مع شريط تقدّم الطلب'],
+  ['ticket', 'تذكرة', 'بشكل قسيمة'],
+  ['sun', 'أصفر وبني', 'بطاقات ملوّنة'],
+  ['night', 'داكن', 'مسار التوصيل']
+];
+const ocdValid = (k) => OC_DESIGNS.some((d) => d[0] === k);
+let OCD = ocdValid(store.get('rio_ocd')) ? store.get('rio_ocd') : 'classic';
 /* تشغيل/إيقاف الوصولات من الإدارة: يخفي زر «وصل» عن التاجر والسائق فقط */
 const receiptsOn = () => !S.user || S.user.role === 'admin' || !S.data || !S.data.settings || ![0, false, '0'].includes(S.data.settings.receipts);
 const rsizeSeg = () => `<div class="seg" role="group" aria-label="حجم الوصل" style="display:flex;justify-content:center;width:max-content;max-width:100%;margin:0 auto 10px">${Object.keys(RSIZES).map((k) => `<button type="button" data-act="rsize" data-k="${k}" aria-pressed="${RSIZE === k}">${RSIZES[k][0]}</button>`).join('')}</div>`;
@@ -91,7 +102,7 @@ const vehName = (v) => (v === 'car' ? 'سيارة' : 'دراجة');
 /* ============ الحالة ============ */
 const S = {
   token: store.get(TOKEN_KEY) || (() => { try { return sessionStorage.getItem(TOKEN_KEY); } catch { return null; } })(), user: null, tab: '', data: null, loading: false, error: '',
-  unread: 0, pushOn: false, sheet: null, menu: null, armed: null, filter: 'all', walletTab: 'log', ordersTab: 'current', adminFilter: 'all', cardsBatch: null, expRange: 'month'
+  unread: 0, pushOn: false, sheet: null, menu: null, armed: null, filter: 'all', walletTab: 'log', ordersTab: 'current', adminFilter: 'all', cardsBatch: null, expRange: 'month', det: {}
 };
 let lastSig = '';
 let chatTimer = null;
@@ -272,7 +283,7 @@ function tile(label, sub, n, color) {
 /* ============ بطاقة الطلب الموحّدة (التاجر / السائق / المدير) ============ */
 const dinar = (n) => `<span class="num">${nf.format(Math.round(n || 0))}</span> دينار`;
 const OCI = { store: ico('store'), pin: ico('pin'), phone: ico('phone'), box: ico('orders'), cash: ico('wallet'), user: ico('user'), status: ico('orders') };
-const ocRow = (i, l, v, cls = '') => `<div class="oc-r ${cls}"><span class="oc-i">${OCI[i]}</span><span class="oc-l">${l}:</span><span class="oc-v">${v}</span></div>`;
+const ocRow = (i, l, v, cls = '') => `<div class="oc-r ${cls}"><span class="oc-i">${OCI[i]}</span><span class="oc-l">${l}<i class="oc-c">:</i></span><span class="oc-v">${v}</span></div>`;
 const noteBtn = (o) => `<button class="oc-cb r" data-act="note" data-id="${o.id}"><span>ملاحظة</span><span class="oc-ex">!</span></button>`;
 const chatBtn = (o) => `<button class="oc-cb g" data-act="chat" data-id="${o.id}"><span>محادثة</span>${ico('chat')}</button>`;
 function wazeLinks(o) {
@@ -282,26 +293,77 @@ function wazeLinks(o) {
   const wz = c ? `https://waze.com/ul?ll=${c[0]},${c[1]}&navigate=yes` : `https://waze.com/ul?q=${encodeURIComponent((o.merchantName || '') + ' ' + (o.merchantArea || ''))}&navigate=yes`;
   return `<a class="btn soft sm" href="${esc(wz)}" target="_blank" rel="noopener">${ico('pin')} Waze · موقع المتجر</a>${url ? `<a class="btn ghost sm" href="${esc(url)}" target="_blank" rel="noopener">الخريطة</a>` : ''}`;
 }
-/* opt: corner (أزرار الزاوية العلوية)، rows (تفاصيل إضافية)، after (تنبيهات)، actions (الأزرار السفلية) */
-function orderCard(o, opt = {}) {
+/* opt: corner (أزرار الزاوية العلوية)، status (الحالة)، rows (تفاصيل إضافية)، after (تنبيهات)، actions (الأزرار السفلية) */
+function orderCard(o, opt = {}) { return OCD === 'classic' ? ocClassic(o, opt) : odCard(o, opt, OCD); }
+function ocClassic(o, opt = {}) {
   const corner = (opt.corner || '') + (opt.noteBtn ? noteBtn(o) : '');
+  const rows = (opt.status ? ocRow('status', 'الحالة', opt.status) : '') + (opt.rows || '');
   return `<article class="oc">
     <div class="oc-top"><div class="oc-no">رقم الطلب : <bdi>#${o.no}</bdi><small>${ago(o.createdAt)}</small></div>${corner ? `<div class="oc-corner">${corner}</div>` : ''}</div>
     ${ocRow('store', 'اسم المتجر', esc(o.merchantName))}
     <div class="oc-r"><span class="oc-i"><span class="oc-d">$</span></span><span class="oc-l">سعر الطلب:</span><span class="oc-v">${dinar(o.productPrice)}</span><span class="oc-grp"><span class="oc-plus">+</span><span class="oc-l">التوصيل:</span><span class="oc-v">${dinar(o.deliveryPrice)}</span></span></div>
     ${ocRow('pin', 'عنوان المتجر', `<span class="oc-chip">${esc(o.merchantArea || '—')}</span>`)}
     ${ocRow('pin', 'عنوان الزبون', `<span class="oc-chip">${esc(o.customerArea)}</span>`)}
-    ${opt.rows ? `<hr class="oc-sep">${opt.rows}` : ''}${opt.after || ''}
+    ${rows ? `<hr class="oc-sep">${rows}` : ''}${opt.after || ''}
     ${opt.actions ? `<div class="oc-act">${opt.actions}</div>` : ''}
   </article>`;
 }
+
+/* ===== التصاميم البديلة لبطاقة الطلب (تصميم الوصولات) ===== */
+const OD_STEPS = ['قبول', 'استلام', 'تسليم'];
+const OD_DONE = { picking_up: 1, on_the_way: 2, delivered: 3, rejected: 2, no_answer: 2, postponed: 2, return_sent: 2, returned: 2, partial: 2 };
+function odSteps(st) {
+  const n = OD_DONE[st] || 0;
+  return `<div class="od-steps">${OD_STEPS.map((t, i) => `${i ? `<span class="od-ln ${i < n ? 'on' : ''}"></span>` : ''}<span class="od-s ${i < n ? 'on' : ''}"><i>${i < n ? ico('check') : ''}</i><small>${t}</small></span>`).join('')}</div>`;
+}
+function odCard(o, opt = {}, d = 'bold') {
+  const open = !!S.det[o.id];
+  const hasDet = !!(opt.rows || opt.actions);
+  const initial = esc((o.merchantName || '؟').trim().charAt(0));
+  const main = (opt.corner || '') + (opt.noteBtn ? noteBtn(o) : '');
+  const delivery = `<span class="od-dl">+ توصيل ${num(o.deliveryPrice)}</span>`;
+  const head = `<div class="od-hd"><div class="od-no"><span class="od-nol">رقم الطلب</span><bdi>#${o.no}</bdi></div><span class="od-ago">${ago(o.createdAt)}</span></div>`;
+  const stat = opt.status ? `<div class="od-st"><span class="od-sv">${opt.status}</span><span class="od-sl">الحالة</span></div>` : '';
+  const store = `<div class="od-store"><span class="od-av">${initial}</span><span class="od-sn"><small>اسم المتجر</small><b>${esc(o.merchantName)}</b></span></div>`;
+  const price = d === 'sun'
+    ? `<div class="od-pr"><div class="od-pb"><small>سعر الطلب</small><div><b class="od-big">${num(o.productPrice)}</b> <em>دينار</em></div></div><div class="od-db"><small>التوصيل</small><div><b>${num(o.deliveryPrice)}</b> <em>دينار</em></div></div></div>`
+    : d === 'night'
+      ? `<div class="od-pr"><div class="od-pm"><small class="od-pl">سعر الطلب</small><b class="od-big">${num(o.productPrice)}</b><em>دينار</em></div>${delivery}</div>`
+      : `<div class="od-pr"><small class="od-pl">سعر الطلب</small><div class="od-pm"><span class="od-pv"><b class="od-big">${num(o.productPrice)}</b><em>دينار</em></span></div>${d === 'green' ? '' : delivery}${d === 'green' ? delivery : ''}</div>`;
+  const addr = `<div class="od-ad"><div class="od-ab"><small>عنوان المتجر</small><b>${esc(o.merchantArea || '—')}</b></div><span class="od-arrow" aria-hidden="true"></span><div class="od-ab"><small>عنوان الزبون</small><b>${esc(o.customerArea)}</b></div></div>`;
+  const toggle = hasDet ? `<button type="button" class="od-tg" data-act="det" data-id="${o.id}" aria-expanded="${open}">${open ? '▴ إخفاء التفاصيل' : '▾ عرض التفاصيل'}</button>` : '';
+  const det = hasDet && open ? `<div class="od-det">${opt.rows || ''}</div>${opt.actions ? `<div class="od-links">${opt.actions}</div>` : ''}` : '';
+  const btns = main ? `<div class="od-main">${main}</div>` : '';
+  const tail = `${opt.after || ''}${toggle}${det}${btns}`;
+  let inner;
+  if (d === 'green') inner = `<div class="od-top">${head}${store}${price}</div><div class="od-body">${opt.status ? stat + odSteps(o.status) : ''}${addr}${tail}</div>`;
+  else if (d === 'ticket') inner = `<div class="od-half od-top">${head}${stat}${store}</div><div class="od-half od-bot">${price}${addr}${tail}</div>`;
+  else if (d === 'sun') inner = `<div class="od-top">${head}</div><div class="od-body">${stat}${store}${price}${addr}${tail}</div>`;
+  else if (d === 'night') inner = `<div class="od-body">${head}${stat}${store}${price}${addr}${tail}</div>`;
+  else inner = `<div class="od-top">${head}</div>${stat}<div class="od-body">${store}${price}${addr}${tail}</div>`;
+  return `<article class="od od-${d}" data-st="${esc(o.status || '')}">${inner}</article>`;
+}
+/* معاينة مصغّرة داخل قسم «تصميم الوصولات» (غير تفاعلية) */
+function ocPreview(d) {
+  const o = { id: 0, no: 1069, createdAt: Date.now() - 14 * 3600000, merchantName: 'متجر الرافدين', productPrice: 1000000, deliveryPrice: 5000, merchantArea: 'الكرادة', customerArea: 'حي اور', status: 'delivered' };
+  const opt = { status: pill('delivered'), corner: chatBtn(o), noteBtn: true, rows: d === 'classic' ? '' : ocRow('phone', 'رقم الزبون', '0782 118 9947') };
+  const prev = S.det[0]; S.det[0] = false;
+  const html = (d === 'classic' ? ocClassic(o, opt) : odCard(o, opt, d)).replace(/\sdata-act="[^"]*"/g, '').replace(/\shref="[^"]*"/g, '');
+  S.det[0] = prev;
+  return html;
+}
+function ocDesignPicker() {
+  return `<h2 class="sec">تصميم الوصولات</h2><p class="hint" style="margin:-4px 4px 10px">اختر شكل بطاقة الطلب، ويتغيّر فوراً في الرئيسية والطلبات.</p>
+  <div class="odp" role="radiogroup" aria-label="تصميم الوصولات">${OC_DESIGNS.map(([k, n, sub]) => `<div class="odp-o" role="radio" tabindex="0" aria-checked="${OCD === k}" data-act="ocd" data-d="${k}"><div class="odp-box" aria-hidden="true"><div class="odp-in">${ocPreview(k)}</div></div><b>${n}</b><small>${sub}</small></div>`).join('')}</div>`;
+}
+
 const customerRows = (o) => ocRow('phone', 'رقم الزبون', telLink(o.customerPhone)) + ocRow('cash', 'المطلوب من الزبون', money(o.total)) + ocRow('box', 'المنتج', `${esc(o.product)} × ${o.qty} · ${vehName(o.vehicle)}`);
 
 function merchantOrderCard(o, withCancel) {
   const armed = S.armed === 'c' + o.id;
   return orderCard(o, {
     corner: o.driverId ? chatBtn(o) : '', noteBtn: !!o.note,
-    rows: ocRow('status', 'الحالة', pill(o.status)) + customerRows(o) + (o.driverName ? ocRow('user', 'السائق', esc(o.driverName)) : ''),
+    status: pill(o.status), rows: customerRows(o) + (o.driverName ? ocRow('user', 'السائق', esc(o.driverName)) : ''),
     after: o.status === 'return_sent' ? `<div class="notice">السائق ${esc(o.driverName || '')} أعلن أنه أرجع الطلب إليك. أكّد الاستلام عند وصول البضاعة.</div>` : '',
     actions: `<a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a>${wazeLinks(o)}${o.status === 'return_sent' ? `<button class="btn sm" data-act="ask-recv" data-id="${o.id}">تأكيد استلام المرتجع</button><button class="btn ghost sm" data-act="not-recv" data-id="${o.id}">لم أستلمه</button>` : ''}${withCancel && o.status === 'pending' ? `<button class="btn danger sm ${armed ? 'arm' : ''}" data-act="cancel" data-id="${o.id}">${armed ? 'اضغط للتأكيد' : 'إلغاء الطلب'}</button>` : ''}`
   });
@@ -323,7 +385,7 @@ function driverOrderCard(o) {
   const st = locked ? pill(o.status) : `<span class="menuwrap"><button class="pill ${ST[o.status]?.[1] || ''}" data-act="menu" data-id="${o.id}" aria-haspopup="menu" aria-expanded="${open}">${esc(ST[o.status]?.[0] || o.status)} <span aria-hidden="true">▾</span></button>${m}</span>`;
   return orderCard(o, {
     corner: chatBtn(o), noteBtn: !!o.note,
-    rows: ocRow('status', 'الحالة', st) + customerRows(o) + ocRow('phone', 'هاتف المتجر', telLink(o.merchantPhone)),
+    status: st, rows: customerRows(o) + ocRow('phone', 'هاتف المتجر', telLink(o.merchantPhone)),
     after: o.status === 'picking_up' ? `<div class="notice">ادفع للتاجر ${money(o.productPrice)} عند الاستلام، وبعدها غيّر الحالة إلى «في الطريق للزبون».</div>` : '',
     actions: `${receiptsOn() ? `<button class="btn ghost sm" data-act="receipt" data-id="${o.id}">وصل</button>` : ''}<a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a><a class="btn ghost sm" href="${supportLink(o)}" target="_blank" rel="noopener">واتساب الدعم</a>${wazeLinks(o)}`
   });
@@ -333,7 +395,7 @@ function driverOrderCard(o) {
 function adminOrderCard(o) {
   return orderCard(o, {
     corner: o.driverId ? chatBtn(o) : '', noteBtn: !!o.note,
-    rows: ocRow('status', 'الحالة', statusSelect(o)) + customerRows(o) + ocRow('user', 'السائق', esc(o.driverName || '—')),
+    status: statusSelect(o), rows: customerRows(o) + ocRow('user', 'السائق', esc(o.driverName || '—')),
     actions: `<a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a>${receiptsOn() || true ? `<button class="btn ghost sm" data-act="receipt" data-id="${o.id}">وصل</button>` : ''}${wazeLinks(o)}${o.driverId && o.status !== 'pending' ? `<button class="btn soft sm" data-act="requeue" data-id="${o.id}">إعادة للسائقين</button>` : ''}`
   });
 }
@@ -431,6 +493,7 @@ function accountLinks(settings) {
   const sp = settings.support;
   const msg = encodeURIComponent(`مرحباً، أحتاج مساعدة في تطبيق ريو\nالاسم: ${S.user.name}\nالهاتف: ${S.user.phone}`);
   return `<h2 class="sec">المظهر</h2>${RioTheme.picker('data-act')}
+  ${ocDesignPicker()}
   <h2 class="sec">الإشعارات</h2>${notifSetting()}${li('bell', 'كل الإشعارات', 'سجل كامل بالطلبات والمحفظة والمحادثات', 'notifs')}
   <h2 class="sec">الدعم والسياسات</h2>
   ${sp ? `<a class="list-item" href="https://wa.me/${waNumber(sp)}?text=${msg}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${ico('wa')}<span class="grow"><b>التواصل مع الدعم</b><small dir="ltr" style="text-align:right">${esc(fmtPhone(sp))} · واتساب</small></span><span class="chev">${ico('chev')}</span></a>
@@ -533,6 +596,7 @@ VIEWS['admin:settings'] = () => {
     <div class="card stack"><h2 style="font-size:18px">الدعم</h2><div class="field"><label for="s-support">رقم الدعم (يظهر للتجار والسائقين)</label><input class="in mono" id="s-support" name="support" inputmode="tel" value="${esc(s.support)}" placeholder="07XX XXX XXXX"></div></div>
     <button class="btn" type="submit" style="align-self:flex-start">حفظ الإعدادات</button></form>
   <h2 class="sec">المظهر</h2>${RioTheme.picker('data-act')}
+  ${ocDesignPicker()}
   <button class="btn ghost block" style="margin-top:16px" data-act="logout">${ico('out')} تسجيل الخروج</button>`;
 };
 
@@ -1304,6 +1368,13 @@ const ACTIONS = {
   'tab-wallet': () => { S.walletTab = 'rep'; go('wallet'); },
   logout: () => doLogout(),
   theme: (el) => { RioTheme.set(el.dataset.t); render(); },
+  ocd: (el) => {
+    const k = el.dataset.d;
+    if (!ocdValid(k) || k === OCD) return;
+    OCD = k; store.set('rio_ocd', k); S.det = {}; render();
+    toast('تم تطبيق تصميم «' + OC_DESIGNS.find((x) => x[0] === k)[1] + '»');
+  },
+  det: (el) => { const id = el.dataset.id; S.det[id] = !S.det[id]; render(); },
   retry: () => refresh(true),
   filter: (el) => { S.filter = el.dataset.f; render(); },
   afilter: (el) => { S.adminFilter = el.dataset.f; S.data = null; lastSig = ''; render(); refresh(); },
@@ -1427,7 +1498,7 @@ document.addEventListener('click', (e) => {
   if (fn) { if (el.tagName === 'A') return; fn(el); }
 });
 
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { if (S.sheet) closeSheet(); else if (S.menu) { S.menu = null; render(); } } });
+document.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('.odp-o')) { e.preventDefault(); ACTIONS.ocd(e.target); return; } if (e.key === 'Escape') { if (S.sheet) closeSheet(); else if (S.menu) { S.menu = null; render(); } } });
 
 document.addEventListener('input', (e) => {
   const t = e.target;
