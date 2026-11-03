@@ -111,7 +111,7 @@ async function sendFcm(row, payload) {
   for (const [k, v] of Object.entries(payload)) if (v !== undefined && v !== null) data[k] = String(v);
   const res = await fetch(`https://fcm.googleapis.com/v1/projects/${c.project_id}/messages:send`, {
     method: 'POST', headers: { Authorization: 'Bearer ' + (await fcmAccessToken()), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message: { token: row.endpoint, notification: { title: payload.title, body: payload.body }, data, android: { priority: 'HIGH', notification: { sound: 'default', tag: payload.tag } } } }),
+    body: JSON.stringify({ message: { token: row.endpoint, notification: { title: payload.title, body: payload.body }, data, android: { priority: 'HIGH', ttl: '86400s', notification: { sound: 'default', tag: payload.tag, channel_id: 'rio_orders', default_vibrate_timings: true, notification_priority: 'PRIORITY_MAX', visibility: 'PUBLIC' } } } }),
     signal: AbortSignal.timeout(10000)
   });
   if (res.status === 404 || res.status === 400) {

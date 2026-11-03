@@ -315,6 +315,12 @@ route('POST', '/api/push/subscribe', USERS_ONLY, async (c) => {
   await q(`INSERT INTO push_subs(user_id,type,endpoint,data,created_at) VALUES($1,$2,$3,$4,$5) ON CONFLICT(endpoint) DO UPDATE SET user_id=excluded.user_id, type=excluded.type, data=excluded.data`, [c.user.id, type, endpoint, data, Date.now()]);
   return { ok: true };
 });
+/* إشعار تجريبي من الإعدادات: يتأكد المستخدم أن الإشعارات تصله فعلاً */
+route('POST', '/api/push/test', USERS_ONLY, async (c) => {
+  const n = Number((await q('SELECT COUNT(*) AS n FROM push_subs WHERE user_id=$1', [c.user.id])).rows[0].n);
+  await notify(c.user.id, { kind: 'test', title: 'الإشعارات تعمل ✓', body: 'ستصلك الطلبات وتغيّر حالاتها فور حدوثها' });
+  return { ok: true, devices: n };
+});
 route('POST', '/api/push/unsubscribe', USERS_ONLY, async (c) => {
   const e = String(c.body.endpoint || c.body.token || '');
   if (e) await q('DELETE FROM push_subs WHERE endpoint=$1 AND user_id=$2', [e, c.user.id]);
