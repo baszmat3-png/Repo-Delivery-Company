@@ -646,7 +646,7 @@ async function saveBlob(b, name) {
   if (cap && typeof cap.isNativePlatform === 'function' && cap.isNativePlatform()) {
     try {
       const data = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(b); });
-      await cap.registerPlugin('Filesystem').writeFile({ path: 'Rio/' + name, data, directory: 'DOCUMENTS', recursive: true });
+      await capPlugin('Filesystem').writeFile({ path: 'Rio/' + name, data, directory: 'DOCUMENTS', recursive: true });
       toast('تم حفظ الصورة في المستندات ← Rio');
       return;
     } catch { /* نكمل بالتنزيل العادي */ }
@@ -818,6 +818,13 @@ function exportCard(title, hint) {
 }
 
 /* ============ الإشعارات: قائمة كاملة من الخادم + دفع للهاتف ============ */
+/* Capacitor يُحمَّل هنا بدون حزمة JS، فلا توجد registerPlugin: نستخدم كائن Plugins الذي يحقنه الجسر الأصلي */
+function capPlugin(name) {
+  const c = window.Capacitor || {};
+  if (typeof c.registerPlugin === 'function') return c.registerPlugin(name);
+  if (c.Plugins && c.Plugins[name]) return c.Plugins[name];
+  throw new Error('إضافة ' + name + ' غير متاحة (نفّذ npx cap sync android وأعد البناء)');
+}
 let nBusy = false, audioCtx = null, notifReg = null;
 const nKey = (k) => `rio_${k}_${S.user ? S.user.id : 0}`;
 const isNative = () => { const c = window.Capacitor; return !!(c && typeof c.isNativePlatform === 'function' && c.isNativePlatform()); };
@@ -964,13 +971,13 @@ async function ensureWebPush() {
 let nativeBound = false;
 async function refreshNativePerm() {
   if (!isNative()) return;
-  try { const r = await window.Capacitor.registerPlugin('PushNotifications').checkPermissions(); S.nperm = r.receive || ''; } catch { /* ignore */ }
+  try { const r = await capPlugin('PushNotifications').checkPermissions(); S.nperm = r.receive || ''; } catch { /* ignore */ }
 }
 async function ensureNativePush() {
   if (!isNative() || !S.user) return false;
   try {
-    const PN = window.Capacitor.registerPlugin('PushNotifications');
-    const LN = window.Capacitor.registerPlugin('LocalNotifications');
+    const PN = capPlugin('PushNotifications');
+    const LN = capPlugin('LocalNotifications');
     // 1) الإذن أولاً: يظهر نافذة النظام فور الدخول دون أي خطوة قبلها يمكن أن تفشل
     const perm = await PN.requestPermissions();
     S.nperm = perm.receive || '';
