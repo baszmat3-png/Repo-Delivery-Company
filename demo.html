@@ -676,6 +676,106 @@ a.btn{text-decoration:none}
 /* قائمة تغيير الحالة كانت تُقصّ داخل البطاقة فلا يظهر خيار «تم الإرجاع للتاجر»: نسمح لها بالخروج من البطاقة */
 .oc:has(.menu){overflow:visible}
 .oc .menu{max-height:70vh;overflow:auto}
+
+/* ===== قائمة الحالة داخل التصاميم الجديدة: تُفتح نحو داخل الشاشة ولا تخرج منها ===== */
+.od .menu{inset-inline-start:auto;inset-inline-end:auto;right:0;left:auto;min-width:200px;max-width:calc(100vw - 40px);max-height:70vh;overflow:auto}
+
+/* ===== بطاقات مضغوطة بشكل مستطيل (أقل ارتفاعاً) ===== */
+.od{font-size:14px}
+.od .od-no{font-size:22px}
+.od-ticket .od-no{font-size:24px}
+.od .od-ago{font-size:12.5px}
+.od .od-body{padding:10px 14px 12px}
+.od.od-night .od-body{padding:0}
+.od .od-st{font-size:15px}
+.od .od-store{gap:8px}
+.od .od-sn{display:flex;align-items:baseline;gap:4px 8px;flex-wrap:wrap}
+.od .od-sn small{font-size:12px}
+.od .od-sn b{font-size:17px}
+.od .od-pr{margin-top:6px;gap:4px 8px}
+.od .od-pl{font-size:12px}
+.od .od-big{font-size:30px}
+.od .od-pr em{font-size:13px}
+.od .od-ad{margin-top:8px;gap:8px}
+.od .od-ab{padding:6px 12px}
+.od .od-ab small{font-size:12px}
+.od .od-ab b{font-size:16px}
+.od .od-tg{margin-top:8px;padding:8px;font-size:14px;border-width:1.5px}
+.od .od-det{margin-top:8px;padding:2px 14px}
+.od .oc-r{padding:7px 0;font-size:13.5px}
+.od .od-links{margin-top:8px;gap:8px}
+.od .od-links .btn{min-height:42px;font-size:14px}
+.od .od-main{margin-top:8px;gap:8px}
+.od .oc-cb{min-height:42px;font-size:15px;padding:4px 10px}
+.od .notice{margin-top:8px;padding:8px 12px}
+.od .hint{margin-top:6px}
+.od-bold{border-width:2.5px;border-radius:18px}
+.od-bold .od-top{padding:9px 16px;border-radius:15px 15px 0 0}
+.od-bold .od-st{padding:8px 16px}
+.od-bold .od-pr{margin-top:6px}
+.od-bold .od-big{font-size:30px}
+.od-green{border-radius:20px}
+.od-green .od-top{padding:12px 16px 14px;border-radius:20px 20px 0 0}
+.od-green .od-no{font-size:22px}
+.od-green .od-store{margin-top:2px}
+.od-green .od-sn b{font-size:16px}
+.od-green .od-pr{flex-direction:row;align-items:center;justify-content:space-between;margin-top:4px}
+.od-green .od-dl{font-size:13px}
+.od-green .od-body{padding:10px 14px 12px}
+.od-green .od-st{font-size:14px}
+.od-green .od-sl{font-size:14px}
+.od-steps{margin:6px 0 0}
+.od-s{width:46px;gap:3px}
+.od-s i{width:32px;height:32px}
+.od-s i svg{width:16px;height:16px}
+.od-s small{font-size:12px}
+.od-ln{height:4px;margin-top:14px}
+.od-green .od-ad{margin-top:8px}
+.od-green .od-ab{padding:6px 12px;border-radius:14px}
+.od-ticket .od-top{padding:12px 16px 14px}
+.od-ticket .od-bot{padding:12px 16px 14px}
+.od-ticket .od-st{margin-top:8px;padding:8px 14px;border-radius:14px}
+.od-ticket .od-store{margin-top:8px}
+.od-ticket .od-av{width:38px;height:38px;border-radius:11px;font-size:18px}
+.od-ticket .od-big{font-size:30px}
+.od-ticket .od-ago{padding:4px 12px;font-size:12.5px}
+.od-ticket .od-nol{font-size:12px}
+.od-ticket .od-ab{padding:6px 12px;border-radius:14px}
+.od-ticket .oc-r{font-size:14px;padding:5px 0}
+.od-sun{border-radius:22px}
+.od-sun .od-top{padding:9px 18px;border-radius:22px 22px 0 0}
+.od-sun .od-no{font-size:22px}
+.od-sun .od-body{padding:10px 14px 14px}
+.od-sun .od-st{padding:7px 14px;border-radius:14px;margin-bottom:8px}
+.od-sun .od-av{width:34px;height:34px;font-size:17px}
+.od-sun .od-sn b{font-size:17px}
+.od-sun .od-pr{margin-top:8px;gap:8px}
+.od-sun .od-pb,.od-sun .od-db{padding:8px 14px;border-radius:18px}
+.od-sun .od-pb .od-big{font-size:24px}
+.od-sun .od-db b{font-size:19px}
+.od-sun .od-ab{border-radius:16px}
+.od-sun .od-tg,.od-sun .od-det{border-radius:18px}
+.od-night{border-radius:20px;padding:12px 14px 14px}
+.od-night .od-no{font-size:24px}
+.od-night .od-st{margin-top:8px;padding:7px 12px;border-radius:12px}
+.od-night .od-store{margin-top:8px}
+.od-night .od-av{width:10px;height:10px}
+.od-night .od-sn b{font-size:16px}
+.od-night .od-pr{margin-top:8px;padding:8px 14px;border-radius:18px}
+.od-night .od-big{font-size:32px}
+.od-night .od-dl{font-size:13px}
+.od-night .od-ad{gap:10px;margin-top:10px}
+.od-night .od-ab{padding:0 38px 0 0}
+.od-night .od-ab::before{width:18px;height:18px;top:5px;border-width:3px}
+.od-night .od-ab:first-child::after{right:8px;top:26px;bottom:-14px}
+.od-night .od-ab b{font-size:16px}
+
+/* ===== ورقة اختيار الحالة (لا يرد / رفض / ...) ===== */
+.st-list{display:flex;flex-direction:column;gap:8px;padding-bottom:6px}
+.st-opt{display:flex;align-items:center;gap:12px;width:100%;min-height:54px;padding:10px 14px;border-radius:16px;border:2px solid var(--line);background:var(--surface-2);color:var(--fg);font:800 17px var(--font-display);text-align:start;cursor:pointer}
+.st-opt.on{border-color:var(--accent);background:var(--accent-soft)}
+.st-opt .ck{width:22px;display:inline-grid;place-items:center;color:var(--accent-text)}
+.st-opt .ck svg{width:20px;height:20px;stroke-width:3}
 </style>
 </head>
 <body>
@@ -1301,16 +1401,15 @@ function merchantOrderCard(o, withCancel) {
 function availOrderCard(o, s, receiving) {
   return orderCard(o, {
     corner: `<button class="oc-cb g" data-act="accept" data-id="${o.id}"><span>قبول الطلب</span>${ico('check')}</button><button class="oc-cb r" data-act="note" data-id="${o.id}"><span>ملاحظة</span><span class="oc-ex">!</span></button>`,
-    rows: ocRow('box', 'المنتج', `${esc(o.product)} × ${o.qty} · ${vehName(o.vehicle)}`),
-    after: `<p class="hint" style="margin-top:12px">رسوم التطبيق عند القبول ${money(o.sameArea ? s.feeSame : s.feeOther)}</p>`,
-    actions: wazeLinks(o)
+    /* قبل قبول الطلب: لا موقع متجر (Waze) ولا تفاصيل منتج، فقط السعر والتوصيل والعنوانين نصاً */
+    after: OCD === 'classic' ? `<p class="hint" style="margin-top:12px">رسوم التطبيق عند القبول ${money(o.sameArea ? s.feeSame : s.feeOther)}</p>` : ''
   });
 }
 
 function driverOrderCard(o) {
   const open = S.menu === o.id;
   const locked = ['delivered', 'return_sent', 'returned'].includes(o.status);
-  const m = open && !locked ? `<div class="menu" role="menu">${DRIVER_ST.map((s) => `<button role="menuitem" data-act="set-status" data-id="${o.id}" data-s="${s}"><span class="ck">${o.status === s ? ico('check') : ''}</span>${ST[s][0]}</button>`).join('')}${RETURNABLE.includes(o.status) ? `<button role="menuitem" data-act="ask-return" data-id="${o.id}"><span class="ck"></span><b>تم الإرجاع للتاجر</b></button>` : ''}</div>` : '';
+  const m = '';
   const st = locked ? pill(o.status) : `<span class="menuwrap"><button class="pill ${ST[o.status]?.[1] || ''}" data-act="menu" data-id="${o.id}" aria-haspopup="menu" aria-expanded="${open}">${esc(ST[o.status]?.[0] || o.status)} <span aria-hidden="true">▾</span></button>${m}</span>`;
   return orderCard(o, {
     corner: chatBtn(o), noteBtn: !!o.note,
@@ -2187,6 +2286,14 @@ const SHEETS = {
   registered() {
     return ['تم إرسال طلبك', `<p style="text-align:center;font-size:17px;margin:8px 0 18px">تم إنشاء حسابك وهو بانتظار موافقة الإدارة. سنفعّله قريباً، وبعدها سجّل الدخول برقم هاتفك وكلمة المرور.</p><button class="btn block" data-act="close-sheet">حسناً</button>`];
   },
+  /* تغيير حالة الطلب: ورقة سفلية كاملة تظهر فوق شريط التنقل ولا تُقصّ داخل البطاقة */
+  status(s) {
+    const o = findOrder(s.id);
+    if (!o) return ['حالة الطلب', '<p class="muted">تعذّر العثور على الطلب.</p>'];
+    const btns = DRIVER_ST.map((k) => `<button type="button" class="st-opt ${o.status === k ? 'on' : ''}" data-act="set-status" data-id="${o.id}" data-s="${k}"><span class="ck">${o.status === k ? ico('check') : ''}</span>${ST[k][0]}</button>`).join('');
+    const ret = RETURNABLE.includes(o.status) ? `<button type="button" class="st-opt" data-act="ask-return" data-id="${o.id}"><span class="ck"></span><b>تم الإرجاع للتاجر</b></button>` : '';
+    return [`حالة الطلب #${o.no}`, `<div class="st-list" role="menu">${btns}${ret}</div>`];
+  },
   confirm(s) {
     return [s.title, `<p style="text-align:center;font-size:17px;margin:8px 0 18px">${esc(s.text)}</p><div class="row"><button class="btn danger grow" data-act="${s.yes}" data-id="${s.id}">نعم</button><button class="btn ghost grow" data-act="close-sheet">لا</button></div>`];
   },
@@ -2329,7 +2436,7 @@ const ACTIONS = {
   'add-user': (el) => openSheet({ type: 'add-user', role: el.dataset.role }),
   'edit-user': (el) => openSheet({ type: 'edit-user', id: Number(el.dataset.id) }),
   adjust: (el) => openSheet({ type: 'adjust', id: Number(el.dataset.id) }),
-  menu: (el) => { const id = Number(el.dataset.id); S.menu = S.menu === id ? null : id; render(); },
+  menu: (el) => { S.menu = null; openSheet({ type: 'status', id: Number(el.dataset.id) }); },
   qty: (el) => { const f = S.sheet.form; f.qty = Math.min(99, Math.max(1, f.qty + Number(el.dataset.d))); updateOrderForm(); },
   veh: (el) => { S.sheet.form.vehicle = el.dataset.v; updateOrderForm(); },
   zone: (el) => { S.sheet.form.zone = el.dataset.z; S.sheet.form.zoneManual = true; updateOrderForm(); },
@@ -2386,7 +2493,7 @@ const ACTIONS = {
     if (await act(() => api('POST', `/api/merchant/orders/${el.dataset.id}/return`, { received: false }), 'تم تسجيل أنك لم تستلم الطلب')) refresh(true);
   },
   async 'set-status'(el) {
-    S.menu = null;
+    S.menu = null; if (S.sheet && S.sheet.type === 'status') { S.sheet = null; render(); }
     if (await act(() => api('POST', `/api/driver/orders/${el.dataset.id}/status`, { status: el.dataset.s }), 'تم تحديث الحالة')) refresh(true); else render();
   },
   async receiving() {
