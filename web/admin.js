@@ -41,6 +41,7 @@ const IC = {
   dl: '<path d="M12 4v11M7 11l5 5 5-5M5 20h14"/>',
   pin: '<path d="M12 21s7-6 7-11a7 7 0 10-14 0c0 5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>', phone: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2z"/>', wallet: '<rect x="3" y="6" width="18" height="14" rx="3"/><path d="M3 10h18"/><path d="M16 15h2"/>', user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>', chat: '<path d="M4 5h16v11H9l-5 4z"/>', out: '<path d="M10 4H5v16h5M15 8l5 4-5 4M20 12H9"/>',
   plus: '<path d="M12 5v14M5 12h14"/>', xl: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8l8 8M16 8l-8 8"/>', pdf: '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 14h6M9 17h4"/>',
+  chev: '<path d="M6 9l6 6 6-6"/>',
   print: '<path d="M7 9V3h10v6M7 17H4v-6h16v6h-3"/><rect x="7" y="14" width="10" height="7"/>', refresh: '<path d="M20 11a8 8 0 10-2.3 5.7M20 4v7h-7"/>'
 };
 const ico = (n) => `<svg viewBox="0 0 24 24" aria-hidden="true">${IC[n] || ''}</svg>`;
@@ -260,6 +261,13 @@ const wazeHref = (o) => {
 };
 const ocRow = (i, l, v) => `<div class="oc-r"><span class="oc-i">${ico(i)}</span><span class="oc-l">${l}:</span><span class="oc-v">${v}</span></div>`;
 const dinar = (n) => `<span class="num">${nf(n)}</span> دينار`;
+const OCOPEN = new Set();
+let OV = ls.get('rio_oview'); if (!['grid', 'list', 'compact', 'table'].includes(OV)) OV = 'grid';
+const OVS = [['grid', 'شبكة'], ['list', 'قائمة'], ['compact', 'مصغّر'], ['table', 'جدول']];
+const ovSeg = () => `<div class="seg" role="group" aria-label="طريقة العرض">${OVS.map(([k, l]) => `<button type="button" data-a="oview" data-k="${k}" aria-pressed="${OV === k}">${l}</button>`).join('')}</div>`;
+function otable(l) {
+  return `<div class="tw"><table class="ot"><thead><tr><th>الطلب</th><th>المتجر</th><th>الزبون</th><th class="n">المطلوب</th><th>الحالة</th><th>السائق</th><th></th></tr></thead><tbody>${l.map((o) => `<tr><td><b>#${o.no}</b><div class="hint">${ago(o.createdAt)}</div></td><td>${esc(o.merchantName)}<div class="hint">${esc(o.merchantArea || '')}</div></td><td>${esc(o.customerArea)}<div class="hint num">${esc(o.customerPhone)}</div></td><td class="n"><b>${nf(o.total)}</b><div class="hint">توصيل ${nf(o.deliveryPrice)}</div></td><td><select class="in" data-c="status" data-id="${o.id}" aria-label="حالة الطلب ${o.no}">${stKeys(o.status).map((k) => `<option value="${k}" ${o.status === k ? 'selected' : ''}>${ST[k]}</option>`).join('')}</select></td><td>${esc(o.driverName || '—')}</td><td class="act"><div class="row">${rOn() ? `<button class="btn sm" data-a="receipt" data-id="${o.id}">وصل</button>` : ''}<a class="btn sm w" target="_blank" rel="noopener" href="${wa(o.customerPhone, custMsg(o))}">واتساب</a>${ASSIGNABLE.includes(o.status) ? `<button class="btn sm" data-a="assign" data-id="${o.id}">${o.driverId ? 'تحويل' : 'تعيين'}</button>` : ''}</div></td></tr>`).join('')}</tbody></table></div>`;
+}
 function ocard(o) {
   const drv = o.driverId ? D.drivers.find((x) => x.id === o.driverId) : null;
   return `<article class="oc">
@@ -268,7 +276,8 @@ function ocard(o) {
     <div class="oc-r"><span class="oc-i"><span class="oc-d">$</span></span><span class="oc-l">سعر الطلب:</span><span class="oc-v">${dinar(o.productPrice)}</span><span class="oc-grp"><span class="oc-plus">+</span><span class="oc-l">التوصيل:</span><span class="oc-v">${dinar(o.deliveryPrice)}</span></span></div>
     ${ocRow('pin', 'عنوان المتجر', `<span class="oc-chip">${esc(o.merchantArea || '—')}</span>`)}
     ${ocRow('pin', 'عنوان الزبون', `<span class="oc-chip">${esc(o.customerArea)}</span>`)}
-    <hr class="oc-sep">
+    <button type="button" class="oc-tg" data-a="oc-toggle" data-id="${o.id}" aria-expanded="${OCOPEN.has(o.id)}"><span>${OCOPEN.has(o.id) ? 'إخفاء التفاصيل' : 'عرض التفاصيل'}</span>${ico('chev')}</button>
+    <div class="oc-more" ${OCOPEN.has(o.id) ? '' : 'hidden'}>
     ${ocRow('orders', 'الحالة', `<select class="in" data-c="status" data-id="${o.id}" aria-label="حالة الطلب ${o.no}">${stKeys(o.status).map((k) => `<option value="${k}" ${o.status === k ? 'selected' : ''}>${ST[k]}</option>`).join('')}</select>`)}
     ${ocRow('phone', 'رقم الزبون', `<span class="num">${esc(o.customerPhone)}</span>`)}
     ${ocRow('wallet', 'المطلوب من الزبون', `<b>${dinar(o.total)}</b>`)}
@@ -276,6 +285,7 @@ function ocard(o) {
     ${ocRow('user', 'السائق', esc(o.driverName || '—'))}
     ${o.note ? `<div class="oc-note">ملاحظة: ${esc(o.note)}</div>` : ''}
     <div class="oc-act">${rOn() ? `<button class="btn sm" data-a="receipt" data-id="${o.id}">وصل</button>` : ''}<a class="btn sm w" target="_blank" rel="noopener" href="${wa(o.customerPhone, custMsg(o))}">واتساب الزبون</a>${o.driverId && driverPhone(o) ? `<a class="btn sm w" target="_blank" rel="noopener" href="${wa(driverPhone(o), drvMsg(o, drv))}">واتساب السائق</a>` : ''}<a class="btn sm g" target="_blank" rel="noopener" href="${esc(wazeHref(o))}">${ico('pin')} Waze · موقع المتجر</a>${ASSIGNABLE.includes(o.status) ? `<button class="btn sm" data-a="assign" data-id="${o.id}">${o.driverId ? 'تحويل لسائق' : 'تعيين سائق'}</button>` : ''}${o.driverId && o.status !== 'pending' ? `<button class="btn sm g" data-a="requeue" data-id="${o.id}">إعادة</button>` : ''}</div>
+    </div>
   </article>`;
 }
 function ordersList() {
@@ -283,12 +293,12 @@ function ordersList() {
   const tot = l.filter((o) => DONE.includes(o.status));
   const sum = (k) => tot.reduce((a, o) => a + o[k], 0);
   return `<div class="oc-sum"><span>${nn(l.length)} طلب (المسلّم ${nn(tot.length)})</span><span>البضاعة ${mm(sum('productPrice'))}</span><span>التوصيل ${mm(sum('deliveryPrice'))}</span><span>الإجمالي ${mm(sum('total'))}</span></div>
-  <div class="ocgrid">${l.slice(0, 150).map(ocard).join('')}</div>${l.length > 150 ? `<p class="hint">يُعرض أول 150 طلباً — استخدم البحث أو التصدير للحصول على الكل (${nn(l.length)}).</p>` : ''}${l.length ? '' : empty('لا توجد طلبات مطابقة')}`;
+  ${OV === 'table' ? otable(l.slice(0, 150)) : `<div class="ocgrid v-${OV}">${l.slice(0, 150).map(ocard).join('')}</div>`}${l.length > 150 ? `<p class="hint">يُعرض أول 150 طلباً — استخدم البحث أو التصدير للحصول على الكل (${nn(l.length)}).</p>` : ''}${l.length ? '' : empty('لا توجد طلبات مطابقة')}`;
 }
 function orders() {
   const ms = D.merchants.map((m) => `<option value="${m.id}" ${FM === m.id ? 'selected' : ''}>${esc(m.name)}</option>`).join('');
   return `<div class="card"><div class="row between" style="margin-bottom:12px"><div class="row"><input class="in" id="q" placeholder="بحث: رقم، متجر، هاتف، منطقة…" value="${esc(Q)}" style="min-width:230px"><select class="in" data-c="fm" id="fm"><option value="0">كل المتاجر</option>${ms}</select></div>
-  <div class="row"><button class="btn sm g" data-a="exp-orders">${ico('xl')} Excel</button><button class="btn sm g" data-a="pdf-orders">${ico('pdf')} PDF / طباعة</button></div></div>
+  <div class="row">${ovSeg()}<button class="btn sm g" data-a="exp-orders">${ico('xl')} Excel</button><button class="btn sm g" data-a="pdf-orders">${ico('pdf')} PDF / طباعة</button></div></div>
   <div class="chips" style="margin-bottom:12px"><button class="chip" data-a="fs" data-k="all" aria-pressed="${FS === 'all'}">الكل</button>${stKeys().map((k) => `<button class="chip" data-a="fs" data-k="${k}" aria-pressed="${FS === k}">${ST[k]} (${D.counts[k] || 0})</button>`).join('')}</div><div id="list">${ordersList()}</div></div>`;
 }
 
@@ -516,10 +526,10 @@ function modalHtml() {
   if (m.type === 'stmt') return [`${stTitle(m.st)}: ${esc(stName(m.st))}`, stmtBody(m), 1];
   if (m.type === 'receipt') {
     const o = m.o;
-    return [`وصل طلب #${o.no}`, `${sizeSeg()}<iframe title="معاينة الوصل" srcdoc="${esc(docPage('وصل', orderReceipt(o), rcls()))}" style="width:100%;height:60vh;border:1px solid var(--line);border-radius:12px;background:#fff"></iframe>
-    <div class="row" style="margin-top:12px;justify-content:center">${docBtns()}<a class="btn w" target="_blank" rel="noopener" href="${wa(o.customerPhone, custMsg(o))}">واتساب الزبون</a></div>`];
+    return [`وصل طلب #${o.no}`, `${sizeSeg()}<iframe title="معاينة الوصل" srcdoc="${esc(docPage('وصل', orderReceipt(o), rcls()))}" style="width:100%;max-width:340px;display:block;margin-inline:auto;height:40vh;border:1px solid var(--line);border-radius:12px;background:#fff"></iframe>
+    <div class="row" style="margin-top:10px;justify-content:center">${docBtns()}<a class="btn w" target="_blank" rel="noopener" href="${wa(o.customerPhone, custMsg(o))}">واتساب الزبون</a></div>`];
   }
-  if (m.type === 'vprint') return [`${m.v.kind === 'in' ? 'سند قبض' : 'سند صرف'} #${m.v.no}`, `${sizeSeg()}<iframe title="معاينة السند" srcdoc="${esc(docPage('سند', thermal() ? voucherDoc80(m.v) : voucherDoc(m.v), thermal() ? rcls() : 'sz' + RS))}" style="width:100%;height:62vh;border:1px solid var(--line);border-radius:12px;background:#fff"></iframe>
+  if (m.type === 'vprint') return [`${m.v.kind === 'in' ? 'سند قبض' : 'سند صرف'} #${m.v.no}`, `${sizeSeg()}<iframe title="معاينة السند" srcdoc="${esc(docPage('سند', thermal() ? voucherDoc80(m.v) : voucherDoc(m.v), thermal() ? rcls() : 'sz' + RS))}" style="width:100%;height:48vh;border:1px solid var(--line);border-radius:12px;background:#fff"></iframe>
     <div class="row" style="margin-top:12px;justify-content:center">${docBtns()}${vPhone(m.v) ? `<a class="btn w" target="_blank" rel="noopener" href="${wa(vPhone(m.v), `${m.v.kind === 'in' ? 'سند قبض' : 'سند صرف'} رقم #${m.v.no}\nالمبلغ: ${mny(m.v.amount)}\nالتاريخ: ${fd(m.v.at)}\nالتفاصيل: ${m.v.note || '—'}\nريو للتوصيل أسرع`)}">واتساب</a>` : ''}</div>`, 1];
   if (m.type === 'add-user') {
     const d = m.role === 'driver';
@@ -583,8 +593,8 @@ const vPhone = (v) => { const u = v.partyId && findU(v.partyId); return u ? u.ph
 function orderReceipt(o) {
   const rows = (a) => ({ rows: a });
   return doc80({
-    title: 'وصل توصيل', no: o.no, groups: [rows([['التاريخ', fdt(o.createdAt)], ['الحالة', ST[o.status] || o.status], ['التاجر', o.merchantName]]), rows([['رقم الزبون', o.customerPhone], ['المنطقة', o.customerArea]]), rows([['البضاعة', o.product], ['عدد القطع', String(o.qty)]]),
-      { boxes: [['المبلغ المطلوب', mny(o.total)]] }, rows([['أجرة التوصيل', mny(o.deliveryPrice)], ['الصافي للتاجر', mny(o.productPrice)]]), rows([['المندوب', o.driverName || '—']])]
+    title: 'وصل توصيل', no: o.no, groups: [rows([['التاجر', o.merchantName], ['الزبون', o.customerPhone], ['المنطقة', o.customerArea], ['البضاعة', `${o.product} × ${o.qty}`]]),
+      { boxes: [['المطلوب', mny(o.total)]] }, rows([['التوصيل', mny(o.deliveryPrice)], ['المندوب', o.driverName || '—']])], foot: fdt(o.createdAt)
   });
 }
 const loginUrl = () => { try { return new URL('./', location.href).href; } catch { return location.origin + '/'; } };
@@ -660,6 +670,7 @@ const clickActs = {
   reload() { load(); },
   basis(el) { BASIS = el.dataset.k; ls.set('rio_basis', BASIS); draw(); },
   sort(el) { SORT = el.dataset.k; ls.set('rio_sort', SORT); draw(); },
+  oview(el) { OV = el.dataset.k; ls.set('rio_oview', OV); draw(); },
   fs(el) { FS = el.dataset.k; draw(); },
   vk(el) { VK = el.dataset.k; draw(); },
   cat(el) { const i = $('#ec'); if (i) { i.value = el.dataset.k; i.focus(); } },
@@ -683,6 +694,11 @@ const clickActs = {
   adjust(el) { M = { type: 'adjust', id: Number(el.dataset.id) }; drawModal(); },
   gen(el) { document.getElementById(el.dataset.t).value = rnd(); },
   async copy(el) { try { await navigator.clipboard.writeText(el.dataset.t); toast('تم النسخ'); } catch { toast('تعذّر النسخ', true); } },
+  'oc-toggle'(el) {
+    const id = Number(el.dataset.id), box = el.nextElementSibling, open = box.hidden;
+    box.hidden = !open; open ? OCOPEN.add(id) : OCOPEN.delete(id);
+    el.setAttribute('aria-expanded', String(open)); el.firstElementChild.textContent = open ? 'إخفاء التفاصيل' : 'عرض التفاصيل';
+  },
   receipt(el) { const o = O.find((x) => x.id === Number(el.dataset.id)); if (o) { M = { type: 'receipt', o }; drawModal(); } },
   chat(el) { const o = O.find((x) => x.id === Number(el.dataset.id)); if (o) { M = { type: 'chat', o, msgs: [], loaded: false }; drawModal(); startChat(); } },
   'print-doc'() { const d = curDoc(); if (d) printDoc(d.title, d.body, d.cls); },

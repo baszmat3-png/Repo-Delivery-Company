@@ -191,9 +191,9 @@ function liveRefresh() {
   if (S.sheet || S.menu || (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))) { S.dirty = true; return; }
   refresh();
 }
-function setUser(u) { S.user = u; connectLive(); setTimeout(checkNotifs, 600); if (u && u.role !== 'admin') setTimeout(ensurePush, 1200); }
+function setUser(u) { S.user = u; connectLive(); setTimeout(checkNotifs, 600); if (u && u.role !== 'admin') setTimeout(promptOnEntry, 500); }
 function logout() {
-  S.token = null; S.user = null; S.data = null; S.sheet = null; S.menu = null; lastSig = ''; S.unread = 0; S.pushOn = false;
+  S.token = null; S.user = null; S.data = null; S.sheet = null; S.menu = null; lastSig = ''; S.unread = 0; S.pushOn = false; entryAsked = false; S.nperm = '';
   store.del(TOKEN_KEY);
   history.replaceState(null, '', location.pathname);
   stopChat(); disconnectLive();
@@ -223,7 +223,7 @@ function shell() {
   const bell = role === 'admin' ? '' : `<button class="bell" id="bell" data-act="notifs" aria-label="الإشعارات">${ico('bell')}<span class="badge" id="bell-n" ${un ? '' : 'hidden'}>${un}</span></button>`;
   const fab = role === 'merchant' && S.tab !== 'me' ? `<button class="btn fab" data-act="new-order">${ico('plus')} إنشاء طلب</button>` : '';
   return `<header class="topbar"><div class="grp">${logo()}<span class="rolechip">${ico(ROLE_ICON[role])}${ROLE_NAME[role]}</span></div><div class="grp">${bell}</div></header>
-<div class="shell"><nav class="nav" aria-label="التنقل">${nav}</nav><main class="main"><div class="col ${role === 'admin' ? 'wide' : ''}">${view()}</div></main></div>${fab}`;
+<div class="shell"><nav class="nav" aria-label="التنقل">${nav}</nav><main class="main"><div class="col ${role === 'admin' ? 'wide' : ''}"><div id="nbanner">${nbannerHtml()}</div>${view()}</div></main></div>${fab}`;
 }
 
 function view() {
@@ -866,9 +866,9 @@ async function notifyReg() {
   try { const reg = await navigator.serviceWorker.register('notify-sw.js', { scope: './__notify/' }); notifReg = await whenActive(reg); return notifReg; } catch { return null; }
 }
 async function systemNotify(m) {
-  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted' || nOff()) return;
   const data = { kind: m.kind, orderId: m.orderId, orderNo: m.orderNo, id: m.id };
-  const opts = { body: m.body, tag: 'rio-' + m.id, renotify: true, vibrate: [200], dir: 'rtl', lang: 'ar', data };
+  const opts = { body: m.body, icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', tag: 'rio-' + m.id, renotify: true, requireInteraction: m.kind === 'order_new', vibrate: [250, 100, 250], dir: 'rtl', lang: 'ar', data };
   try {
     const reg = await notifyReg();
     if (reg) { await reg.showNotification(m.title, opts); return; }
@@ -892,7 +892,8 @@ async function checkNotifs() {
     if (S.tab === 'notifs' && !document.hidden) refresh();
     if (!fresh.length) return;
     const m = fresh[fresh.length - 1];
-    if (document.hidden) { if (!S.pushOn) systemNotify(m); } else { beep(); toast(m.title); }
+    if (!S.pushOn) fresh.slice(-3).forEach(systemNotify); // بديل الدفع: يظهر في لوحة إشعارات الجهاز فوراً
+    if (!document.hidden) { beep(); toast(m.title); }
   } catch { /* ignore */ } finally { nBusy = false; }
 }
 
@@ -942,7 +943,7 @@ const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeo
 const key64 = (b64) => { const pad = '='.repeat((4 - (b64.length % 4)) % 4); const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(raw, (c) => c.charCodeAt(0)); };
 const webPushOk = () => !isNative() && 'serviceWorker' in navigator && 'PushManager' in window && typeof Notification !== 'undefined';
 async function ensureWebPush() {
-  if (!webPushOk() || Notification.permission !== 'granted' || !S.user || ADMIN_ONLY) return false;
+  if (!webPushOk() || Notification.permission !== 'granted' || nOff() || !S.user || ADMIN_ONLY) return false;
   try {
     const reg = await withTimeout(navigator.serviceWorker.ready, 5000);
     const k = await api('GET', '/api/push/key');
@@ -956,18 +957,35 @@ async function ensureWebPush() {
   } catch { return false; }
 }
 let nativeBound = false;
+async function refreshNativePerm() {
+  if (!isNative()) return;
+  try { const r = await window.Capacitor.registerPlugin('PushNotifications').checkPermissions(); S.nperm = r.receive || ''; } catch { /* ignore */ }
+}
 async function ensureNativePush() {
   if (!isNative() || !S.user) return false;
   try {
     const PN = window.Capacitor.registerPlugin('PushNotifications');
+    const LN = window.Capacitor.registerPlugin('LocalNotifications');
     if (!nativeBound) {
       nativeBound = true;
-      await PN.addListener('registration', async (t) => { store.set('rio_fcm', t.value); try { await api('POST', '/api/push/subscribe', { type: 'fcm', token: t.value }); store.set('rio_native_push', '1'); S.pushOn = true; if (S.tab === 'me') render(); } catch { /* ignore */ } });
+      // قناة عالية الأهمية: يظهر الإشعار منبثقاً مع صوت واهتزاز فور وصوله
+      try { await PN.createChannel({ id: 'rio_orders', name: 'الطلبات وتغيّر حالاتها', description: 'إشعارات فورية بالطلبات الجديدة وتغيّر حالتها', importance: 5, visibility: 1, vibration: true, lights: true }); } catch { /* ignore */ }
+      await PN.addListener('registration', async (t) => { store.set('rio_fcm', t.value); try { await api('POST', '/api/push/subscribe', { type: 'fcm', token: t.value }); store.set('rio_native_push', '1'); S.pushOn = true; updateNBanner(); if (S.tab === 'me' && !S.sheet) render(); } catch { /* ignore */ } });
       await PN.addListener('registrationError', () => { store.del('rio_native_push'); });
       await PN.addListener('pushNotificationActionPerformed', (a) => { const d = (a.notification && a.notification.data) || {}; handleNotifTap({ kind: d.kind, orderId: d.orderId, orderNo: d.orderNo, id: d.id }); });
+      // التطبيق مفتوح: أندرويد لا يعرض إشعار الدفع وحده، فنعرضه في لوحة الإشعارات يدوياً
+      await PN.addListener('pushNotificationReceived', async (n) => {
+        const d = n.data || {};
+        beep();
+        try { await LN.schedule({ notifications: [{ id: (Number(d.id) || Date.now()) % 2147483000, title: n.title || d.title || 'ريو للتوصيل أسرع', body: n.body || d.body || '', channelId: 'rio_orders', extra: d }] }); } catch { /* ignore */ }
+      });
+      try { await LN.addListener('localNotificationActionPerformed', (a) => { const d = (a.notification && a.notification.extra) || {}; handleNotifTap({ kind: d.kind, orderId: d.orderId, orderNo: d.orderNo, id: d.id }); }); } catch { /* ignore */ }
     }
     const perm = await PN.requestPermissions();
+    S.nperm = perm.receive || '';
+    updateNBanner();
     if (perm.receive !== 'granted') return false;
+    try { await LN.requestPermissions(); } catch { /* ignore */ }
     await PN.register();
     return true;
   } catch { return false; }
@@ -984,25 +1002,76 @@ async function doLogout() {
   if (S.user && S.user.role !== 'admin') { try { await withTimeout(unsubscribePush(), 2500); } catch { /* ignore */ } }
   logout();
 }
+/* ---- حالة الإذن + طلبه فور الدخول ---- */
+const nOff = () => store.get(nKey('notif_off')) === '1';
+let entryAsked = false, clickAsked = false;
+function notifState() {
+  if (isNative()) return nOff() ? 'off' : S.nperm === 'granted' ? 'on' : S.nperm === 'denied' ? 'blocked' : 'ask';
+  if (typeof Notification === 'undefined') return 'na';
+  const p = Notification.permission;
+  if (p === 'denied') return 'blocked';
+  if (p === 'default') return 'ask';
+  return nOff() ? 'off' : 'on';
+}
+const blockedHelp = () => (isNative() ? 'افتح إعدادات الهاتف ← التطبيقات ← ريو للتوصيل ← الإشعارات ← تفعيل' : 'اضغط على أيقونة القفل بجانب عنوان الموقع ← الإشعارات ← سماح، ثم حدّث الصفحة');
+function nbannerHtml() {
+  if (!S.user || S.user.role === 'admin') return '';
+  const st = notifState();
+  if (st === 'ask') return `<div class="nbanner">${ico('bell')}<div class="grow"><b>اسمح بالإشعارات</b><small>لتصلك الطلبات وتغيّر حالاتها فوراً في لوحة إشعارات جهازك</small></div><button class="btn sm" data-act="enable-notifs">سماح</button></div>`;
+  if (st === 'blocked') return `<div class="nbanner warn">${ico('bell')}<div class="grow"><b>الإشعارات محظورة</b><small>${blockedHelp()}</small></div>${isNative() ? '' : '<button class="btn ghost sm" data-act="reload">تحديث</button>'}</div>`;
+  return '';
+}
+function updateNBanner() { const b = $('#nbanner'); if (b) b.innerHTML = nbannerHtml(); }
+const requestWebPerm = () => new Promise((res) => { try { const r = Notification.requestPermission(res); if (r && r.then) r.then(res, () => res('default')); } catch { res('default'); } });
+/* يُنفَّذ فور دخول التاجر/السائق: يظهر طلب السماح مباشرة */
+async function promptOnEntry() {
+  if (!S.user || S.user.role === 'admin' || entryAsked) return;
+  entryAsked = true;
+  if (isNative()) { await refreshNativePerm(); if (!nOff()) await ensureNativePush(); updateNBanner(); return; }
+  if (typeof Notification === 'undefined') return;
+  if (Notification.permission === 'default' && !nOff()) {
+    const t0 = Date.now();
+    await requestWebPerm();
+    // رجع فوراً دون أن يرى المستخدم نافذة (متصفح يشترط ضغطة) ← نطلب عند أول ضغطة
+    clickAsked = Date.now() - t0 > 400;
+    updateNBanner();
+  }
+  if (Notification.permission === 'granted') await ensureWebPush();
+  updateNBanner();
+  if (S.tab === 'me' && !S.sheet) render();
+}
 async function askNotifPermission() {
-  if (isNative()) { const ok = await ensureNativePush(); toast(ok ? 'تم تفعيل الإشعارات' : 'لم يتم منح إذن الإشعارات', !ok); if (S.user && S.tab === 'me') render(); return; }
+  store.del(nKey('notif_off'));
+  if (isNative()) { const ok = await ensureNativePush(); toast(ok ? 'تم تفعيل الإشعارات' : 'لم يتم منح إذن الإشعارات', !ok); updateNBanner(); if (S.user && S.tab === 'me' && !S.sheet) render(); return; }
   if (typeof Notification === 'undefined') return;
   try {
-    const r = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
-    if (r === 'granted') { const ok = await ensureWebPush(); toast(ok ? 'تم تفعيل الإشعارات' : 'تم تفعيل الإشعارات داخل التطبيق'); }
-    else if (r === 'denied') toast('الإشعارات محظورة من إعدادات المتصفح', true);
+    const r = Notification.permission === 'granted' ? 'granted' : await requestWebPerm();
+    updateNBanner();
+    if (r === 'granted') { const ok = await ensureWebPush(); toast(ok ? 'تم تفعيل الإشعارات' : 'تم تفعيل الإشعارات داخل المتصفح'); }
+    else if (r === 'denied') toast('الإشعارات محظورة — ' + blockedHelp(), true);
   } catch { /* ignore */ }
-  if (S.user && S.tab === 'me') render();
+  updateNBanner();
+  if (S.user && S.tab === 'me' && !S.sheet) render();
+}
+async function toggleNotifs() {
+  const st = notifState();
+  if (st === 'on') { store.set(nKey('notif_off'), '1'); await unsubscribePush(); toast('تم إيقاف الإشعارات'); updateNBanner(); if (S.tab === 'me' && !S.sheet) render(); }
+  else if (st === 'blocked') toast(blockedHelp(), true);
+  else askNotifPermission();
+}
+async function testNotif() {
+  try { await api('POST', '/api/push/test'); toast('تم إرسال إشعار تجريبي — سيظهر في لوحة الإشعارات خلال ثوانٍ'); setTimeout(checkNotifs, 400); } catch (e) { toast('تعذّر إرسال الإشعار التجريبي', true); }
 }
 function notifSetting() {
-  if (isNative()) return li('bell', 'إشعارات الهاتف', store.get('rio_native_push') === '1' ? 'مفعّلة — تصلك حتى لو كان التطبيق مغلقاً' : 'اضغط لتفعيل الإشعارات', 'enable-notifs');
-  if (typeof Notification === 'undefined') return '';
-  const p = Notification.permission;
-  return li('bell', 'إشعارات الهاتف', p === 'granted' ? (S.pushOn ? 'مفعّلة — تصلك حتى لو كان التطبيق مغلقاً' : 'مفعّلة — اضغط لإكمال التفعيل') : p === 'denied' ? 'محظورة من إعدادات المتصفح — فعّلها من إعدادات الموقع' : 'اضغط لتفعيل الإشعارات', 'enable-notifs');
+  const st = notifState();
+  if (st === 'na') return `<div class="list-item">${ico('bell')}<span class="grow"><b>إشعارات الطلبات</b><small>هذا المتصفح لا يدعم الإشعارات — جرّب Chrome أو ثبّت التطبيق</small></span></div>`;
+  const bg = isNative() || (webPushOk() && S.pushOn);
+  const sub = { on: bg ? 'مفعّلة ✓ — تصلك الطلبات وتغيّر حالاتها فوراً حتى لو كان التطبيق مغلقاً' : webPushOk() ? 'مفعّلة ✓ — جارٍ تفعيل الاستقبال في الخلفية…' : 'مفعّلة ✓ — تظهر ما دام الموقع مفتوحاً (ثبّت التطبيق على الشاشة الرئيسية لتصل وهو مغلق)', off: 'متوقفة — اضغط المفتاح لتفعيلها', ask: 'غير مفعّلة — اضغط المفتاح وسيظهر طلب السماح', blocked: 'محظورة — ' + blockedHelp() }[st];
+  return `<div class="list-item">${ico('bell')}<span class="grow"><b>إشعارات الطلبات</b><small>${sub}</small></span><button type="button" class="toggle" role="switch" aria-checked="${st === 'on'}" aria-label="تفعيل الإشعارات" data-act="toggle-notifs"></button></div>${st === 'on' ? `<button class="list-item" data-act="test-notif">${ico('check')}<span class="grow"><b>إرسال إشعار تجريبي</b><small>للتأكد أنه يصل إلى لوحة إشعارات جهازك</small></span><span class="chev">${ico('chev')}</span></button>` : ''}`;
 }
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', (e) => { const d = e.data || {}; if (d.type === 'open-notif') handleNotifTap(d.data); else if (d.type === 'open-chat') openChatFor(d.orderId, d.orderNo); });
 setInterval(checkNotifs, 15000);
-document.addEventListener('visibilitychange', () => { if (!document.hidden) checkNotifs(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { checkNotifs(); refreshNativePerm().then(updateNBanner); updateNBanner(); } });
 
 /* ============ النوافذ المنبثقة ============ */
 function sheetShell(title, body) {
@@ -1233,6 +1302,9 @@ const ACTIONS = {
     if (r) { S.data.items = items.concat(r.items); S.data.hasMore = r.hasMore; render(); }
   },
   'enable-notifs': () => askNotifPermission(),
+  'toggle-notifs': () => toggleNotifs(),
+  'test-notif': () => testNotif(),
+  reload: () => location.reload(),
   async chat(el) {
     const id = Number(el.dataset.id);
     markChatRead(id);
@@ -1295,7 +1367,7 @@ function syncVeh(el) { el.parentElement.querySelectorAll('button').forEach((b) =
 
 document.addEventListener('click', (e) => {
   unlockAudio();
-  if (S.user && S.user.role !== 'admin' && !store.get('rio_asked') && (isNative() || (typeof Notification !== 'undefined' && Notification.permission === 'default'))) { store.set('rio_asked', '1'); askNotifPermission(); }
+  if (S.user && S.user.role !== 'admin' && !clickAsked && !nOff() && notifState() === 'ask') { clickAsked = true; askNotifPermission(); }
   const el = e.target.closest('[data-act]');
   if (S.menu && !(el && el.dataset.act === 'menu') && !e.target.closest('.menu')) { S.menu = null; if (!el) render(); }
   if (!el) return;

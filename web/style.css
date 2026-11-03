@@ -445,3 +445,13 @@ a.btn{text-decoration:none}
 .oc-act .btn,.oc .btn.sm{font-size:12.5px;padding:6px 10px;min-height:34px}
 .oc .pill{font-size:12.5px}
 .oc .notice{margin-top:9px;font-size:12.5px}
+
+/* ===== شريط طلب السماح بالإشعارات ===== */
+.nbanner{display:flex;align-items:center;gap:12px;background:var(--accent-soft);color:var(--fg);border:1.5px solid var(--accent);border-radius:18px;padding:12px 14px;margin-bottom:14px}
+.nbanner:empty,#nbanner:empty{display:none}
+.nbanner>.ic,.nbanner>svg{width:26px;height:26px;flex:none;color:var(--accent-text)}
+.nbanner b{display:block;font-size:15.5px}
+.nbanner small{display:block;color:var(--muted);font-size:13px;line-height:1.5;margin-top:2px}
+.nbanner.warn{background:var(--amber-soft);border-color:var(--amber)}
+.nbanner.warn>.ic,.nbanner.warn>svg{color:var(--amber)}
+.nbanner .btn{flex:none}

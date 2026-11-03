@@ -88,19 +88,19 @@
   tfoot td{font-weight:800;background:#fff3b0!important;border-top:2px solid #111}
   .ft{margin-top:18px;border-top:1px dashed #999;padding-top:8px;color:#555;font-size:11px;display:flex;justify-content:space-between}
   .sig{display:flex;justify-content:space-between;gap:30px;margin-top:34px}.sig div{flex:1;border-top:1.5px solid #111;text-align:center;padding-top:4px;font-weight:700}
-  /* وصل حراري 80mm */
-  body.t80{max-width:76mm;margin:0 auto;font-size:12px}
-  .t80 .hd{flex-direction:column;border-bottom:2px dashed #888;text-align:center}.t80 .hd .t{text-align:center}.t80 .hd .rl{width:170px;height:auto}
-  .t80 .r{display:flex;justify-content:space-between;gap:8px;padding:3px 0}.t80 .r span{text-align:left}
-  .t80 hr{border:0;border-top:1.5px dashed #888;margin:6px 0}
-  .t80 .bx{border:2px solid #111;border-radius:10px;padding:6px 10px;font-weight:800;font-size:15px;display:flex;justify-content:space-between;margin:6px 0}
-  .t80 .ttl{border:2px solid #111;border-radius:10px;text-align:center;padding:5px;font-weight:800;font-size:15px;margin:8px 0}
-  .t80 .no{text-align:center;font-weight:800;font-size:18px}
-  body.sz58{max-width:54mm;font-size:10.5px}
-  .sz58 .hd .rl{width:110px;height:auto}.sz58 .ttl{font-size:13px;padding:4px}.sz58 .bx{font-size:12px;padding:5px 7px}.sz58 .no{font-size:15px}.sz58 .r{gap:4px}
+  /* وصل حراري مصغّر ومختصر */
+  body.t80{max-width:76mm;margin:0 auto;font-size:11px;line-height:1.4}
+  .t80 .hd{flex-direction:column;gap:2px;border-bottom:1.5px dashed #888;text-align:center;padding-bottom:4px;margin-bottom:5px}.t80 .hd .t{text-align:center}.t80 .hd h1{font-size:12px}.t80 .hd .rl{width:84px;height:auto}
+  .t80 .r{display:flex;justify-content:space-between;gap:6px;padding:1px 0}.t80 .r span{text-align:left}
+  .t80 hr{border:0;border-top:1px dashed #999;margin:3px 0}
+  .t80 .bx{border:1.5px solid #111;border-radius:8px;padding:3px 8px;font-weight:800;font-size:13px;display:flex;justify-content:space-between;margin:4px 0}
+  .t80 .ttl{border:1.5px solid #111;border-radius:8px;text-align:center;padding:2px;font-weight:800;font-size:12.5px;margin:4px 0}
+  .t80 .no{text-align:center;font-weight:800;font-size:15px;line-height:1.2}
+  body.sz58{max-width:54mm;font-size:9.5px}
+  .sz58 .hd .rl{width:70px;height:auto}.sz58 .ttl{font-size:11px;padding:2px}.sz58 .bx{font-size:11px;padding:3px 6px}.sz58 .no{font-size:13px}.sz58 .r{gap:3px}
   body.sz80{max-width:76mm}
-  body.t80.sza5{max-width:130mm;font-size:14px}body.t80.sza4{max-width:170mm;font-size:16px}
-  .t80.sza5 .hd .rl,.t80.sza4 .hd .rl{width:210px;height:auto}
+  body.t80.sza5{max-width:130mm;font-size:13px}body.t80.sza4{max-width:170mm;font-size:14px}
+  .t80.sza5 .hd .rl,.t80.sza4 .hd .rl{width:130px;height:auto}
   .words{border:1.5px solid #111;border-radius:10px;padding:8px 12px;margin:10px 0;background:#fff8d6;font-weight:700}
   .big{font-size:26px;font-weight:800;direction:ltr;text-align:center;border:3px solid #111;border-radius:14px;padding:8px;margin:12px 0}
   @media screen{body{padding:14px}}

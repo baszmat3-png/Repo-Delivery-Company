@@ -209,7 +209,7 @@ tfoot td{font-weight:800;background:var(--soft2);position:sticky;bottom:0}
 .oc select.in{min-height:34px;padding:4px 8px;background:#fff;color:#1b1612}
 .oc .btn{white-space:normal}
 .oc-note{margin-top:12px;background:#ffe9ea;color:#b4232d;border-radius:12px;padding:10px 12px;font-weight:700}
-.ocgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(350px,1fr));gap:18px}
+.ocgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px;align-items:start}
 @media(max-width:480px){.ocgrid{grid-template-columns:1fr}}
 .oc-sum{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px;font-weight:700}
 
@@ -255,3 +255,22 @@ tfoot td{font-weight:800;background:var(--soft2);position:sticky;bottom:0}
 .oc-act .btn,.oc .btn.sm{font-size:12.5px;padding:6px 10px;min-height:34px}
 .oc .pill{font-size:12.5px}
 .oc .notice{margin-top:9px;font-size:12.5px}
+
+/* بطاقة الطلب: نصفان، والتفاصيل تُفتح بزر */
+.oc-more[hidden]{display:none}
+.oc-tg{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:10px;padding:8px 10px;border:1.5px dashed var(--line,#ccc);border-radius:12px;background:transparent;color:inherit;font:inherit;font-weight:700;font-size:13.5px;cursor:pointer}
+.oc-tg svg{width:16px;height:16px;transform:rotate(0deg);transition:transform .18s}
+.oc-tg[aria-expanded="true"] svg{transform:rotate(180deg)}
+.oc-more{margin-top:8px;border-top:1px solid var(--line,#ddd);padding-top:2px}
+
+/* طرق عرض الطلبات */
+.ocgrid.v-list{grid-template-columns:1fr;max-width:640px;margin-inline:auto}
+.ocgrid.v-compact{grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.v-compact .oc{padding:9px 14px 9px 9px;border-radius:14px;font-size:12px}
+.v-compact .oc-no{font-size:14px}.v-compact .oc-no small{display:none}
+.v-compact .oc-r{font-size:12px;margin-top:5px;gap:2px 5px}.v-compact .oc-i{display:none}
+.v-compact .oc-chip{font-size:12px;padding:1px 8px}
+.v-compact .oc-tg{padding:4px;font-size:12px;margin-top:6px}
+.v-compact .oc-act .btn{font-size:11.5px;padding:4px 7px;min-height:28px}
+.ot td,.ot th{padding:6px 7px}.ot td.act .row{flex-wrap:wrap;gap:4px}.ot select.in{min-width:110px;padding:4px 6px}.ot td:nth-child(2),.ot td:nth-child(3){white-space:normal}
+@media(max-width:480px){.ocgrid.v-compact{grid-template-columns:1fr 1fr}}

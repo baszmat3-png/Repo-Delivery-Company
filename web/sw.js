@@ -1,5 +1,5 @@
 // خدمة: تخزّن ملفات الواجهة فقط (لا تخزّن API أبداً) + تستقبل إشعارات الدفع حتى والتطبيق مغلق.
-const CACHE = 'rio-v2';
+const CACHE = 'rio-v3';
 const FILES = ['./', 'style.css', 'app.js', 'theme.js', 'config.js', 'manifest.webmanifest', 'icons/icon-192.png', 'hero.jpg'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).catch(() => {})); self.skipWaiting(); });
 self.addEventListener('activate', (e) => {
@@ -20,12 +20,10 @@ self.addEventListener('push', (e) => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch { d = { title: 'ريو للتوصيل أسرع', body: e.data ? e.data.text() : '' }; }
   e.waitUntil((async () => {
-    // إن كان التطبيق مفتوحاً أمام المستخدم فهو يعرض تنبيهه بنفسه
-    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    if (wins.some((c) => c.visibilityState === 'visible' && c.focused)) return;
+    // يظهر دائماً في لوحة إشعارات الجهاز فور وصوله، حتى لو كان التطبيق مفتوحاً
     await self.registration.showNotification(d.title || 'ريو للتوصيل أسرع', {
       body: d.body || '', icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', tag: d.tag || ('rio-' + (d.id || Date.now())),
-      renotify: true, dir: 'rtl', lang: 'ar', vibrate: [200, 100, 200], data: d
+      renotify: true, requireInteraction: d.kind === 'order_new', dir: 'rtl', lang: 'ar', vibrate: [250, 100, 250, 100, 250], timestamp: Date.now(), data: d
     });
   })());
 });
