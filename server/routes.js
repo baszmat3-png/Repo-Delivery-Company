@@ -409,7 +409,14 @@ route('POST', '/api/merchant/orders/:id/return', MERCHANT, async (c) => {
   if (o.status !== 'return_sent') fail('هذا الطلب ليس بانتظار تأكيد الإرجاع', 409);
   const now = Date.now();
   const status = c.body.received === false ? 'rejected' : 'returned';
-  const u = await db.update('orders', 'id', o.id, { status, updated_at: now, delivered_at: status === 'returned' ? now : null, log: pushLog(o, status, now) });
+  const patch = { status, updated_at: now, delivered_at: status === 'returned' ? now : null, log: pushLog(o, status, now) };
+  /* عند تأكيد التاجر استلام المرتجع تُردّ رسوم التطبيق المخصومة من السائق عند قبول الطلب (مرة واحدة فقط) */
+  if (status === 'returned' && o.fee > 0 && o.driver_id) {
+    await q('UPDATE users SET balance=balance+$1 WHERE id=$2', [o.fee, o.driver_id]);
+    await db.insert('txs', { driver_id: o.driver_id, amount: o.fee, kind: 'refund', label: 'استرجاع رسوم التطبيق (تأكيد استلام المرتجع)', order_num: o.num, at: now });
+    patch.fee = 0;
+  }
+  const u = await db.update('orders', 'id', o.id, patch);
   if (o.driver_id) await notify(o.driver_id, { kind: 'order_status', orderId: o.id, orderNo: o.num, title: status === 'returned' ? `أكّد التاجر استلام المرتجع #${o.num}` : `التاجر لم يستلم المرتجع #${o.num}`, body: `${o.merchant_name} · ${ST_AR[status]}` });
   return { order: ord(u) };
 });
