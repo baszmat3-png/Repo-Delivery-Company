@@ -6,6 +6,7 @@ const db = require('./db');
 const { dispatch, HttpError } = require('./routes');
 const { seedAdmin, seedDemo } = require('./seed');
 const { verify } = require('./auth');
+const { initPush } = require('./push');
 
 /* ---- المزامنة الفورية (Server-Sent Events): الخادم يرسل إشارة «تغيّر» فقط، وكل جهاز يعيد جلب بياناته المصرّح بها ---- */
 const clients = new Set();
@@ -81,7 +82,7 @@ function serveStatic(req, res, pathname) {
       return fs.readFile(path.join(WEB, 'index.html'), (e2, b2) => (e2 ? send(res, 404, 'Not found', { 'Content-Type': 'text/plain' }) : send(res, 200, b2, { 'Content-Type': MIME['.html'] })));
     }
     const ext = path.extname(file).toLowerCase();
-    const noCache = ['/sw.js', '/index.html', '/admin.html', '/admin.js', '/admin-lib.js', '/notify-sw.js', '/admin.css', '/config.js', '/app.js', '/style.css'].includes(rel);
+    const noCache = ['/sw.js', '/index.html', '/admin.html', '/admin.js', '/admin-lib.js', '/notify-sw.js', '/admin.css', '/config.js', '/app.js', '/style.css', '/theme.js'].includes(rel);
     send(res, 200, buf, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': noCache ? 'no-cache' : 'public, max-age=3600' });
   });
 }
@@ -111,6 +112,7 @@ const server = http.createServer(async (req, res) => {
 (async () => {
   await db.init();
   await seedAdmin();
+  await initPush();
   const demo = process.env.SEED_DEMO ? process.env.SEED_DEMO === '1' : !db.isPg;
   if (demo) await seedDemo();
   server.listen(PORT, () => console.log(`ريو للتوصيل يعمل على المنفذ ${PORT} (${db.isPg ? 'PostgreSQL' : 'SQLite محلي'})`));

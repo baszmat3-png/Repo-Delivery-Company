@@ -1,6 +1,6 @@
-// خدمة بسيطة: تخزّن ملفات الواجهة فقط، ولا تخزّن طلبات API أبداً.
-const CACHE = 'rio-v1';
-const FILES = ['./', 'style.css', 'app.js', 'config.js', 'manifest.webmanifest', 'icons/icon-192.png', 'hero.jpg'];
+// خدمة: تخزّن ملفات الواجهة فقط (لا تخزّن API أبداً) + تستقبل إشعارات الدفع حتى والتطبيق مغلق.
+const CACHE = 'rio-v2';
+const FILES = ['./', 'style.css', 'app.js', 'theme.js', 'config.js', 'manifest.webmanifest', 'icons/icon-192.png', 'hero.jpg'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).catch(() => {})); self.skipWaiting(); });
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
@@ -13,4 +13,34 @@ self.addEventListener('fetch', (e) => {
     caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
     return r;
   }).catch(() => caches.match(e.request).then((m) => m || caches.match('./'))));
+});
+
+/* ---- إشعارات الدفع ---- */
+self.addEventListener('push', (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch { d = { title: 'ريو للتوصيل أسرع', body: e.data ? e.data.text() : '' }; }
+  e.waitUntil((async () => {
+    // إن كان التطبيق مفتوحاً أمام المستخدم فهو يعرض تنبيهه بنفسه
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    if (wins.some((c) => c.visibilityState === 'visible' && c.focused)) return;
+    await self.registration.showNotification(d.title || 'ريو للتوصيل أسرع', {
+      body: d.body || '', icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', tag: d.tag || ('rio-' + (d.id || Date.now())),
+      renotify: true, dir: 'rtl', lang: 'ar', vibrate: [200, 100, 200], data: d
+    });
+  })());
+});
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const d = e.notification.data || {};
+  const root = new URL('./', self.registration.scope).href;
+  e.waitUntil((async () => {
+    const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const target = all.find((c) => c.url.startsWith(root));
+    if (target) {
+      try { await target.focus(); } catch { /* ignore */ }
+      target.postMessage({ type: 'open-notif', data: d });
+    } else {
+      await self.clients.openWindow(`${root}?open=${encodeURIComponent(d.kind || 'x')}&id=${encodeURIComponent(d.orderId || '')}&no=${encodeURIComponent(d.orderNo || '')}&nid=${encodeURIComponent(d.id || '')}`);
+    }
+  })());
 });

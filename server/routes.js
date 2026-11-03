@@ -2,6 +2,7 @@
 const crypto = require('crypto');
 const db = require('./db');
 const { sign, verify, hashPassword, checkPassword } = require('./auth');
+const { notify, notifyNewOrder, iqd, ST_AR, vapidPublicKey, hasFcm } = require('./push');
 
 const q = db.query;
 const DAY = 86400000;
@@ -250,6 +251,7 @@ route('POST', '/api/orders/:id/messages', async (c) => {
   const text = String(c.body.text || '').trim().slice(0, 500);
   if (!text) fail('اكتب رسالة');
   const m = await db.insert('messages', { order_id: o.id, user_id: c.user.id, role: c.user.role === 'staff' ? 'admin' : c.user.role, name: c.user.name, text, at: Date.now() });
+  await notify([o.merchant_id, o.driver_id].filter((id) => id && id !== c.user.id), { kind: 'chat', title: `${c.user.name} · طلب #${o.num}`, body: text, orderId: o.id, orderNo: o.num });
   return { message: { id: m.id, userId: m.user_id, role: m.role, name: m.name, text: m.text, at: m.at } };
 });
 
@@ -266,6 +268,57 @@ route('GET', '/api/notifications', { roles: ['merchant', 'driver'] }, async (c) 
   const r = await q(`SELECT m.id,m.order_id,m.role,m.name,m.text,m.at,o.num ${base} AND m.id>$2 ORDER BY m.id ASC LIMIT 50`, [c.user.id, after]);
   const items = r.rows.map((m) => ({ id: m.id, orderId: m.order_id, orderNo: m.num, role: m.role, name: m.name, text: m.text, at: m.at }));
   return { items, last: items.length ? items[items.length - 1].id : after };
+});
+
+/* ---------- قائمة الإشعارات + الدفع للهاتف ---------- */
+const USERS_ONLY = { roles: ['merchant', 'driver'] };
+const notifOut = (n) => ({ id: n.id, kind: n.kind, title: n.title, body: n.body, orderId: n.order_id, orderNo: n.order_no, at: n.at, read: !!n.is_read });
+route('GET', '/api/notifs', USERS_ONLY, async (c) => {
+  const uid = c.user.id;
+  const unread = Number((await q('SELECT COUNT(*) AS n FROM notifs WHERE user_id=$1 AND is_read=0', [uid])).rows[0].n);
+  const mx = Number((await q('SELECT COALESCE(MAX(id),0) AS n FROM notifs WHERE user_id=$1', [uid])).rows[0].n);
+  if (c.query.after !== undefined && c.query.after !== '') {
+    const r = await q('SELECT * FROM notifs WHERE user_id=$1 AND id>$2 ORDER BY id ASC LIMIT 50', [uid, Number(c.query.after) || 0]);
+    return { items: r.rows.map(notifOut), last: mx, unread };
+  }
+  if (c.query.mode === 'poll') return { items: [], last: mx, unread };
+  const limit = Math.min(100, Math.max(1, Number(c.query.limit) || 40));
+  const before = Number(c.query.before) || 0;
+  const r = before
+    ? await q(`SELECT * FROM notifs WHERE user_id=$1 AND id<$2 ORDER BY id DESC LIMIT ${limit + 1}`, [uid, before])
+    : await q(`SELECT * FROM notifs WHERE user_id=$1 ORDER BY id DESC LIMIT ${limit + 1}`, [uid]);
+  const rows = r.rows.slice(0, limit);
+  return { items: rows.map(notifOut), hasMore: r.rows.length > limit, last: mx, unread };
+});
+route('POST', '/api/notifs/read', USERS_ONLY, async (c) => {
+  const ids = Array.isArray(c.body.ids) ? c.body.ids.map(Number).filter(Boolean).slice(0, 200) : [];
+  if (c.body.all) await q('UPDATE notifs SET is_read=1 WHERE user_id=$1', [c.user.id]);
+  else if (c.body.orderId) await q(`UPDATE notifs SET is_read=1 WHERE user_id=$1 AND order_id=$2 AND kind='chat'`, [c.user.id, Number(c.body.orderId)]);
+  else for (const id of ids) await q('UPDATE notifs SET is_read=1 WHERE user_id=$1 AND id=$2', [c.user.id, id]);
+  return { unread: Number((await q('SELECT COUNT(*) AS n FROM notifs WHERE user_id=$1 AND is_read=0', [c.user.id])).rows[0].n) };
+});
+route('POST', '/api/notifs/clear', USERS_ONLY, async (c) => { await q('DELETE FROM notifs WHERE user_id=$1', [c.user.id]); return { ok: true }; });
+
+route('GET', '/api/push/key', { public: true }, async () => ({ key: vapidPublicKey(), fcm: hasFcm() }));
+route('POST', '/api/push/subscribe', USERS_ONLY, async (c) => {
+  const b = c.body;
+  let type, endpoint, data = '';
+  if (b.type === 'fcm') {
+    type = 'fcm'; endpoint = String(b.token || '').slice(0, 400);
+    if (endpoint.length < 20) fail('رمز غير صحيح');
+  } else {
+    const s = b.subscription || {};
+    type = 'web'; endpoint = String(s.endpoint || '').slice(0, 900);
+    if (!/^https:\/\//.test(endpoint) || !s.keys || !s.keys.p256dh || !s.keys.auth) fail('اشتراك غير صحيح');
+    data = JSON.stringify({ keys: { p256dh: String(s.keys.p256dh), auth: String(s.keys.auth) } });
+  }
+  await q(`INSERT INTO push_subs(user_id,type,endpoint,data,created_at) VALUES($1,$2,$3,$4,$5) ON CONFLICT(endpoint) DO UPDATE SET user_id=excluded.user_id, type=excluded.type, data=excluded.data`, [c.user.id, type, endpoint, data, Date.now()]);
+  return { ok: true };
+});
+route('POST', '/api/push/unsubscribe', USERS_ONLY, async (c) => {
+  const e = String(c.body.endpoint || c.body.token || '');
+  if (e) await q('DELETE FROM push_subs WHERE endpoint=$1 AND user_id=$2', [e, c.user.id]);
+  return { ok: true };
 });
 
 /* ---------- التاجر ---------- */
@@ -313,6 +366,7 @@ route('POST', '/api/merchant/orders', MERCHANT, async (c) => {
         status: 'pending', driver_id: null, driver_name: '', fee: 0, created_at: now, updated_at: now,
         accepted_at: null, delivered_at: null, log: JSON.stringify([{ s: 'pending', at: now }])
       });
+      await notifyNewOrder(row);
       return { order: ord(row) };
     } catch (e) {
       if (!/unique|duplicate/i.test(String(e.message))) throw e;
@@ -339,6 +393,7 @@ route('POST', '/api/merchant/orders/:id/return', MERCHANT, async (c) => {
   const now = Date.now();
   const status = c.body.received === false ? 'rejected' : 'returned';
   const u = await db.update('orders', 'id', o.id, { status, updated_at: now, delivered_at: status === 'returned' ? now : null, log: pushLog(o, status, now) });
+  if (o.driver_id) await notify(o.driver_id, { kind: 'order_status', orderId: o.id, orderNo: o.num, title: status === 'returned' ? `أكّد التاجر استلام المرتجع #${o.num}` : `التاجر لم يستلم المرتجع #${o.num}`, body: `${o.merchant_name} · ${ST_AR[status]}` });
   return { order: ord(u) };
 });
 
@@ -409,6 +464,8 @@ route('POST', '/api/driver/orders/:id/accept', DRIVER, async (c) => {
     fail('سائق آخر قبل هذا الطلب قبلك', 409);
   }
   await db.insert('txs', { driver_id: u.id, amount: -fee, kind: 'fee', label: 'رسوم التطبيق', order_num: o.num, at: now });
+  await notify(o.merchant_id, { kind: 'order_accepted', orderId: o.id, orderNo: o.num, title: `تم قبول طلبك #${o.num}`, body: `السائق ${u.name} قبل الطلب وهو في طريقه لاستلامه من المتجر` });
+  if (fee > 0) await notify(u.id, { kind: 'wallet_debit', orderId: o.id, orderNo: o.num, title: `خصم رسوم التطبيق −${iqd(fee)}`, body: `طلب #${o.num} · رصيدك الحالي ${iqd(pay.rows[0].balance)}` });
   return { order: ord(claim.rows[0]) };
 });
 
@@ -425,6 +482,10 @@ route('POST', '/api/driver/orders/:id/status', DRIVER, async (c) => {
   const u = await db.update('orders', 'id', o.id, {
     status, updated_at: now, delivered_at: DONE.includes(status) ? (o.delivered_at || now) : null, log: pushLog(o, status, now)
   });
+  if (status !== o.status) {
+    const T = { picking_up: 'السائق في طريقه لاستلام الطلب', on_the_way: 'الطلب في الطريق إلى الزبون', delivered: 'تم تسليم الطلب للزبون', rejected: 'الزبون رفض الطلب', no_answer: 'الزبون لا يرد على السائق', postponed: 'تم تأجيل الطلب', return_sent: 'السائق أرجع الطلب إليك، أكّد استلامه' };
+    await notify(o.merchant_id, { kind: 'order_status', orderId: o.id, orderNo: o.num, title: `طلب #${o.num}: ${ST_AR[status]}`, body: `${T[status] || ST_AR[status]} · السائق ${c.user.name}` });
+  }
   return { order: ord(u) };
 });
 
@@ -441,6 +502,7 @@ route('POST', '/api/driver/charge', DRIVER, async (c) => {
   const amount = used.rows[0].amount;
   const b = await q('UPDATE users SET balance=balance+$1 WHERE id=$2 RETURNING balance', [amount, c.user.id]);
   await db.insert('txs', { driver_id: c.user.id, amount, kind: 'charge', label: 'شحن بطاقة', order_num: null, at: now });
+  await notify(c.user.id, { kind: 'wallet_credit', title: `تم شحن محفظتك +${iqd(amount)}`, body: `شحن ببطاقة · رصيدك الحالي ${iqd(b.rows[0].balance)}` });
   return { amount, balance: b.rows[0].balance };
 });
 
@@ -501,6 +563,7 @@ route('POST', '/api/admin/orders/:id/status', ADM('orders', 'edit'), async (c) =
   const u = await db.update('orders', 'id', o.id, {
     status, updated_at: now, delivered_at: DONE.includes(status) ? (o.delivered_at || now) : null, log: pushLog(o, status, now)
   });
+  if (status !== o.status) await notify([o.merchant_id, o.driver_id].filter(Boolean), { kind: 'order_status', orderId: o.id, orderNo: o.num, title: `الإدارة غيّرت حالة الطلب #${o.num}`, body: `الحالة الآن: ${ST_AR[status]}` });
   return { order: ord(u) };
 });
 
@@ -517,6 +580,11 @@ route('POST', '/api/admin/orders/:id/requeue', ADM('orders', 'edit'), async (c) 
   const u = await db.update('orders', 'id', o.id, {
     status: 'pending', driver_id: null, driver_name: '', fee: 0, accepted_at: null, delivered_at: null, updated_at: now, log: pushLog(o, 'pending', now)
   });
+  const prevDriver = o.driver_id;
+  await notify(prevDriver, { kind: 'order_returned', orderId: o.id, orderNo: o.num, title: `سُحب منك الطلب #${o.num}`, body: 'أعادته الإدارة إلى قائمة السائقين' });
+  if (o.fee > 0) await notify(prevDriver, { kind: 'wallet_credit', orderId: o.id, orderNo: o.num, title: `أُرجعت رسوم التطبيق +${iqd(o.fee)}`, body: `طلب #${o.num}` });
+  await notify(o.merchant_id, { kind: 'order_status', orderId: o.id, orderNo: o.num, title: `أُعيد طلبك #${o.num} للسائقين`, body: 'بانتظار سائق جديد' });
+  await notifyNewOrder(u, prevDriver);
   return { order: ord(u) };
 });
 
@@ -546,6 +614,13 @@ route('POST', '/api/admin/orders/:id/assign', ADM('orders', 'edit'), async (c) =
   const u = await db.update('orders', 'id', o.id, {
     status: 'picking_up', driver_id: d.id, driver_name: d.name, fee, accepted_at: now, delivered_at: null, updated_at: now, log: pushLog(o, 'picking_up', now)
   });
+  await notify(d.id, { kind: 'order_assigned', orderId: o.id, orderNo: o.num, title: `عُيّن لك الطلب #${o.num}`, body: `${o.merchant_name} — ${o.merchant_area} ← ${o.customer_area}` });
+  if (fee > 0) await notify(d.id, { kind: 'wallet_debit', orderId: o.id, orderNo: o.num, title: `خصم رسوم التطبيق −${iqd(fee)}`, body: `طلب #${o.num}` });
+  if (o.driver_id && o.driver_id !== d.id) {
+    await notify(o.driver_id, { kind: 'order_returned', orderId: o.id, orderNo: o.num, title: `سُحب منك الطلب #${o.num}`, body: 'حوّلته الإدارة إلى سائق آخر' });
+    if (o.fee > 0) await notify(o.driver_id, { kind: 'wallet_credit', orderId: o.id, orderNo: o.num, title: `أُرجعت رسوم التطبيق +${iqd(o.fee)}`, body: `طلب #${o.num}` });
+  }
+  await notify(o.merchant_id, { kind: 'order_accepted', orderId: o.id, orderNo: o.num, title: `عُيّن سائق لطلبك #${o.num}`, body: `السائق ${d.name}` });
   return { order: ord(u) };
 });
 
@@ -611,7 +686,9 @@ route('POST', '/api/admin/users/:id/adjust', ADM('drivers', 'edit'), async (c) =
     ? await q(`UPDATE users SET balance=balance+$1 WHERE id=$2 AND role='driver' RETURNING *`, [amount, Number(c.params.id)])
     : await q(`UPDATE users SET balance=balance+$1 WHERE id=$2 AND role='driver' AND balance+$1>=0 RETURNING *`, [amount, Number(c.params.id)]);
   if (!r.rows.length) fail('تعذّر تعديل الرصيد (تأكد من السائق ومن أن الرصيد يكفي)', 409);
-  await db.insert('txs', { driver_id: r.rows[0].id, amount, kind: 'admin', label: clean(c.body.label, 80) || 'تعديل من الإدارة', order_num: null, at: Date.now() });
+  const lbl = clean(c.body.label, 80) || 'تعديل من الإدارة';
+  await db.insert('txs', { driver_id: r.rows[0].id, amount, kind: 'admin', label: lbl, order_num: null, at: Date.now() });
+  await notify(r.rows[0].id, { kind: amount > 0 ? 'wallet_credit' : 'wallet_debit', title: amount > 0 ? `شحن من الإدارة +${iqd(amount)}` : `سحب من الإدارة −${iqd(-amount)}`, body: `${lbl} · رصيدك الحالي ${iqd(r.rows[0].balance)}` });
   return { user: pub(r.rows[0]) };
 });
 

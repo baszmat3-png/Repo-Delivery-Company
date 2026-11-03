@@ -54,7 +54,15 @@ function ddl() {
       note TEXT NOT NULL DEFAULT '', ref TEXT NOT NULL DEFAULT '', at BIGINT NOT NULL, created_at BIGINT NOT NULL)`,
     `CREATE UNIQUE INDEX IF NOT EXISTS vouchers_num_idx ON vouchers(num)`,
     `CREATE INDEX IF NOT EXISTS vouchers_at_idx ON vouchers(at)`,
-    `CREATE INDEX IF NOT EXISTS vouchers_party_idx ON vouchers(party_type, party_id)`
+    `CREATE INDEX IF NOT EXISTS vouchers_party_idx ON vouchers(party_type, party_id)`,
+    `CREATE TABLE IF NOT EXISTS notifs(
+      id ${pk}, user_id INTEGER NOT NULL, kind TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL DEFAULT '',
+      order_id INTEGER, order_no INTEGER, at BIGINT NOT NULL, is_read INTEGER NOT NULL DEFAULT 0)`,
+    `CREATE INDEX IF NOT EXISTS notifs_user_idx ON notifs(user_id, id)`,
+    `CREATE TABLE IF NOT EXISTS push_subs(
+      id ${pk}, user_id INTEGER NOT NULL, type TEXT NOT NULL, endpoint TEXT NOT NULL UNIQUE,
+      data TEXT NOT NULL DEFAULT '', created_at BIGINT NOT NULL)`,
+    `CREATE INDEX IF NOT EXISTS push_subs_user_idx ON push_subs(user_id)`
   ];
 }
 

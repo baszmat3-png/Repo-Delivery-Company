@@ -7,35 +7,66 @@
 <meta name="theme-color" content="#0b1119">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
 <style>/* Layout: sticky topbar; side rail (>=900px) or bottom tabs (mobile); content column 760px, admin 1100px. */
+/* ===== الثيمات: كل ثيم يغيّر المتغيرات فقط ===== */
 :root{
-  --bg:#0b1119; --surface:#111b27; --surface-2:#172431; --input:#0a1017; --line:#223244;
-  --fg:#eef2f6; --muted:#8c9db0; --accent:#ffd21f; --accent-ink:#171200; --accent-text:#ffd21f; --accent-soft:rgba(255,210,31,.13);
-  --amber:#f0a93c; --green:#4cc884; --red:#f2766d; --blue:#7499f2;
-  --amber-soft:rgba(240,169,60,.14); --green-soft:rgba(76,200,132,.14); --red-soft:rgba(242,118,109,.14); --blue-soft:rgba(116,153,242,.14);
-  --shadow:0 10px 30px rgba(0,0,0,.35);
   --font-display:"Cairo","IBM Plex Sans Arabic",system-ui,sans-serif;
   --font-body:"IBM Plex Sans Arabic","Cairo",system-ui,sans-serif;
   --font-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",monospace;
-  color-scheme:dark;
+  --bg-grad:none; --accent-bg:var(--accent); --bar:var(--bg);
 }
-@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){
+/* أسود (الافتراضي في الوضع الداكن) */
+:root,:root[data-theme="black"]{
+  --bg:#050607; --surface:#111317; --surface-2:#1a1d23; --input:#0b0c0f; --line:#262a31;
+  --fg:#f2f4f7; --muted:#9aa3ae; --accent:#ffd21f; --accent-ink:#171200; --accent-text:#ffd21f; --accent-soft:rgba(255,210,31,.14);
+  --amber:#f0a93c; --green:#4cc884; --red:#f2766d; --blue:#7499f2;
+  --amber-soft:rgba(240,169,60,.14); --green-soft:rgba(76,200,132,.14); --red-soft:rgba(242,118,109,.14); --blue-soft:rgba(116,153,242,.14);
+  --shadow:0 10px 30px rgba(0,0,0,.5); color-scheme:dark;
+}
+/* أبيض */
+:root[data-theme="white"]{
   --bg:#f2f5f8; --surface:#ffffff; --surface-2:#f6f8fb; --input:#f2f5f8; --line:#dbe3ea;
   --fg:#111a24; --muted:#5b6c7e; --accent:#ffd21f; --accent-ink:#171200; --accent-text:#7d5f00; --accent-soft:rgba(255,210,31,.3);
   --amber:#a4660a; --green:#1d7f4a; --red:#c4372e; --blue:#2f55c4;
   --amber-soft:rgba(240,169,60,.2); --green-soft:rgba(76,200,132,.2); --red-soft:rgba(242,118,109,.2); --blue-soft:rgba(116,153,242,.2);
-  --shadow:0 10px 30px rgba(17,26,36,.12); color-scheme:light}}
-:root[data-theme="light"]{
-  --bg:#f2f5f8; --surface:#ffffff; --surface-2:#f6f8fb; --input:#f2f5f8; --line:#dbe3ea;
-  --fg:#111a24; --muted:#5b6c7e; --accent:#ffd21f; --accent-ink:#171200; --accent-text:#7d5f00; --accent-soft:rgba(255,210,31,.3);
-  --amber:#a4660a; --green:#1d7f4a; --red:#c4372e; --blue:#2f55c4;
-  --amber-soft:rgba(240,169,60,.2); --green-soft:rgba(76,200,132,.2); --red-soft:rgba(242,118,109,.2); --blue-soft:rgba(116,153,242,.2);
-  --shadow:0 10px 30px rgba(17,26,36,.12); color-scheme:light}
+  --shadow:0 10px 30px rgba(17,26,36,.12); color-scheme:light;
+}
+/* أزرق متدرج */
+:root[data-theme="ocean"]{
+  --bg:#0a2a5e; --bg-grad:linear-gradient(165deg,#0a2a5e 0%,#0b4a8f 52%,#0f8fc4 100%); --bar:#0a2a5e;
+  --surface:#0b2f5e; --surface-2:#12407a; --input:#082449; --line:#21568f;
+  --fg:#f0f7ff; --muted:#a9c5e8; --accent:#5cc8ff; --accent-ink:#031a33; --accent-text:#9adcff; --accent-soft:rgba(92,200,255,.18);
+  --accent-bg:linear-gradient(135deg,#9be4ff,#38b6ff);
+  --amber:#ffc266; --green:#5fe0a0; --red:#ff8a80; --blue:#9bb8ff;
+  --amber-soft:rgba(255,194,102,.16); --green-soft:rgba(95,224,160,.16); --red-soft:rgba(255,138,128,.16); --blue-soft:rgba(155,184,255,.16);
+  --shadow:0 10px 30px rgba(0,10,40,.45); color-scheme:dark;
+}
+/* غروب متدرج */
+:root[data-theme="sunset"]{
+  --bg:#3a0f4d; --bg-grad:linear-gradient(165deg,#3a0f4d 0%,#8a1f5c 52%,#e8604c 100%); --bar:#3a0f4d;
+  --surface:#4a1648; --surface-2:#5e1d56; --input:#34103d; --line:#823063;
+  --fg:#fff4f0; --muted:#e8bccb; --accent:#ffb454; --accent-ink:#2b0a14; --accent-text:#ffcd8a; --accent-soft:rgba(255,180,84,.18);
+  --accent-bg:linear-gradient(135deg,#ffd68a,#ff8a5c);
+  --amber:#ffc266; --green:#6ee7a8; --red:#ff9a90; --blue:#b3c4ff;
+  --amber-soft:rgba(255,194,102,.16); --green-soft:rgba(110,231,168,.16); --red-soft:rgba(255,154,144,.16); --blue-soft:rgba(179,196,255,.16);
+  --shadow:0 10px 30px rgba(30,0,30,.45); color-scheme:dark;
+}
+/* أخضر متدرج */
+:root[data-theme="forest"]{
+  --bg:#052e1f; --bg-grad:linear-gradient(165deg,#052e1f 0%,#0a5c3d 52%,#1f9d6a 100%); --bar:#052e1f;
+  --surface:#0a3a2a; --surface-2:#0f4a36; --input:#06281c; --line:#1e6c4d;
+  --fg:#effff7; --muted:#a9d8c2; --accent:#b7f05a; --accent-ink:#0a2410; --accent-text:#cdf785; --accent-soft:rgba(183,240,90,.16);
+  --accent-bg:linear-gradient(135deg,#d9f98a,#5be08a);
+  --amber:#ffd36b; --green:#7df0b0; --red:#ff9a90; --blue:#a8c4ff;
+  --amber-soft:rgba(255,211,107,.16); --green-soft:rgba(125,240,176,.16); --red-soft:rgba(255,154,144,.16); --blue-soft:rgba(168,196,255,.16);
+  --shadow:0 10px 30px rgba(0,20,10,.45); color-scheme:dark;
+}
+html{background-color:var(--bg);background-image:var(--bg-grad);background-attachment:fixed;background-repeat:no-repeat;min-height:100%}
 
 *{box-sizing:border-box}
-body{background:var(--bg);color:var(--fg);font:400 15px/1.65 var(--font-body);
+body{background:transparent;min-height:100vh;color:var(--fg);font:400 15px/1.65 var(--font-body);
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0}
 body.lock{overflow:hidden}
-body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:60}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--bar);z-index:60}
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
 h1,h2,h3{font-family:var(--font-display);margin:0;text-wrap:balance;line-height:1.3}
@@ -61,8 +92,9 @@ svg.ic{width:1.25em;height:1.25em;fill:none;stroke:currentColor;stroke-width:1.8
 .logo.dark .logo-lines i{background:var(--accent-ink)}
 
 /* shell */
-.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:40;background:var(--bg);display:flex;align-items:center;justify-content:space-between;gap:12px;
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:40;background:var(--bar);display:flex;align-items:center;justify-content:space-between;gap:12px;
   padding-block:12px;border-bottom:1px solid transparent;max-width:1180px;margin:0 auto}
+.topbar{box-shadow:0 0 0 100vmax var(--bar);clip-path:inset(0 -100vmax)}
 .topbar .grp{display:flex;align-items:center;gap:14px;min-width:0}
 .rolechip{display:inline-flex;align-items:center;gap:10px;background:var(--accent-soft);color:var(--accent-text);border-radius:14px;padding:9px 14px;font-weight:600}
 .link{background:none;border:0;color:var(--accent-text);font-weight:600;padding:6px 2px}
@@ -101,7 +133,7 @@ svg.ic{width:1.25em;height:1.25em;fill:none;stroke:currentColor;stroke-width:1.8
 .rule{height:1px;background:var(--line);border:0;margin:12px 0}
 
 /* buttons / fields */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--accent);color:var(--accent-ink);border:0;border-radius:14px;padding:11px 18px;font-weight:700;min-height:44px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--accent-bg);color:var(--accent-ink);border:0;border-radius:14px;padding:11px 18px;font-weight:700;min-height:44px}
 .btn:disabled{opacity:.45;cursor:not-allowed}
 .btn.block{width:100%}
 .btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line);font-weight:600}
@@ -121,14 +153,14 @@ select.in{appearance:none;background-image:none;padding-inline-end:12px}
 .seg{display:flex;gap:4px;background:var(--input);border:1px solid var(--line);border-radius:16px;padding:4px}
 .seg button{flex:1;background:none;border:0;border-radius:12px;padding:10px 8px;font-weight:600;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:8px;flex-direction:column;line-height:1.3}
 .seg button small{font-weight:500;font-size:12.5px}
-.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.seg button[aria-pressed="true"]{background:var(--accent-bg);color:var(--accent-ink)}
 .seg.row-seg button{flex-direction:row}
 .stepper{display:inline-flex;align-items:center;gap:10px}
 .stepper button{width:44px;height:44px;border-radius:12px;background:var(--input);border:1px solid var(--line);font-size:20px;font-weight:700}
 .stepper b{min-width:30px;text-align:center;font-size:18px}
 .toggle{width:56px;height:32px;border-radius:99px;border:2px solid var(--line);background:var(--input);position:relative;padding:0;flex:none}
 .toggle::after{content:"";position:absolute;top:3px;inset-inline-start:3px;width:22px;height:22px;border-radius:50%;background:var(--muted);transition:transform .18s}
-.toggle[aria-checked="true"]{background:var(--accent);border-color:var(--accent)}
+.toggle[aria-checked="true"]{background:var(--accent-bg);border-color:var(--accent)}
 .toggle[aria-checked="true"]::after{background:var(--accent-ink);transform:translateX(-24px)}
 
 /* status pills */
@@ -176,7 +208,7 @@ button.pill{cursor:pointer;min-height:36px}
 .empty b{display:block;color:var(--fg);font-size:16px;margin-bottom:4px}
 .steps{display:flex;gap:4px;margin-top:2px}
 .steps i{flex:1;height:4px;border-radius:3px;background:var(--line)}
-.steps i.on{background:var(--accent)}
+.steps i.on{background:var(--accent-bg)}
 
 /* wallet */
 .balance{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:20px}
@@ -189,18 +221,18 @@ button.pill{cursor:pointer;min-height:36px}
 .period hr{border:0;height:1px;background:var(--line);margin:8px 0}
 .tabs{display:flex;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:5px;gap:4px}
 .tabs button{flex:1;border:0;background:none;border-radius:14px;padding:10px;font-weight:600;color:var(--muted)}
-.tabs button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.tabs button[aria-pressed="true"]{background:var(--accent-bg);color:var(--accent-ink)}
 .tx{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
 .tx:last-child{border-bottom:0}
 .neg{color:var(--red);font-weight:700}.pos{color:var(--green);font-weight:700}
 .bars{display:flex;align-items:flex-end;gap:8px;height:170px;padding-top:22px}
 .bars>div{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:6px}
-.bars .b{width:100%;max-width:44px;background:var(--accent);border-radius:8px 8px 3px 3px;min-height:3px}
+.bars .b{width:100%;max-width:44px;background:var(--accent-bg);border-radius:8px 8px 3px 3px;min-height:3px}
 .bars span{font-size:11.5px;color:var(--muted);white-space:nowrap}
 .bars em{font-style:normal;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}
 
 /* profile */
-.avatar{width:104px;height:104px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-family:var(--font-display);font-size:48px;font-weight:800;margin:6px auto 10px}
+.avatar{width:104px;height:104px;border-radius:50%;background:var(--accent-bg);color:var(--accent-ink);display:grid;place-items:center;font-family:var(--font-display);font-size:48px;font-weight:800;margin:6px auto 10px}
 .list-item{display:flex;align-items:center;gap:12px;width:100%;text-align:start;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:10px}
 .list-item .grow b{display:block;font-size:16px}
 .list-item .grow small{color:var(--muted);font-size:13.5px}
@@ -214,11 +246,11 @@ td{padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:middle}
 tr:last-child td{border-bottom:0}
 .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
 .chip{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:6px 14px;font-size:14px;font-weight:500;color:var(--muted)}
-.chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
+.chip[aria-pressed="true"]{background:var(--accent-bg);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
 
 /* landing */
 .land{max-width:1040px;margin:0 auto;padding-block:max(18px,env(safe-area-inset-top,0px)) 40px;display:grid;gap:22px;position:relative;z-index:1}
-.hero{background:var(--accent);color:var(--accent-ink);border-radius:28px;padding:44px 20px;display:grid;place-items:center;overflow:hidden}
+.hero{background:var(--accent-bg);color:var(--accent-ink);border-radius:28px;padding:44px 20px;display:grid;place-items:center;overflow:hidden}
 .hero .logo{transform:none}
 .land h1{font-size:clamp(30px,5vw,44px);font-weight:900}
 .land .lead{color:var(--muted);font-size:17px;margin-top:10px;max-width:46ch}
@@ -243,13 +275,13 @@ tr:last-child td{border-bottom:0}
 .sheet-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:16px}
 .sheet-h h2{font-size:21px;font-weight:800}
 .x{width:40px;height:40px;border-radius:50%;background:var(--input);border:1px solid var(--line);display:grid;place-items:center}
-.card-viz{background:var(--accent);color:var(--accent-ink);border-radius:22px;padding:20px;min-height:170px;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between}
+.card-viz{background:var(--accent-bg);color:var(--accent-ink);border-radius:22px;padding:20px;min-height:170px;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between}
 .card-viz::before{content:"";position:absolute;inset:-30% auto -30% 8%;width:46px;background:rgba(23,18,0,.55);transform:rotate(22deg)}
 .card-viz .no{font-family:var(--font-mono);font-weight:500;font-size:clamp(20px,6vw,28px);letter-spacing:.08em;direction:ltr;text-align:center;position:relative}
 .card-viz .logo{position:relative}
 .chat{display:flex;flex-direction:column;gap:8px;height:min(46dvh,380px);overflow:auto;padding:4px;margin-bottom:12px}
 .msg{max-width:82%;padding:9px 13px;border-radius:16px;background:var(--surface-2);align-self:flex-start;font-size:14.5px;overflow-wrap:anywhere}
-.msg.me{background:var(--accent);color:var(--accent-ink);align-self:flex-end}
+.msg.me{background:var(--accent-bg);color:var(--accent-ink);align-self:flex-end}
 .msg small{display:block;opacity:.7;font-size:11.5px;margin-bottom:1px}
 #toast-root{position:fixed;z-index:90;inset:auto 0 calc(92px + env(safe-area-inset-bottom,0px)) 0;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;padding-inline:16px}
 .toast{background:var(--fg);color:var(--bg);border-radius:14px;padding:11px 18px;font-weight:600;box-shadow:var(--shadow);max-width:92vw;animation:up .2s ease-out}
@@ -262,12 +294,184 @@ tr:last-child td{border-bottom:0}
 td{min-width:0}
 .logo.big .logo-sub{margin-top:10px}
 .logo-sub{margin-top:3px}
+
+/* ===== وصل الطلب ===== */
+a.btn{text-decoration:none}
+.btn.wa{background:#25d366;color:#fff}
+.rcpt-wrap{background:#eef1f5;border-radius:16px;padding:12px;max-height:60vh;overflow:auto}
+.rcpt{background:#fff;color:#111;max-width:340px;margin:0 auto;padding:16px;text-align:right;border-radius:10px}
+.rcpt .rl{display:block;width:170px;height:108px;max-width:100%;margin:0 auto 8px;flex:none}
+.rcpt.sz58{max-width:210px;padding:10px;font-size:11px}.rcpt.sz58 .rl{width:110px;height:70px}.rcpt.sz58 h3{font-size:14px;margin-bottom:6px}.rcpt.sz58 .ttl{font-size:13px;padding:5px}.rcpt.sz58 .no{font-size:16px}.rcpt.sz58 .r{gap:6px;padding:4px 0}
+.rcpt.sz58 .box{font-size:12px;padding:6px 8px}.rcpt.sz58 .box span{white-space:nowrap}
+.rcpt.sz80{max-width:300px}
+.rcpt.sza5{max-width:520px;font-size:15px}.rcpt.sza4{max-width:720px;font-size:17px;padding:24px}.rcpt.sza4 .rl{width:220px;height:140px}
+.rcpt{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.rcpt h3{text-align:center;font-size:18px;margin:0 0 10px;font-weight:800}
+.rcpt .ttl{border:2px solid #111;border-radius:12px;text-align:center;padding:8px;font-weight:800}
+.rcpt .no{text-align:center;font-weight:800;font-size:20px;margin:8px 0 10px}
+.rcpt .r{display:flex;justify-content:space-between;gap:12px;padding:6px 0}
+.rcpt .r span{text-align:left}
+.rcpt hr{border:0;border-top:1.5px dashed #999;margin:8px 0}
+.rcpt .box{border:2px solid #111;border-radius:12px;padding:10px 12px;display:flex;justify-content:space-between;font-weight:800;font-size:18px;margin:8px 0}
+#print-root{display:none}
+@media print{
+  body.printing > *:not(#print-root){display:none!important}
+  body.printing #print-root{display:block}
+  body.printing .rcpt{padding:0}
+  body.printing .rcpt.sz58{max-width:54mm}body.printing .rcpt.sz80{max-width:76mm}body.printing .rcpt.sza5,body.printing .rcpt.sza4{max-width:100%}
+  @page{margin:6mm}
+}
+
+/* ===== جرس الإشعارات + عنوان الوصل المختصر ===== */
+.bell{position:relative;display:inline-grid;place-items:center;width:42px;height:42px;border-radius:14px;background:var(--accent-soft);color:var(--accent-text);border:0}
+.bell .ic{width:22px;height:22px}
+.bell .badge{position:absolute;top:-4px;inset-inline-start:auto;inset-inline-end:-4px;margin:0}
+.bell .badge[hidden]{display:none}
+.dot{display:inline-block;width:9px;height:9px;border-radius:99px;background:var(--red);vertical-align:middle;margin-inline-start:6px}
+.rcpt h3.rh{font-size:20px;margin:0 0 10px;color:#111}
+@media (max-width:480px){
+  .topbar{gap:6px}
+  .topbar .grp{gap:6px}
+  .topbar .link{white-space:nowrap;font-size:14px;padding:6px 0}
+  .topbar .rolechip{padding:8px 10px;gap:6px;font-size:14px}
+  .bell{width:38px;height:38px}
+}
+
+/* ===== شاشة الدخول الجديدة ===== */
+.lg{max-width:480px;margin:0 auto;display:flex;flex-direction:column;min-height:100vh;background:#fff;color:#111}
+.lg-hero img{display:block;width:100%;height:auto}
+.lg-card{display:flex;flex-direction:column;gap:12px;padding:8px 22px 36px;text-align:center}
+.lg-card h1{font-size:26px;font-weight:900;margin:0}
+.lg-sub{margin:-6px 0 6px;font-size:14px;color:#333}
+.lg-in{display:flex;align-items:center;gap:10px;background:#f3f4f6;border:1px solid #e1e4e8;border-radius:16px;padding:0 14px;min-height:52px}
+.lg-in input{flex:1;background:none;border:0;outline:0;font:inherit;font-size:16px;color:#111;min-width:0;text-align:right}
+.lg-in .ic{width:22px;height:22px;flex:none;color:#111}
+.lg-in .eye{background:none;border:0;padding:0;order:3;color:#555;cursor:pointer}
+.lg-rem{display:flex;align-items:center;gap:8px;font-size:15px;color:#111;justify-self:start;cursor:pointer}
+.lg-rem input{width:20px;height:20px}
+.lg-or{display:flex;align-items:center;gap:12px;color:#555;font-size:13px}
+.lg-or::before,.lg-or::after{content:"";flex:1;border-top:1px solid #ddd}
+.lg-reg{background:#fff;color:#111;border:1.5px solid #111;border-radius:16px;min-height:52px;font-weight:800}
+.lg-new{font-size:14px;color:#111;margin:4px 0 0}
+.lg-link{background:none;border:0;padding:0;font:inherit;color:#1a6fe0;font-weight:700;text-decoration:underline;cursor:pointer}
+
+/* ===== اختيار الثيم ===== */
+.themes{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:10px;margin-bottom:6px}
+.theme-opt{display:flex;flex-direction:column;align-items:center;gap:8px;padding:8px;border-radius:16px;background:var(--surface);border:2px solid var(--line);font-weight:700;font-size:13.5px;color:var(--fg)}
+.theme-opt i{display:block;width:100%;height:48px;border-radius:10px;border:1px solid rgba(128,128,128,.35)}
+.theme-opt[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+
+/* ===== بطاقة الطلب (تصميم موحّد للتاجر والسائق والمدير) ===== */
+.oc{
+  /* البطاقة فاتحة دائماً مثل التصميم المطلوب، لذا نثبّت ألوانها مهما كان الثيم */
+  --fg:#1b1612; --muted:#7a6a58; --line:#eadfce; --surface:#ffffff; --surface-2:#faf6ee; --input:#f5f0e6;
+  --amber:#a4660a; --green:#1d7f4a; --red:#c4372e; --blue:#2f55c4;
+  --amber-soft:rgba(240,169,60,.2); --green-soft:rgba(76,200,132,.2); --red-soft:rgba(242,118,109,.2); --blue-soft:rgba(116,153,242,.2);
+  --accent:#ffd21f; --accent-ink:#171200; --accent-text:#7d5f00; --accent-soft:rgba(255,210,31,.3); --accent-bg:#ffd21f;
+  position:relative;background:#fff;color:var(--fg);border-radius:20px;padding:18px 28px 16px 18px;
+  box-shadow:0 6px 26px rgba(255,193,7,.30),0 1px 3px rgba(0,0,0,.10);font-family:var(--font-display)
+}
+.oc::after{content:"";position:absolute;right:0;top:20%;bottom:20%;width:9px;border-radius:10px 0 0 10px;background:#ffc107}
+.oc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.oc-no{font-weight:800;font-size:22px;color:#f5a31a;line-height:1.4}
+.oc-no small{display:block;font-size:12.5px;font-weight:600;color:var(--muted)}
+.oc-corner{display:flex;flex-direction:column;gap:8px;flex:none}
+.oc-cb{display:inline-flex;align-items:center;justify-content:space-between;gap:10px;min-width:112px;padding:7px 12px;border:0;border-radius:8px;color:#fff;font:800 15px var(--font-display);text-decoration:none;cursor:pointer}
+.oc-cb.g{background:#34c759}.oc-cb.r{background:#ff3b47}
+.oc-cb:disabled{opacity:.5}
+.oc-cb .ic{width:22px;height:22px}
+.oc-ex{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#fff;color:#ff3b47;font-weight:900;font-size:15px;line-height:1}
+.oc-r{display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;margin-top:14px;font-weight:700;font-size:15.5px}
+.oc-r+.oc-r.sub{margin-top:10px}
+.oc-i{width:34px;height:34px;flex:none;display:grid;place-items:center;color:#8a3a10}
+.oc-i svg.ic{width:30px;height:30px;stroke-width:1.9}
+.oc-d{width:30px;height:30px;border-radius:50%;background:#8a3a10;color:#fff;display:grid;place-items:center;font-weight:900;font-size:17px;line-height:1}
+.oc-l{color:#8a3a10;font-weight:800;white-space:nowrap}
+.oc-v{color:#111;font-weight:800;min-width:0;overflow-wrap:anywhere}
+.oc-plus{color:#8a3a10;font-size:26px;font-weight:300;line-height:1;margin-inline:2px}
+.oc-chip{display:inline-block;background:#ddd8d9;color:#222;border-radius:12px;padding:5px 18px;font-weight:800}
+.oc-sep{border:0;border-top:1.5px dashed #e6d7bd;margin:14px 0 0}
+.oc .phone{color:#8a3a10}
+.oc .pill{font-size:13.5px}
+.oc .notice{margin-top:12px}
+.oc-act{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.oc-act>*{flex:1 1 auto}
+.oc .btn.ghost{background:#fff;color:#3b2a1a;border:1px solid #e2d3bb}
+.oc .btn.danger{background:#fff;color:var(--red);border:1px solid #e2d3bb}
+.oc .btn.danger.arm{background:var(--red);color:#fff}
+.oc .btn.soft{background:#fff3c4;color:#6b5000}
+.oc .btn.wa{background:#25d366;color:#fff}
+.oc .menu{background:#fff;border-color:#e2d3bb;box-shadow:0 10px 30px rgba(0,0,0,.18)}
+.oc .menu button{color:#1b1612}
+
+/* ===== صفحة الإشعارات الكاملة ===== */
+.nt-list{display:flex;flex-direction:column;gap:10px}
+.nt{display:flex;gap:12px;align-items:flex-start;width:100%;text-align:start;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:14px;position:relative;color:var(--fg)}
+.nt.unread{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.nt-ic{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;flex:none;background:var(--surface-2);color:var(--muted)}
+.nt-ic.accent{background:var(--accent-soft);color:var(--accent-text)}
+.nt-ic.green{background:var(--green-soft);color:var(--green)}
+.nt-ic.red{background:var(--red-soft);color:var(--red)}
+.nt-ic.amber{background:var(--amber-soft);color:var(--amber)}
+.nt-ic.blue{background:var(--blue-soft);color:var(--blue)}
+.nt-b{flex:1;min-width:0}
+.nt-b b{display:block;font-size:15.5px;line-height:1.45}
+.nt-b p{color:var(--muted);font-size:14px;white-space:pre-line;overflow-wrap:anywhere;margin-top:2px}
+.nt-b small{display:block;color:var(--muted);font-size:12.5px;margin-top:4px}
+.nt .dot{position:absolute;top:14px;inset-inline-end:14px;margin:0}
+.nt-tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+
+.oc-grp{display:inline-flex;align-items:center;gap:6px 8px;flex-wrap:nowrap;white-space:nowrap}
+.oc-no{white-space:nowrap;font-size:20px}
+.oc-cb{min-width:104px;font-size:14.5px;padding:7px 10px}
+.oc-r{font-size:15px}
 </style>
 </head>
 <body>
 <div id="app" aria-live="polite"></div>
 <div id="sheet-root" hidden></div>
 <div id="toast-root" role="status"></div>
+<script>/* ريو — الثيمات (تُحمَّل في <head> لتجنّب الوميض). تُحفظ في الجهاز وتُشارَك بين التطبيق ولوحة التحكم. */
+(function () {
+  'use strict';
+  var KEY = 'rio_theme';
+  var LIST = [
+    { id: 'white', name: 'أبيض', sw: 'linear-gradient(135deg,#ffffff,#e6ecf3)', meta: '#f2f5f8' },
+    { id: 'black', name: 'أسود', sw: 'linear-gradient(135deg,#1b1e24,#000000)', meta: '#050607' },
+    { id: 'ocean', name: 'أزرق', sw: 'linear-gradient(135deg,#0a2a5e,#0f8fc4)', meta: '#0a2a5e' },
+    { id: 'sunset', name: 'غروب', sw: 'linear-gradient(135deg,#3a0f4d,#e8604c)', meta: '#3a0f4d' },
+    { id: 'forest', name: 'أخضر', sw: 'linear-gradient(135deg,#052e1f,#1f9d6a)', meta: '#052e1f' }
+  ];
+  function stored() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
+  function valid(id) { return LIST.some(function (t) { return t.id === id; }); }
+  function get() {
+    var s = stored();
+    if (valid(s)) return s;
+    try { return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'white' : 'black'; } catch (e) { return 'black'; }
+  }
+  function apply(id) {
+    if (!valid(id)) id = get();
+    document.documentElement.setAttribute('data-theme', id);
+    var t = LIST.filter(function (x) { return x.id === id; })[0];
+    var m = document.querySelector('meta[name="theme-color"]');
+    if (m && t) m.setAttribute('content', t.meta);
+  }
+  function set(id) {
+    if (!valid(id)) return;
+    try { localStorage.setItem(KEY, id); } catch (e) { /* ignore */ }
+    apply(id);
+  }
+  /* شبكة اختيار الثيم. attr = اسم السمة التي يلتقطها معالج النقر (data-act في التطبيق، data-a في اللوحة) */
+  function picker(attr) {
+    var cur = get();
+    return '<div class="themes" role="group" aria-label="المظهر">' + LIST.map(function (t) {
+      return '<button type="button" class="theme-opt" ' + attr + '="theme" data-t="' + t.id + '" aria-pressed="' + (cur === t.id) + '"><i style="background:' + t.sw + '"></i><span>' + t.name + '</span></button>';
+    }).join('') + '</div>';
+  }
+  window.RioTheme = { list: LIST, get: get, set: set, apply: apply, picker: picker };
+  apply(get());
+})();
+</script>
 <script>/* خادم وهمي داخل المتصفح: يحاكي واجهة API كاملة ببيانات تجريبية في الذاكرة */
 (() => {
 const MIN = 60000, HR = 3600000, DAY = 86400000, OFF = 3 * HR;
@@ -476,16 +680,23 @@ addQuick();
 (() => {
 /* ============ أدوات عامة ============ */
 const API = String(window.RIO_API || '').replace(/\/$/, '');
+const ADMIN_ONLY = !!window.RIO_ADMIN_ONLY;
+const TOKEN_KEY = ADMIN_ONLY ? 'rio_admin_token' : 'rio_token';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const nf = new Intl.NumberFormat('en-US');
 const num = (n) => `<span class="num">${nf.format(Math.round(n || 0))}</span>`;
 const money = (n) => `${num(n)} د.ع`;
+const RSIZES = { '58': ['58mm', 384, '58mm auto', '2mm'], '80': ['80mm', 576, '80mm auto', '3mm'], a5: ['A5', 700, 'A5', '8mm'], a4: ['A4', 794, 'A4', '10mm'] };
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch { /* ignore */ } },
   del(k) { try { localStorage.removeItem(k); } catch { /* ignore */ } }
 };
+let RSIZE = RSIZES[store.get('rio_rsize')] ? store.get('rio_rsize') : '80';
+/* تشغيل/إيقاف الوصولات من الإدارة: يخفي زر «وصل» عن التاجر والسائق فقط */
+const receiptsOn = () => !S.user || S.user.role === 'admin' || !S.data || !S.data.settings || ![0, false, '0'].includes(S.data.settings.receipts);
+const rsizeSeg = () => `<div class="seg" role="group" aria-label="حجم الوصل" style="display:flex;justify-content:center;width:max-content;max-width:100%;margin:0 auto 10px">${Object.keys(RSIZES).map((k) => `<button type="button" data-act="rsize" data-k="${k}" aria-pressed="${RSIZE === k}">${RSIZES[k][0]}</button>`).join('')}</div>`;
 const pad = (n) => String(n).padStart(2, '0');
 const OFF = 3 * 3600000;
 const DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
@@ -527,30 +738,38 @@ const IC = {
   grid: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
   bike: '<circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-8h5l3 8M10 8H8M13 12h5"/>',
   car: '<path d="M3 15v-4l2-5h14l2 5v4z"/><circle cx="7.5" cy="15.5" r="1.8"/><circle cx="16.5" cy="15.5" r="1.8"/><path d="M5 11h14"/>',
+  eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   phone: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2z"/>',
   lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/>',
   trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
   copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 00-1-1H5a1 1 0 00-1 1v10a1 1 0 001 1h3"/>',
   shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',
+  bell: '<path d="M6 17V11a6 6 0 0112 0v6l1.5 2h-15z"/><path d="M10 21h4"/>',
+  wa: '<path d="M4 20l1.3-4.2A8 8 0 1112 20a8 8 0 01-3.8-1z"/><path d="M9 9c.5 3 2.5 5 6 6l1-1.5-2-1-1 .8c-1-.5-1.8-1.3-2.3-2.3l.8-1-1-2z"/>',
+  dl: '<path d="M12 4v11M7 11l5 5 5-5M5 20h14"/>',
   support: '<path d="M4 13v-1a8 8 0 0116 0v1"/><rect x="3" y="13" width="4" height="6" rx="1.5"/><rect x="17" y="13" width="4" height="6" rx="1.5"/>'
 };
 const ico = (n) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${IC[n] || ''}</svg>`;
 
+const RIO_MARK = '<svg class="rl" width="170" height="108" viewBox="0 0 300 190" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ريو للتوصيل أسرع" style="display:block;max-width:100%;margin:0 auto 8px"><rect width="300" height="190" rx="30" fill="#ffd21f"/><g fill="#171200"><rect x="216" y="52" width="64" height="13" rx="6"/><rect x="226" y="80" width="54" height="13" rx="6"/><rect x="216" y="108" width="64" height="13" rx="6"/></g><text x="112" y="112" text-anchor="middle" font-family="Cairo,Tahoma,sans-serif" font-weight="900" font-size="92" fill="#171200">ريوو</text><text x="112" y="168" text-anchor="middle" font-family="Cairo,Tahoma,sans-serif" font-weight="700" font-size="22" fill="#5c4d00">للتوصيل أسرع</text></svg>';
 const logo = (cls = '') => `<span class="logo ${cls}" aria-label="ريو للتوصيل أسرع"><span class="logo-lines"><i></i><i></i><i></i></span><span class="logo-col"><span class="logo-word">ريوو</span><span class="logo-sub">للتوصيل أسرع</span></span></span>`;
 
 const ST = {
   pending: ['بانتظار سائق', 'amber'], picking_up: ['قيد الاستلام من التاجر', 'accent'], on_the_way: ['في الطريق للزبون', 'accent'],
-  delivered: ['تم التسليم', 'green'], no_answer: ['لا يرد', 'red'], problem: ['مشكلة', 'red'], other: ['حالة أخرى', 'red'],
-  returned: ['راجع', 'blue'], partial: ['راجع جزئي', 'blue'], cancelled: ['ملغي', '']
+  delivered: ['تم التسليم', 'green'], rejected: ['مرفوض من زبون', 'red'], postponed: ['تأجيل', 'amber'], no_answer: ['لا يرد', 'red'], problem: ['مشكلة', 'red'], other: ['حالة أخرى', 'red'],
+  returned: ['راجع — استلمه التاجر', 'blue'], return_sent: ['أُرجع للتاجر — بانتظار تأكيده', 'amber'], partial: ['راجع جزئي', 'blue'], cancelled: ['ملغي', '']
 };
-const DRIVER_ST = ['picking_up', 'on_the_way', 'delivered', 'no_answer', 'problem', 'other', 'returned', 'partial'];
+const DRIVER_ST = ['picking_up', 'on_the_way', 'delivered', 'rejected', 'no_answer', 'postponed'];
+const ST_OK = ['pending', 'picking_up', 'on_the_way', 'delivered', 'rejected', 'no_answer', 'postponed', 'return_sent', 'returned', 'cancelled'];
+const RETURNABLE = ['rejected', 'no_answer', 'postponed'];
+const stKeys = (cur) => Object.keys(ST).filter((k) => ST_OK.includes(k) || k === cur);
 const pill = (s) => `<span class="pill ${ST[s]?.[1] || ''}">${esc(ST[s]?.[0] || s)}</span>`;
 const vehName = (v) => (v === 'car' ? 'سيارة' : 'دراجة');
 
 /* ============ الحالة ============ */
 const S = {
-  token: store.get('rio_token'), user: null, tab: '', data: null, loading: false, error: '',
-  sheet: null, menu: null, armed: null, filter: 'all', walletTab: 'log', ordersTab: 'current', adminFilter: 'all', cardsBatch: null
+  token: store.get(TOKEN_KEY) || (() => { try { return sessionStorage.getItem(TOKEN_KEY); } catch { return null; } })(), user: null, tab: '', data: null, loading: false, error: '',
+  unread: 0, pushOn: false, sheet: null, menu: null, armed: null, filter: 'all', walletTab: 'log', ordersTab: 'current', adminFilter: 'all', cardsBatch: null, expRange: 'month'
 };
 let lastSig = '';
 let chatTimer = null;
@@ -599,6 +818,7 @@ function defaultTab() { return TABS[S.user.role][0][0]; }
 
 async function fetchData() {
   const role = S.user.role;
+  if (role !== 'admin' && S.tab === 'notifs') return api('GET', '/api/notifs?limit=40');
   if (role === 'merchant') return api('GET', '/api/merchant/home');
   if (role === 'driver') return api('GET', '/api/driver/home');
   const t = S.tab;
@@ -619,6 +839,7 @@ async function refresh(manual) {
     if (tab !== S.tab) return;
     const sig = JSON.stringify(d);
     S.loading = false; S.error = '';
+    if (tab === 'notifs' && d && d.unread !== undefined) S.unread = d.unread;
     if (sig !== lastSig || manual) { lastSig = sig; S.data = d; render(); }
   } catch (e) {
     if (!S.user) return;
@@ -635,12 +856,25 @@ function go(tab) {
   refresh();
 }
 
-function setUser(u) { S.user = u; }
+let es = null, liveT = null;
+function connectLive() {
+  if (es || !S.token || typeof EventSource === 'undefined') return;
+  es = new EventSource(API + '/api/stream?token=' + encodeURIComponent(S.token));
+  es.addEventListener('change', () => { clearTimeout(liveT); liveT = setTimeout(liveRefresh, 300); setTimeout(checkNotifs, 200); });
+}
+function disconnectLive() { if (es) { es.close(); es = null; } }
+function liveRefresh() {
+  if (!S.user || document.hidden) return;
+  const a = document.activeElement;
+  if (S.sheet || S.menu || (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))) { S.dirty = true; return; }
+  refresh();
+}
+function setUser(u) { S.user = u; connectLive(); setTimeout(checkNotifs, 600); if (u && u.role !== 'admin') setTimeout(ensurePush, 1200); }
 function logout() {
-  S.token = null; S.user = null; S.data = null; S.sheet = null; S.menu = null; lastSig = '';
-  store.del('rio_token');
+  S.token = null; S.user = null; S.data = null; S.sheet = null; S.menu = null; lastSig = ''; S.unread = 0; S.pushOn = false;
+  store.del(TOKEN_KEY);
   history.replaceState(null, '', location.pathname);
-  stopChat();
+  stopChat(); disconnectLive();
   render();
 }
 
@@ -663,8 +897,10 @@ function shell() {
     const b = badge(id);
     return `<button data-act="tab" data-tab="${id}" ${S.tab === id ? 'aria-current="page"' : ''}>${ico(ic)}<span>${label}</span>${b ? `<span class="badge">${b}</span>` : ''}</button>`;
   }).join('');
+  const un = unreadCount();
+  const bell = role === 'admin' ? '' : `<button class="bell" id="bell" data-act="notifs" aria-label="الإشعارات">${ico('bell')}<span class="badge" id="bell-n" ${un ? '' : 'hidden'}>${un}</span></button>`;
   const fab = role === 'merchant' && S.tab !== 'me' ? `<button class="btn fab" data-act="new-order">${ico('plus')} إنشاء طلب</button>` : '';
-  return `<header class="topbar"><div class="grp">${logo()}<span class="rolechip">${ico(ROLE_ICON[role])}${ROLE_NAME[role]}</span></div><button class="link" data-act="logout">تسجيل الخروج</button></header>
+  return `<header class="topbar"><div class="grp">${logo()}<span class="rolechip">${ico(ROLE_ICON[role])}${ROLE_NAME[role]}</span></div><div class="grp">${bell}</div></header>
 <div class="shell"><nav class="nav" aria-label="التنقل">${nav}</nav><main class="main"><div class="col ${role === 'admin' ? 'wide' : ''}">${view()}</div></main></div>${fab}`;
 }
 
@@ -680,24 +916,28 @@ const emptyBox = (t, s) => `<div class="empty"><b>${t}</b>${s || ''}</div>`;
 
 /* ============ تسجيل الدخول ============ */
 function loginView() {
-  return `<div class="land">
-  <div class="intro"><h1>بضائعك توصل أسرع</h1><p class="lead">التاجر يجهّز الطلب ويرفعه، والسائق يستلمه من التاجر ويوصله للزبون، والإدارة تتابع كل شي.</p></div>
-  <div class="hero">${logo('big dark')}</div>
-  <div class="stack">
+  if (ADMIN_ONLY) return `<div class="land"><div class="hero">${logo('big dark')}</div><div class="stack">
     <form class="card stack" data-form="login" autocomplete="on">
-      <h2 style="font-size:20px">تسجيل الدخول</h2>
+      <h2 style="font-size:20px">لوحة تحكم المدير</h2>
       <div class="field"><label for="l-phone">رقم الهاتف</label><input class="in mono" id="l-phone" name="phone" inputmode="tel" autocomplete="username" placeholder="07XX XXX XXXX" required></div>
       <div class="field"><label for="l-pass">كلمة المرور</label><input class="in" id="l-pass" name="password" type="password" autocomplete="current-password" required></div>
       <p class="hint" id="l-err" style="color:var(--red)" role="alert"></p>
       <button class="btn block" type="submit" id="l-btn">دخول</button>
-    </form>
-    <div class="roles">
-      <div class="role"><span class="ico">${ico('store')}</span><span><b>تاجر</b><small>تابع إحصائيات طلباتك وأنشئ طلبات جديدة</small></span></div>
-      <div class="role"><span class="ico">${ico('pin')}</span><span><b>سائق</b><small>اشحن محفظتك واقبل الطلبات وسلّمها</small></span></div>
-      <div class="role"><span class="ico">${ico('grid')}</span><span><b>مدير</b><small>لوحة تحكم بالطلبات والتجار والسائقين وكروت الرصيد</small></span></div>
-    </div>
-    <p class="fine">الحسابات يُنشئها المدير. <a href="privacy.html" class="link">سياسة الخصوصية</a> · <a href="delete-account.html" class="link">حذف الحساب</a></p>
-  </div></div>`;
+    </form></div></div>`;
+  return `<div class="lg">
+  <div class="lg-hero"><img src="hero.jpg" alt="ريو للتوصيل أسرع — أسرع توصيل في بغداد"></div>
+  <form class="lg-card" data-form="login" autocomplete="on">
+    <h1>تسجيل الدخول</h1><p class="lg-sub">مرحباً بك في ريو</p>
+    <div class="lg-in">${ico('phone')}<input id="l-phone" name="phone" inputmode="tel" autocomplete="username" placeholder="رقم الجوال" aria-label="رقم الجوال" required></div>
+    <div class="lg-in">${ico('lock')}<input id="l-pass" name="password" type="password" autocomplete="current-password" placeholder="كلمة المرور" aria-label="كلمة المرور" required><button type="button" class="eye" data-act="eye" aria-label="إظهار كلمة المرور">${ico('eye')}</button></div>
+    <label class="lg-rem"><input type="checkbox" name="remember" checked> تذكرني</label>
+    <p class="hint" id="l-err" style="color:var(--red)" role="alert"></p>
+    <button class="btn block" type="submit" id="l-btn">دخول ←</button>
+    <div class="lg-or"><span>أو</span></div>
+    <button type="button" class="btn ghost block lg-reg" data-act="register" data-role="merchant">${ico('store')} تسجيل كتاجر</button>
+    <button type="button" class="btn ghost block lg-reg" data-act="register" data-role="driver">${ico('user')} تسجيل كسائق</button>
+    <p class="lg-new">ليس لديك حساب؟ <button type="button" class="lg-link" data-act="register" data-role="driver">إنشاء حساب جديد</button></p>
+  </form></div>`;
 }
 
 /* ============ التاجر ============ */
@@ -707,22 +947,73 @@ function tile(label, sub, n, color) {
   return `<div class="tile" style="--c:${color}"><span class="ring">${n}</span><div><b>${label}</b>${sub ? `<small>${sub}</small>` : ''}</div></div>`;
 }
 
+/* ============ بطاقة الطلب الموحّدة (التاجر / السائق / المدير) ============ */
+const dinar = (n) => `<span class="num">${nf.format(Math.round(n || 0))}</span> دينار`;
+const OCI = { store: ico('store'), pin: ico('pin'), phone: ico('phone'), box: ico('orders'), cash: ico('wallet'), user: ico('user'), status: ico('orders') };
+const ocRow = (i, l, v, cls = '') => `<div class="oc-r ${cls}"><span class="oc-i">${OCI[i]}</span><span class="oc-l">${l}:</span><span class="oc-v">${v}</span></div>`;
+const noteBtn = (o) => `<button class="oc-cb r" data-act="note" data-id="${o.id}"><span>ملاحظة</span><span class="oc-ex">!</span></button>`;
+const chatBtn = (o) => `<button class="oc-cb g" data-act="chat" data-id="${o.id}"><span>محادثة</span>${ico('chat')}</button>`;
+function wazeLinks(o) {
+  const url = o.merchantMap || '';
+  if (!url && !o.merchantArea) return '';
+  const c = mapCoords(url);
+  const wz = c ? `https://waze.com/ul?ll=${c[0]},${c[1]}&navigate=yes` : `https://waze.com/ul?q=${encodeURIComponent((o.merchantName || '') + ' ' + (o.merchantArea || ''))}&navigate=yes`;
+  return `<a class="btn soft sm" href="${esc(wz)}" target="_blank" rel="noopener">${ico('pin')} Waze · موقع المتجر</a>${url ? `<a class="btn ghost sm" href="${esc(url)}" target="_blank" rel="noopener">الخريطة</a>` : ''}`;
+}
+/* opt: corner (أزرار الزاوية العلوية)، rows (تفاصيل إضافية)، after (تنبيهات)، actions (الأزرار السفلية) */
+function orderCard(o, opt = {}) {
+  const corner = (opt.corner || '') + (opt.noteBtn ? noteBtn(o) : '');
+  return `<article class="oc">
+    <div class="oc-top"><div class="oc-no">رقم الطلب : <bdi>#${o.no}</bdi><small>${ago(o.createdAt)}</small></div>${corner ? `<div class="oc-corner">${corner}</div>` : ''}</div>
+    ${ocRow('store', 'اسم المتجر', esc(o.merchantName))}
+    <div class="oc-r"><span class="oc-i"><span class="oc-d">$</span></span><span class="oc-l">سعر الطلب:</span><span class="oc-v">${dinar(o.productPrice)}</span><span class="oc-grp"><span class="oc-plus">+</span><span class="oc-l">التوصيل:</span><span class="oc-v">${dinar(o.deliveryPrice)}</span></span></div>
+    ${ocRow('pin', 'عنوان المتجر', `<span class="oc-chip">${esc(o.merchantArea || '—')}</span>`)}
+    ${ocRow('pin', 'عنوان الزبون', `<span class="oc-chip">${esc(o.customerArea)}</span>`)}
+    ${opt.rows ? `<hr class="oc-sep">${opt.rows}` : ''}${opt.after || ''}
+    ${opt.actions ? `<div class="oc-act">${opt.actions}</div>` : ''}
+  </article>`;
+}
+const customerRows = (o) => ocRow('phone', 'رقم الزبون', telLink(o.customerPhone)) + ocRow('cash', 'المطلوب من الزبون', money(o.total)) + ocRow('box', 'المنتج', `${esc(o.product)} × ${o.qty} · ${vehName(o.vehicle)}`);
+
 function merchantOrderCard(o, withCancel) {
   const armed = S.armed === 'c' + o.id;
-  return `<article class="card ord">
-    <div class="ord-h"><div><div class="ord-no">طلب #${o.no}</div><div class="hint">${esc(o.customerArea)} · ${ago(o.createdAt)}</div></div>${pill(o.status)}</div>
-    <dl class="kv">
-      <div><dt>المنتج</dt><dd>${esc(o.product)} × ${o.qty}</dd></div>
-      <div><dt>التوصيل</dt><dd>${vehName(o.vehicle)} · ${money(o.deliveryPrice)}</dd></div>
-      <div><dt>رقم الزبون</dt><dd>${telLink(o.customerPhone)}</dd></div>
-      <div><dt>الإجمالي على الزبون</dt><dd>${money(o.total)}</dd></div>
-      ${o.driverName ? `<div class="full"><dt>السائق</dt><dd>${esc(o.driverName)}</dd></div>` : ''}
-      ${o.note ? `<div class="full"><dt>ملاحظة</dt><dd>${esc(o.note)}</dd></div>` : ''}
-    </dl>
-    <div class="row wrapx">
-      ${o.driverId ? `<button class="btn ghost sm" data-act="chat" data-id="${o.id}">${ico('chat')} محادثة السائق</button>` : ''}
-      ${withCancel && o.status === 'pending' ? `<button class="btn danger sm ${armed ? 'arm' : ''}" data-act="cancel" data-id="${o.id}">${armed ? 'اضغط للتأكيد' : 'إلغاء الطلب'}</button>` : ''}
-    </div></article>`;
+  return orderCard(o, {
+    corner: o.driverId ? chatBtn(o) : '', noteBtn: !!o.note,
+    rows: ocRow('status', 'الحالة', pill(o.status)) + customerRows(o) + (o.driverName ? ocRow('user', 'السائق', esc(o.driverName)) : ''),
+    after: o.status === 'return_sent' ? `<div class="notice">السائق ${esc(o.driverName || '')} أعلن أنه أرجع الطلب إليك. أكّد الاستلام عند وصول البضاعة.</div>` : '',
+    actions: `<a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a>${wazeLinks(o)}${o.status === 'return_sent' ? `<button class="btn sm" data-act="ask-recv" data-id="${o.id}">تأكيد استلام المرتجع</button><button class="btn ghost sm" data-act="not-recv" data-id="${o.id}">لم أستلمه</button>` : ''}${withCancel && o.status === 'pending' ? `<button class="btn danger sm ${armed ? 'arm' : ''}" data-act="cancel" data-id="${o.id}">${armed ? 'اضغط للتأكيد' : 'إلغاء الطلب'}</button>` : ''}`
+  });
+}
+
+function availOrderCard(o, s, receiving) {
+  return orderCard(o, {
+    corner: `<button class="oc-cb g" data-act="accept" data-id="${o.id}"><span>قبول الطلب</span>${ico('check')}</button><button class="oc-cb r" data-act="note" data-id="${o.id}"><span>ملاحظة</span><span class="oc-ex">!</span></button>`,
+    rows: ocRow('box', 'المنتج', `${esc(o.product)} × ${o.qty} · ${vehName(o.vehicle)}`),
+    after: `<p class="hint" style="margin-top:12px">رسوم التطبيق عند القبول ${money(o.sameArea ? s.feeSame : s.feeOther)}</p>`,
+    actions: wazeLinks(o)
+  });
+}
+
+function driverOrderCard(o) {
+  const open = S.menu === o.id;
+  const locked = ['delivered', 'return_sent', 'returned'].includes(o.status);
+  const m = open && !locked ? `<div class="menu" role="menu">${DRIVER_ST.map((s) => `<button role="menuitem" data-act="set-status" data-id="${o.id}" data-s="${s}"><span class="ck">${o.status === s ? ico('check') : ''}</span>${ST[s][0]}</button>`).join('')}${RETURNABLE.includes(o.status) ? `<button role="menuitem" data-act="ask-return" data-id="${o.id}"><span class="ck"></span><b>تم الإرجاع للتاجر</b></button>` : ''}</div>` : '';
+  const st = locked ? pill(o.status) : `<span class="menuwrap"><button class="pill ${ST[o.status]?.[1] || ''}" data-act="menu" data-id="${o.id}" aria-haspopup="menu" aria-expanded="${open}">${esc(ST[o.status]?.[0] || o.status)} <span aria-hidden="true">▾</span></button>${m}</span>`;
+  return orderCard(o, {
+    corner: chatBtn(o), noteBtn: !!o.note,
+    rows: ocRow('status', 'الحالة', st) + customerRows(o) + ocRow('phone', 'هاتف المتجر', telLink(o.merchantPhone)),
+    after: o.status === 'picking_up' ? `<div class="notice">ادفع للتاجر ${money(o.productPrice)} عند الاستلام، وبعدها غيّر الحالة إلى «في الطريق للزبون».</div>` : '',
+    actions: `${receiptsOn() ? `<button class="btn ghost sm" data-act="receipt" data-id="${o.id}">وصل</button>` : ''}<a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a><a class="btn ghost sm" href="${supportLink(o)}" target="_blank" rel="noopener">واتساب الدعم</a>${wazeLinks(o)}`
+  });
+}
+
+/* المدير داخل التطبيق: نفس البطاقة مع التحكم بالحالة */
+function adminOrderCard(o) {
+  return orderCard(o, {
+    corner: o.driverId ? chatBtn(o) : '', noteBtn: !!o.note,
+    rows: ocRow('status', 'الحالة', statusSelect(o)) + customerRows(o) + ocRow('user', 'السائق', esc(o.driverName || '—')),
+    actions: `<a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a>${receiptsOn() || true ? `<button class="btn ghost sm" data-act="receipt" data-id="${o.id}">وصل</button>` : ''}${wazeLinks(o)}${o.driverId && o.status !== 'pending' ? `<button class="btn soft sm" data-act="requeue" data-id="${o.id}">إعادة للسائقين</button>` : ''}`
+  });
 }
 
 const VIEWS = {
@@ -738,13 +1029,14 @@ const VIEWS = {
       ${tile('تم الإرجاع', '', countBy(o, ['returned', 'partial']), 'var(--blue)')}
     </div>
     <button class="btn ghost block" style="margin-top:14px" data-act="tab" data-tab="orders">عرض كل الطلبات (${o.length})</button>
+    ${exportCard('تصدير الحساب', 'الجدول يشمل كل طلب بحالته وتفاصيله ومجموع حسابه، ويُخصم الراجع من الإجمالي الكلي. الوصل المختصر يعرض عدد الطلبات والصافي ناقص كلف التوصيل.')}
     <h2 class="sec">طلبات مسجلة (${pend.length})</h2>
     <div class="stack">${pend.length ? pend.map((x) => merchantOrderCard(x, true)).join('') : emptyBox('لا توجد طلبات بانتظار سائق', 'اضغط «إنشاء طلب» لإرسال طلب جديد للسائقين.')}</div>`;
   },
   'merchant:orders'() {
     const o = S.data.orders;
     const f = S.filter;
-    const sets = { all: null, active: ['pending', 'picking_up', 'on_the_way'], done: ['delivered'], issues: ['no_answer', 'problem', 'other', 'returned', 'partial', 'cancelled'] };
+    const sets = { all: null, active: ['pending', 'picking_up', 'on_the_way'], done: ['delivered'], issues: ['return_sent', 'rejected', 'postponed', 'no_answer', 'problem', 'other', 'returned', 'partial', 'cancelled'] };
     const list = sets[f] ? o.filter((x) => sets[f].includes(x.status)) : o;
     const chip = (id, l) => `<button class="chip" data-act="filter" data-f="${id}" aria-pressed="${f === id}">${l}</button>`;
     return `${head('الطلبات', `${o.length} طلب`)}
@@ -759,19 +1051,12 @@ const VIEWS = {
     const s = d.settings;
     return `${head('الطلبات المتاحة', d.me.receiving ? 'تُحدَّث القائمة تلقائياً' : '')}
     ${!d.me.receiving ? `<div class="notice red" style="margin-bottom:12px">استقبال الطلبات متوقف. فعّله من «الملف الشخصي» لتتمكن من قبول الطلبات.</div>` : ''}
-    <div class="stack">${d.available.length ? d.available.map((o) => `
-      <article class="card avail">
-        <div class="info"><div class="hint">طلب #${o.no}</div><h3>${esc(o.merchantName)}</h3>
-          <div class="muted">${esc(o.merchantArea)} - ${esc(o.customerArea)}</div>
-          <div class="price-line">${money(o.productPrice)} + ${money(o.deliveryPrice)}</div>
-          <div class="hint">سعر المنتج + سعر التوصيل · رسوم التطبيق ${money(o.sameArea ? s.feeSame : s.feeOther)}</div></div>
-        <div class="act"><button class="btn" data-act="accept" data-id="${o.id}">قبول الطلب</button><button class="btn ghost" data-act="note" data-id="${o.id}">ملاحظة</button></div>
-      </article>`).join('') : emptyBox('لا توجد طلبات متاحة الآن', 'ستظهر الطلبات الجديدة هنا فور رفعها من التجار.')}</div>`;
+    <div class="stack">${d.available.length ? d.available.map((o) => availOrderCard(o, s, d.me.receiving)).join('') : emptyBox('لا توجد طلبات متاحة الآن', 'ستظهر الطلبات الجديدة هنا فور رفعها من التجار.')}</div>`;
   },
   'driver:orders'() {
     const all = S.data.orders;
-    const cur = all.filter((o) => ['picking_up', 'on_the_way'].includes(o.status));
-    const prev = all.filter((o) => !['picking_up', 'on_the_way'].includes(o.status));
+    const cur = all.filter((o) => ['picking_up', 'on_the_way', 'postponed', 'rejected', 'no_answer', 'return_sent'].includes(o.status));
+    const prev = all.filter((o) => !['picking_up', 'on_the_way', 'postponed', 'rejected', 'no_answer', 'return_sent'].includes(o.status));
     const t = S.ordersTab;
     const list = t === 'current' ? cur : prev;
     return `${head('الطلبات')}
@@ -787,7 +1072,7 @@ const VIEWS = {
       body = w.txs.length ? `<div class="card">${w.txs.map((t) => `<div class="tx"><div><div>${esc(t.label || (t.kind === 'fee' ? 'رسوم التطبيق' : 'عملية'))}${t.orderNo ? ` (طلب #${t.orderNo})` : ''}</div><small class="muted">${ago(t.at)}</small></div><span class="${t.amount < 0 ? 'neg' : 'pos'}">${t.amount < 0 ? '−' : '+'}${money(Math.abs(t.amount))}</span></div>`).join('')}</div>` : emptyBox('لا توجد عمليات بعد');
     } else {
       const max = Math.max(1, ...w.days.map((d) => d.net));
-      body = `<div class="card"><div class="lbl">صافي ربحك آخر 7 أيام</div><div class="bars">${w.days.map((d) => `<div><em>${d.net ? nf.format(d.net) : ''}</em><div class="b" style="height:${Math.max(3, Math.round(d.net / max * 110))}px"></div><span>${DAYS[new Date(d.t + OFF).getUTCDay()]}</span></div>`).join('')}</div></div>`;
+      body = exportCard('تصدير الإحصائيات', 'يشمل الطلبات المسلّمة وعمولة التطبيق وربحك الصافي والمبلغ المستحق للشركة.') + `<div class="card"><div class="lbl">صافي ربحك آخر 7 أيام</div><div class="bars">${w.days.map((d) => `<div><em>${d.net ? nf.format(d.net) : ''}</em><div class="b" style="height:${Math.max(3, Math.round(d.net / max * 110))}px"></div><span>${DAYS[new Date(d.t + OFF).getUTCDay()]}</span></div>`).join('')}</div></div>`;
     }
     return `${head('المحفظة')}
     <div class="stack">
@@ -807,10 +1092,12 @@ const VIEWS = {
     ${li('card', 'شحن الرصيد', 'عبّي محفظتك ببطاقة رصيد', 'charge')}
     ${li('user', 'بياناتي', 'الاسم ورقم الهاتف' + (me.vehicle ? ' · ' + vehName(me.vehicle) : ''), 'edit-me')}
     ${li('lock', 'الأمان والخصوصية', 'تحديث كلمة المرور', 'password')}
-    ${li('stats', 'إحصائيات الطلبات', `طلباتك المسلّمة اليوم ${w.today.n} وصافي ربحك ${nf.format(w.today.net)} د.ع`, 'tab-wallet')}
+    ${li('stats', 'إحصائيات الطلبات وتصديرها', `طلباتك المسلّمة اليوم ${w.today.n} وصافي ربحك ${nf.format(w.today.net)} د.ع`, 'tab-wallet')}
     ${accountLinks(S.data.settings)}`;
   }
 };
+
+VIEWS['merchant:notifs'] = VIEWS['driver:notifs'] = notifsView;
 
 function li(ic, t, sub, a, extra = '') {
   return `<button class="list-item" data-act="${a}" ${extra}>${ico(ic)}<span class="grow"><b>${t}</b><small>${sub}</small></span><span class="chev">${ico('chev')}</span></button>`;
@@ -819,11 +1106,14 @@ function profileHead(me) {
   return `<div style="text-align:center;margin-top:8px"><div class="avatar">${esc((me.name || '؟').trim().charAt(0))}</div><h1 style="font-size:24px">${esc(me.name)}</h1><p class="muted">${ROLE_NAME[me.role]}</p></div><div style="height:16px"></div>`;
 }
 function accountLinks(settings) {
-  return `<h2 class="sec">الدعم والسياسات</h2>
-  ${settings.support ? `<a class="list-item" href="tel:${esc(settings.support)}" style="color:inherit;text-decoration:none">${ico('support')}<span class="grow"><b>التواصل مع الدعم</b><small dir="ltr" style="text-align:right">${esc(fmtPhone(settings.support))}</small></span><span class="chev">${ico('chev')}</span></a>` : ''}
-  <a class="list-item" href="privacy.html" style="color:inherit;text-decoration:none">${ico('shield')}<span class="grow"><b>سياسة الخصوصية</b><small>كيف نحمي بياناتك</small></span><span class="chev">${ico('chev')}</span></a>
-  ${li('trash', 'حذف الحساب', 'إلغاء حسابك وحذف بياناتك الشخصية', 'delete-me')}
-  <button class="btn ghost block" data-act="logout">${ico('out')} تسجيل الخروج</button>`;
+  const sp = settings.support;
+  const msg = encodeURIComponent(`مرحباً، أحتاج مساعدة في تطبيق ريو\nالاسم: ${S.user.name}\nالهاتف: ${S.user.phone}`);
+  return `<h2 class="sec">المظهر</h2>${RioTheme.picker('data-act')}
+  <h2 class="sec">الإشعارات</h2>${notifSetting()}${li('bell', 'كل الإشعارات', 'سجل كامل بالطلبات والمحفظة والمحادثات', 'notifs')}
+  <h2 class="sec">الدعم والسياسات</h2>
+  ${sp ? `<a class="list-item" href="https://wa.me/${waNumber(sp)}?text=${msg}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${ico('wa')}<span class="grow"><b>التواصل مع الدعم</b><small dir="ltr" style="text-align:right">${esc(fmtPhone(sp))} · واتساب</small></span><span class="chev">${ico('chev')}</span></a>
+  <a class="list-item" href="tel:${esc(sp)}" style="color:inherit;text-decoration:none">${ico('support')}<span class="grow"><b>اتصال بالدعم</b><small dir="ltr" style="text-align:right">${esc(fmtPhone(sp))}</small></span><span class="chev">${ico('chev')}</span></a>` : ''}
+  <button class="btn ghost block" style="margin-top:8px" data-act="logout">${ico('out')} تسجيل الخروج</button>`;
 }
 function profileView(me, settings) {
   return `${profileHead(me)}
@@ -833,25 +1123,22 @@ function profileView(me, settings) {
   ${accountLinks(settings)}`;
 }
 
-function driverOrderCard(o) {
-  const open = S.menu === o.id;
-  const m = open ? `<div class="menu" role="menu">${DRIVER_ST.map((s) => `<button role="menuitem" data-act="set-status" data-id="${o.id}" data-s="${s}"><span class="ck">${o.status === s ? ico('check') : ''}</span>${ST[s][0]}</button>`).join('')}</div>` : '';
-  return `<article class="card ord">
-    <div class="ord-h"><div class="menuwrap"><button class="pill ${ST[o.status]?.[1] || ''}" data-act="menu" data-id="${o.id}" aria-haspopup="menu" aria-expanded="${open}">${esc(ST[o.status]?.[0] || o.status)} <span aria-hidden="true">▾</span></button>${m}</div><div class="ord-no">طلب #${o.no}</div></div>
-    <dl class="kv">
-      <div><dt>الزبون</dt><dd>${esc(o.customerArea)}</dd></div>
-      <div><dt>تحصل من الزبون</dt><dd>${money(o.total)}</dd></div>
-      <div><dt>رقم الزبون</dt><dd>${telLink(o.customerPhone)}</dd></div>
-      <div><dt>دفعت للتاجر</dt><dd>${money(o.productPrice)}</dd></div>
-      <div><dt>المنتج</dt><dd>${esc(o.product)} × ${o.qty} · ${vehName(o.vehicle)}</dd></div>
-      <div><dt>توصيل</dt><dd>${money(o.deliveryPrice)}</dd></div>
-      ${o.note ? `<div class="full"><dt>ملاحظة</dt><dd>${esc(o.note)}</dd></div>` : ''}
-    </dl>
-    ${o.status === 'picking_up' ? `<div class="notice">ادفع للتاجر ${money(o.productPrice)} عند الاستلام، وبعدها غيّر الحالة إلى «في الطريق للزبون».</div>` : ''}
-    <button class="btn ghost block" data-act="chat" data-id="${o.id}">${ico('chat')} محادثة</button>
-    <hr class="rule" style="margin:0">
-    <dl class="kv"><div><dt>المتجر</dt><dd>${esc(o.merchantName)}</dd></div><div><dt>العنوان</dt><dd>${esc(o.merchantArea)}</dd></div><div class="full"><dt>هاتف المتجر</dt><dd>${telLink(o.merchantPhone)}</dd></div></dl>
-  </article>`;
+function mapCoords(url) {
+  const m = String(url || '').match(/(-?\d{1,3}\.\d{3,})\s*[,%2C]+\s*(-?\d{1,3}\.\d{3,})/i) || String(url || '').match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  return m ? [m[1], m[2]] : null;
+}
+function tplText(key, vars) {
+  const T = (S.data && S.data.settings && S.data.settings.templates) || {};
+  return String(T[key] || '').replace(/\{(\w+)\}/g, (m, k) => (vars[k] !== undefined && vars[k] !== null ? String(vars[k]) : m));
+}
+function ordVars(o) {
+  const st = (S.data && S.data.settings) || {};
+  return { order_no: o.no, status: (ST[o.status] || [o.status])[0], merchant: o.merchantName, merchant_phone: o.merchantPhone, merchant_area: o.merchantArea, customer_phone: o.customerPhone, customer_area: o.customerArea, product: o.product, qty: o.qty, product_price: mny(o.productPrice), delivery_price: mny(o.deliveryPrice), total: mny(o.total), driver: o.driverName || '—', note: o.note || '', app: 'ريو للتوصيل أسرع', support: st.support || '', date: fmtDT(o.createdAt), name: (S.user && S.user.name) || '', phone: (S.user && S.user.phone) || '' };
+}
+function supportLink(o) {
+  const sp = (S.data && S.data.settings && S.data.settings.support) || '';
+  const msg = tplText('driver_support', ordVars(o)) || `مرحباً، أحتاج مساعدة بخصوص الطلب #${o.no}`;
+  return `https://wa.me/${waNumber(sp)}?text=${encodeURIComponent(msg)}`;
 }
 
 /* ============ المدير ============ */
@@ -879,21 +1166,17 @@ VIEWS['admin:overview'] = () => {
 };
 
 function statusSelect(o) {
-  return `<select class="in" style="min-height:38px;padding:6px 10px;min-width:150px" data-chg="admin-status" data-id="${o.id}" aria-label="حالة الطلب ${o.no}">${Object.keys(ST).map((s) => `<option value="${s}" ${o.status === s ? 'selected' : ''}>${ST[s][0]}</option>`).join('')}</select>`;
+  return `<select class="in" style="min-height:38px;padding:6px 10px;min-width:150px" data-chg="admin-status" data-id="${o.id}" aria-label="حالة الطلب ${o.no}">${stKeys(o.status).map((s) => `<option value="${s}" ${o.status === s ? 'selected' : ''}>${ST[s][0]}</option>`).join('')}</select>`;
 }
 function ordersTable(list) {
-  return `<div class="tblwrap"><table><thead><tr><th>الطلب</th><th>التاجر</th><th>الزبون</th><th>المنتج</th><th>الإجمالي</th><th>السائق</th><th>الحالة</th><th></th></tr></thead><tbody>
-  ${list.map((o) => `<tr><td><b>#${o.no}</b><div class="hint">${ago(o.createdAt)}</div></td><td>${esc(o.merchantName)}</td><td>${esc(o.customerArea)}<div>${telLink(o.customerPhone)}</div></td>
-  <td>${esc(o.product)} × ${o.qty}<div class="hint">${vehName(o.vehicle)}</div></td><td>${money(o.total)}</td><td>${esc(o.driverName || '—')}</td><td>${statusSelect(o)}</td>
-  <td><div class="row">${o.driverId ? `<button class="btn sm ghost" data-act="chat" data-id="${o.id}">محادثة</button>` : ''}${o.driverId && o.status !== 'pending' ? `<button class="btn sm soft" data-act="requeue" data-id="${o.id}">إعادة للسائقين</button>` : ''}</div></td></tr>`).join('')}
-  </tbody></table></div>`;
+  return `<div class="stack">${list.map(adminOrderCard).join('')}</div>`;
 }
 
 VIEWS['admin:orders'] = () => {
   const list = S.data.orders;
   const chip = (id, l) => `<button class="chip" data-act="afilter" data-f="${id}" aria-pressed="${S.adminFilter === id}">${l}</button>`;
   return `${head('الطلبات', `${list.length} طلب`)}
-  <div class="chips">${chip('all', 'الكل')}${Object.keys(ST).map((s) => chip(s, ST[s][0])).join('')}</div>
+  <div class="chips">${chip('all', 'الكل')}${stKeys().map((s) => chip(s, ST[s][0])).join('')}</div>
   ${list.length ? ordersTable(list) : emptyBox('لا توجد طلبات بهذه الحالة')}`;
 };
 VIEWS['admin:merchants'] = () => userTable('merchant');
@@ -924,16 +1207,487 @@ VIEWS['admin:settings'] = () => {
       <div class="kpis" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">${f('bikeSame', 'دراجة · نفس المنطقة')}${f('bikeOther', 'دراجة · منطقة ثانية')}${f('carSame', 'سيارة · نفس المنطقة')}${f('carOther', 'سيارة · منطقة ثانية')}</div></div>
     <div class="card stack"><h2 style="font-size:18px">رسوم التطبيق على السائق</h2><p class="hint">تُخصم من محفظة السائق عند قبول كل طلب.</p>
       <div class="kpis" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">${f('feeSame', 'نفس المنطقة')}${f('feeOther', 'منطقة ثانية')}</div></div>
+    <div class="card stack"><h2 style="font-size:18px">الوصولات</h2><label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="s-receipts" name="receipts" ${s.receipts !== 0 ? 'checked' : ''} style="width:22px;height:22px"><span><b>تفعيل الوصولات</b><span class="hint" style="display:block">عند الإيقاف يختفي زر «وصل» من حسابات التجار والسائقين. تبقى متاحة لك كمدير.</span></span></label></div>
     <div class="card stack"><h2 style="font-size:18px">الدعم</h2><div class="field"><label for="s-support">رقم الدعم (يظهر للتجار والسائقين)</label><input class="in mono" id="s-support" name="support" inputmode="tel" value="${esc(s.support)}" placeholder="07XX XXX XXXX"></div></div>
-    <button class="btn" type="submit" style="align-self:flex-start">حفظ الإعدادات</button></form>`;
+    <button class="btn" type="submit" style="align-self:flex-start">حفظ الإعدادات</button></form>
+  <h2 class="sec">المظهر</h2>${RioTheme.picker('data-act')}
+  <button class="btn ghost block" style="margin-top:16px" data-act="logout">${ico('out')} تسجيل الخروج</button>`;
 };
+
+/* ============ وصل الطلب: معاينة / طباعة / صورة / واتساب ============ */
+const mny = (n) => `${nf.format(Math.round(n || 0))} د.ع`;
+const pad2 = (n) => String(n).padStart(2, '0');
+function fmtDT(t) {
+  const d = new Date(t + OFF);
+  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())} ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
+}
+function findOrder(id) {
+  const d = S.data || {};
+  return (d.orders || []).find((x) => x.id === id) || (d.attention || []).find((x) => x.id === id) || (d.available || []).find((x) => x.id === id) || null;
+}
+function waNumber(phone) {
+  const d = String(phone || '').replace(/\D/g, '');
+  if (d.startsWith('964')) return d;
+  if (d.startsWith('0')) return '964' + d.slice(1);
+  return d;
+}
+function waLink(o) {
+  const msg = tplText('cust_' + o.status, ordVars(o)) || tplText('cust_default', ordVars(o)) || `مرحباً، بخصوص طلبك رقم #${o.no} من ${o.merchantName}
+المبلغ المطلوب: ${mny(o.total)}`;
+  return `https://wa.me/${waNumber(o.customerPhone)}?text=${encodeURIComponent(msg)}`;
+}
+function receiptModel(o) {
+  return {
+    title: 'وصل توصيل', no: o.no,
+    sections: [
+      { rows: [['التاريخ', fmtDT(o.createdAt)], ['الحالة', (ST[o.status] || [o.status])[0]], ['التاجر', o.merchantName]] },
+      { rows: [['رقم الزبون', o.customerPhone], ['المنطقة', o.customerArea]] },
+      { rows: [['البضاعة', o.product], ['عدد القطع', String(o.qty)]] },
+      { box: ['المبلغ المطلوب', mny(o.total)] },
+      { rows: [['أجرة التوصيل', mny(o.deliveryPrice)], ['الصافي للتاجر', mny(o.productPrice)]] },
+      { rows: [['المندوب', o.driverName || '—']] }
+    ]
+  };
+}
+const receiptHtml = (o) => modelHtml(receiptModel(o));
+function modelHtml(m) {
+  const body = m.sections.map((sec, i) => {
+    const inner = sec.box
+      ? `<div class="box"><span>${esc(sec.box[0])}</span><span dir="ltr">${esc(sec.box[1])}</span></div>`
+      : sec.rows.map(([l, v]) => `<div class="r"><b>${esc(l)}</b><span dir="auto">${esc(v)}</span></div>`).join('');
+    const nextIsBox = m.sections[i + 1] && m.sections[i + 1].box;
+    return inner + (i < m.sections.length - 1 && !sec.box && !nextIsBox ? '<hr>' : '');
+  }).join('');
+  return `<div class="rcpt sz${RSIZE}">${RIO_MARK}<h3>ريو للتوصيل أسرع</h3>${m.heading ? `<h3 class="rh">${esc(m.heading)}</h3>` : ''}<div class="ttl">${esc(m.title)}</div>${m.no ? `<div class="no">#${esc(m.no)}</div>` : '<div style="height:10px"></div>'}${body}</div>`;
+}
+const receiptCanvas = (o) => modelCanvas(receiptModel(o));
+async function modelCanvas(m) {
+  try { await document.fonts.load('900 60px Cairo'); await document.fonts.load('700 24px Cairo'); await document.fonts.load('500 22px "IBM Plex Sans Arabic"'); } catch { /* ignore */ }
+  const W = 640, SC = 2, PAD = 30, ROW = 54;
+  let H = 360 + (m.heading ? 48 : 0) - (m.no ? 0 : 48);
+  m.sections.forEach((sec) => { H += sec.box ? 96 : sec.rows.length * ROW + 26; });
+  H += 40;
+  const OUT = RSIZES[RSIZE][1], K = OUT / W;
+  const c = document.createElement('canvas');
+  c.width = Math.round(OUT * SC); c.height = Math.round(H * K * SC);
+  const x = c.getContext('2d');
+  x.scale(SC * K, SC * K);
+  const FF = 'Cairo, "IBM Plex Sans Arabic", Tahoma, sans-serif';
+  const rr = (px, py, w, h, r) => { x.beginPath(); x.moveTo(px + r, py); x.arcTo(px + w, py, px + w, py + h, r); x.arcTo(px + w, py + h, px, py + h, r); x.arcTo(px, py + h, px, py, r); x.arcTo(px, py, px + w, py, r); x.closePath(); };
+  x.fillStyle = '#fff'; x.fillRect(0, 0, W, H);
+  x.direction = 'rtl'; x.textBaseline = 'middle'; x.fillStyle = '#111';
+  let y = 28;
+  { // الشعار: خلفية صفراء + كلمة ريو + خطوط السرعة
+    const lw = 240, lh = 152, lx = W / 2 - lw / 2;
+    x.fillStyle = '#ffd21f'; rr(lx, y, lw, lh, 24); x.fill();
+    x.fillStyle = '#171200';
+    [[0.69, 0.30, 0.24], [0.72, 0.45, 0.2], [0.69, 0.60, 0.24]].forEach(([fx, fy, fw]) => { rr(lx + lw * fx, y + lh * fy - 5, lw * fw, 10, 5); x.fill(); });
+    x.textAlign = 'center'; x.font = `900 78px ${FF}`; x.fillText('ريوو', lx + lw * 0.37, y + lh * 0.50);
+    x.fillStyle = '#5c4d00'; x.font = `700 18px ${FF}`; x.fillText('للتوصيل أسرع', lx + lw * 0.35, y + lh * 0.88);
+    x.fillStyle = '#111';
+  }
+  y += lh0() + 24;
+  x.textAlign = 'center'; x.font = `800 30px ${FF}`; x.fillText('ريو للتوصيل أسرع', W / 2, y);
+  y += m.heading ? 40 : 38;
+  if (m.heading) { x.font = `800 26px ${FF}`; x.fillText(m.heading, W / 2, y, W - 2 * PAD); y += 44; }
+  x.lineWidth = 3; x.strokeStyle = '#111'; rr(PAD - 6, y, W - 2 * PAD + 12, 56, 16); x.stroke();
+  x.font = `800 24px ${FF}`; x.fillText(m.title, W / 2, y + 29);
+  y += 92;
+  if (m.no) { x.font = `800 30px ${FF}`; x.fillText(`#${m.no}`, W / 2, y); y += 38; } else y -= 10;
+  m.sections.forEach((sec, i) => {
+    if (sec.box) {
+      x.lineWidth = 3; rr(PAD - 6, y, W - 2 * PAD + 12, 72, 16); x.stroke();
+      x.font = `800 26px ${FF}`; x.textAlign = 'right'; x.fillText(sec.box[0], W - PAD - 8, y + 37);
+      x.textAlign = 'left'; x.fillText(sec.box[1], PAD + 8, y + 37);
+      y += 96;
+    } else {
+      sec.rows.forEach(([l, v]) => {
+        x.font = `800 23px ${FF}`; x.textAlign = 'right'; x.fillText(l, W - PAD, y + ROW / 2);
+        const lw = x.measureText(l).width;
+        x.font = `500 23px ${FF}`; x.textAlign = 'left'; x.fillText(v, PAD, y + ROW / 2, W - 2 * PAD - lw - 20);
+        y += ROW;
+      });
+      const nextIsBox = m.sections[i + 1] && m.sections[i + 1].box;
+      if (i < m.sections.length - 1 && !nextIsBox) {
+        x.setLineDash([8, 6]); x.lineWidth = 1.5; x.strokeStyle = '#888';
+        x.beginPath(); x.moveTo(PAD, y + 10); x.lineTo(W - PAD, y + 10); x.stroke(); x.setLineDash([]); x.strokeStyle = '#111';
+      }
+      y += 26;
+    }
+  });
+  return c;
+}
+const lh0 = () => 152;
+function canvasBlob(c) { return new Promise((res) => c.toBlob(res, 'image/png')); }
+async function saveBlob(b, name) {
+  const cap = window.Capacitor;
+  if (cap && typeof cap.isNativePlatform === 'function' && cap.isNativePlatform()) {
+    try {
+      const data = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(b); });
+      await cap.registerPlugin('Filesystem').writeFile({ path: 'Rio/' + name, data, directory: 'DOCUMENTS', recursive: true });
+      toast('تم حفظ الصورة في المستندات ← Rio');
+      return;
+    } catch { /* نكمل بالتنزيل العادي */ }
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(b); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+async function downloadModel(m, name) {
+  const b = await canvasBlob(await modelCanvas(m));
+  if (b) { await saveBlob(b, name); return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(b); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+async function shareModel(m, name, title) {
+  try {
+    const b = await canvasBlob(await modelCanvas(m));
+    const file = new File([b], name, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title });
+    else await downloadModel(m, name);
+  } catch { /* أُلغيت المشاركة */ }
+}
+function printModel(m) {
+  let root = document.getElementById('print-root');
+  if (!root) { root = document.createElement('div'); root.id = 'print-root'; document.body.appendChild(root); }
+  root.innerHTML = modelHtml(m);
+  let ps = document.getElementById('page-style');
+  if (!ps) { ps = document.createElement('style'); ps.id = 'page-style'; document.head.appendChild(ps); }
+  ps.textContent = `@page{size:${RSIZES[RSIZE][2]};margin:${RSIZES[RSIZE][3]}}`;
+  document.body.classList.add('printing');
+  const done = () => { document.body.classList.remove('printing'); window.removeEventListener('afterprint', done); };
+  window.addEventListener('afterprint', done);
+  setTimeout(() => window.print(), 80);
+}
+const downloadReceipt = (o) => downloadModel(receiptModel(o), `rio-receipt-${o.no}.png`);
+const shareReceipt = (o) => shareModel(receiptModel(o), `rio-receipt-${o.no}.png`, `وصل #${o.no}`);
+const printReceipt = (o) => printModel(receiptModel(o));
+
+/* ============ التقارير والتصدير (Excel / Word / وصل مختصر) ============ */
+const RANGES = [['today', 'اليوم'], ['week', 'آخر 7 أيام'], ['month', 'هذا الشهر'], ['all', 'الكل']];
+const DONE_ST = ['delivered', 'partial'];
+const sumK = (a, k) => a.reduce((t, o) => t + (Number(o[k]) || 0), 0);
+function rangeBounds(k) {
+  const n = Date.now(), ds = Math.floor((n + OFF) / 86400000) * 86400000 - OFF, d = new Date(n + OFF);
+  if (k === 'today') return [ds, ds + 86400000];
+  if (k === 'week') return [ds - 6 * 86400000, ds + 86400000];
+  if (k === 'month') return [Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1) - OFF, ds + 86400000];
+  return [0, ds + 86400000];
+}
+function periodText(k) { const [a, b] = rangeBounds(k); return k === 'all' ? 'كل الفترات' : `${fmtDT(a).slice(0, 10)} → ${fmtDT(b - 1).slice(0, 10)}`; }
+const kfmt = (k) => (k[2] === 'money' ? mny(k[1]) : String(k[1]));
+
+function merchantReport(orders, rk) {
+  const list = orders.filter((o) => o.status !== 'cancelled');
+  const counted = list.filter((o) => DONE_ST.includes(o.status) || o.status === 'returned');
+  const ret = counted.filter((o) => o.status === 'returned');
+  const ok = counted.filter((o) => o.status !== 'returned');
+  const gross = sumK(counted, 'total'), retAmt = sumK(ret, 'total'), net = gross - retAmt, delivery = sumK(ok, 'deliveryPrice'), due = net - delivery;
+  const open = list.length - counted.length;
+  const rows = list.map((o) => {
+    const isRet = o.status === 'returned', isOk = DONE_ST.includes(o.status);
+    return [o.no, fmtDT(o.createdAt), (ST[o.status] || [o.status])[0], o.customerArea, `${o.product} × ${o.qty}`, o.productPrice, o.deliveryPrice, o.total, isRet ? o.total : isOk ? 0 : '', isOk ? o.total : isRet ? 0 : ''];
+  });
+  const kpis = [
+    ['عدد الطلبات المنتهية (مسلّم + راجع)', counted.length, 'n'], ['الإجمالي الكلي', gross, 'money'], [`الراجع (${ret.length} طلب)`, retAmt, 'money'],
+    ['الصافي بعد خصم الراجع', net, 'money'], ['كلف التوصيل', delivery, 'money'], ['المستحق للتاجر (الصافي − كلف التوصيل)', due, 'money']
+  ];
+  if (open) kpis.push(['طلبات غير محتسبة (قيد التنفيذ / مشاكل)', open, 'n']);
+  const m = {
+    title: 'وصل ملخص الطلبات', heading: S.user.name,
+    sections: [
+      { rows: [['الفترة', periodText(rk)], ['التاريخ', fmtDT(Date.now())]] },
+      { rows: [['عدد الطلبات', String(counted.length)], ['منها راجع', String(ret.length)]] },
+      { rows: [['الإجمالي الكلي', mny(gross)], ['الراجع', '−' + mny(retAmt)]] },
+      { rows: [['الصافي', mny(net)], ['كلف التوصيل', '−' + mny(delivery)]] },
+      { box: ['المستحق للتاجر', mny(due)] }
+    ]
+  };
+  return {
+    kind: 'merchant', title: 'كشف حساب الطلبات', owner: S.user.name, period: periodText(rk), kpis, receipt: m,
+    head: ['#', 'التاريخ', 'الحالة', 'المنطقة', 'المنتج', 'سعر المنتج', 'التوصيل', 'الإجمالي', 'الراجع', 'الصافي'], rows,
+    foot: ['', '', '', '', 'المجموع (للمنتهي)', sumK(counted, 'productPrice'), sumK(counted, 'deliveryPrice'), gross, retAmt, net],
+    note: 'الراجع يُخصم من الإجمالي الكلي. الراجع الجزئي يُحتسب كطلب مسلّم. الطلبات غير المنتهية تظهر في الجدول ولا تدخل في المجاميع.'
+  };
+}
+
+function driverReport(orders, rk) {
+  const done = orders.filter((o) => DONE_ST.includes(o.status));
+  const collected = sumK(done, 'total'), paid = sumK(done, 'productPrice'), deliv = sumK(done, 'deliveryPrice'), fees = sumK(done, 'fee'), profit = deliv - fees;
+  const rows = orders.map((o) => {
+    const d = DONE_ST.includes(o.status);
+    return [o.no, fmtDT(o.acceptedAt || o.createdAt), (ST[o.status] || [o.status])[0], o.merchantName, o.customerArea, d ? o.total : '', d ? o.productPrice : '', d ? o.deliveryPrice : '', d ? o.fee : '', d ? o.deliveryPrice - o.fee : ''];
+  });
+  const kpis = [
+    ['عدد الطلبات المسلّمة', done.length, 'n'], ['المحصّل من الزبائن', collected, 'money'], ['المدفوع للتجار', paid, 'money'], ['أجور التوصيل', deliv, 'money'],
+    ['عمولة التطبيق', fees, 'money'], ['ربحك الصافي (التوصيل − العمولة)', profit, 'money'], ['المستحق للشركة (عمولة التطبيق)', fees, 'money']
+  ];
+  const m = {
+    title: 'وصل ملخص السائق', heading: S.user.name,
+    sections: [
+      { rows: [['الفترة', periodText(rk)], ['التاريخ', fmtDT(Date.now())]] },
+      { rows: [['الطلبات المسلّمة', String(done.length)], ['المحصّل من الزبائن', mny(collected)], ['المدفوع للتجار', mny(paid)]] },
+      { rows: [['أجور التوصيل', mny(deliv)], ['عمولة التطبيق', '−' + mny(fees)]] },
+      { box: ['ربحك الصافي', mny(profit)] },
+      { rows: [['المستحق للشركة', mny(fees)], ['حالة الدفع', 'مخصوم من المحفظة']] }
+    ]
+  };
+  return {
+    kind: 'driver', title: 'كشف إحصائيات السائق', owner: S.user.name, period: periodText(rk), kpis, receipt: m,
+    head: ['#', 'التاريخ', 'الحالة', 'المتجر', 'المنطقة', 'تحصيل من الزبون', 'دفعت للتاجر', 'التوصيل', 'عمولة التطبيق', 'ربحك'], rows,
+    foot: ['', '', '', '', 'المجموع (المسلّم)', collected, paid, deliv, fees, profit],
+    note: 'عمولة التطبيق تُخصم من محفظتك تلقائياً عند قبول الطلب. المجاميع تشمل الطلبات المسلّمة فقط.'
+  };
+}
+
+async function buildReport() {
+  const [from, to] = rangeBounds(S.expRange);
+  const isDriver = S.user.role === 'driver';
+  const r = await api('GET', `/api/${isDriver ? 'driver' : 'merchant'}/report?from=${from}&to=${to}`);
+  return isDriver ? driverReport(r.orders, S.expRange) : merchantReport(r.orders, S.expRange);
+}
+
+let libP = null;
+function loadLib() {
+  if (window.RL) return Promise.resolve(window.RL);
+  if (libP) return libP;
+  libP = new Promise((res, rej) => {
+    const sc = document.createElement('script');
+    sc.src = 'admin-lib.js';
+    sc.onload = () => res(window.RL);
+    sc.onerror = () => { libP = null; rej(new Error('تعذّر تحميل أدوات التصدير، تحقق من الاتصال')); };
+    document.head.appendChild(sc);
+  });
+  return libP;
+}
+const stampName = (rep) => `ريو-${rep.kind === 'driver' ? 'سائق' : 'تاجر'}-${fmtDT(Date.now()).slice(0, 10)}`;
+function saveBlob(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 8000);
+}
+async function exportReportXlsx(rep) {
+  const RL = await loadLib();
+  const rows = [['ريو للتوصيل أسرع'], [`${rep.title} — ${rep.owner}`], ['الفترة', rep.period], [], rep.head, ...rep.rows, rep.foot, [], ['الملخص'], ...rep.kpis.map((k) => [k[0], k[1]]), [], [rep.note]];
+  await RL.exportXlsx(stampName(rep), [{ name: 'التقرير', rows }]);
+}
+function reportWordHtml(rep) {
+  const td = (v, n) => `<td${n ? ' style="text-align:left;direction:ltr"' : ''}>${esc(typeof v === 'number' ? nf.format(v) : v)}</td>`;
+  const numCol = (i) => i >= 5;
+  return `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40" dir="rtl" lang="ar"><head><meta charset="utf-8"><title>${esc(rep.title)}</title>
+<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->
+<style>@page{size:A4 landscape;margin:1.2cm}body{font-family:Cairo,Tahoma,Arial,sans-serif;direction:rtl;font-size:11pt}h1{font-size:20pt;margin:0}h2{font-size:13pt;border-right:6px solid #ffd21f;padding-right:8px}table{border-collapse:collapse;width:100%;margin-bottom:12px}th{background:#111;color:#fff;padding:5px 7px;text-align:right}td{border:1px solid #bbb;padding:4px 7px}.k td{font-weight:bold}.hi td{background:#ffd21f;font-weight:bold}.t td{background:#fff3b0;font-weight:bold}</style></head><body dir="rtl">
+<h1>ريو للتوصيل أسرع</h1><h2>${esc(rep.title)} — ${esc(rep.owner)}</h2><p>الفترة: ${esc(rep.period)} &nbsp;|&nbsp; تاريخ الإصدار: ${esc(fmtDT(Date.now()))}</p>
+<table><tbody>${rep.kpis.map((k, i) => `<tr class="${i === rep.kpis.length - 1 || /الصافي|المستحق/.test(k[0]) ? 'hi' : 'k'}"><td>${esc(k[0])}</td><td style="text-align:left;direction:ltr">${esc(kfmt(k))}</td></tr>`).join('')}</tbody></table>
+<h2>تفاصيل الطلبات</h2><table><thead><tr>${rep.head.map((h) => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rep.rows.map((r) => `<tr>${r.map((c, i) => td(c, numCol(i) || i === 0)).join('')}</tr>`).join('')}</tbody><tfoot><tr class="t">${rep.foot.map((c, i) => td(c, numCol(i))).join('')}</tr></tfoot></table>
+<p style="color:#555">${esc(rep.note)}</p></body></html>`;
+}
+function exportReportWord(rep) { saveBlob(new Blob(['\ufeff', reportWordHtml(rep)], { type: 'application/msword' }), stampName(rep) + '.doc'); }
+
+function exportCard(title, hint) {
+  const chips = RANGES.map(([k, l]) => `<button class="chip" data-act="exp-range" data-k="${k}" aria-pressed="${S.expRange === k}">${l}</button>`).join('');
+  return `<h2 class="sec">${title}</h2><div class="card stack"><div class="lbl">الفترة</div><div class="chips" style="margin:0">${chips}</div>
+  <div class="row wrapx"><button class="btn ghost grow" data-act="exp-xlsx">${ico('dl')} Excel</button><button class="btn ghost grow" data-act="exp-word">${ico('dl')} Word</button>${receiptsOn() ? '<button class="btn grow" data-act="exp-receipt">وصل مختصر</button>' : ''}</div>
+  <p class="hint">${hint}</p></div>`;
+}
+
+/* ============ الإشعارات: قائمة كاملة من الخادم + دفع للهاتف ============ */
+let nBusy = false, audioCtx = null, notifReg = null;
+const nKey = (k) => `rio_${k}_${S.user ? S.user.id : 0}`;
+const isNative = () => { const c = window.Capacitor; return !!(c && typeof c.isNativePlatform === 'function' && c.isNativePlatform()); };
+const unreadCount = () => (S.user && S.user.role !== 'admin' ? S.unread || 0 : 0);
+function updateBell() {
+  const b = $('#bell-n'); if (!b) return;
+  const n = unreadCount(); b.textContent = n > 99 ? '99+' : n; b.hidden = !n;
+}
+function setUnread(n) { S.unread = Number(n) || 0; updateBell(); }
+async function markServerRead(body) {
+  try { const r = await api('POST', '/api/notifs/read', body); setUnread(r.unread); } catch { /* ignore */ }
+}
+function markChatRead(orderId) { return markServerRead({ orderId }); }
+function unlockAudio() {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    audioCtx = audioCtx || new AC();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  } catch { /* ignore */ }
+}
+function beep() {
+  try {
+    unlockAudio();
+    if (audioCtx) {
+      const t = audioCtx.currentTime, o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = 'sine'; o.frequency.value = 988;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.3, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
+      o.connect(g); g.connect(audioCtx.destination); o.start(t); o.stop(t + 0.5);
+    }
+    if (navigator.vibrate) navigator.vibrate(200);
+  } catch { /* ignore */ }
+}
+function whenActive(reg) {
+  return new Promise((res) => {
+    if (reg.active) return res(reg);
+    const sw = reg.installing || reg.waiting;
+    if (!sw) return res(null);
+    sw.addEventListener('statechange', () => { if (sw.state === 'activated') res(reg); });
+    setTimeout(() => res(reg.active ? reg : null), 4000);
+  });
+}
+/* احتياط: إشعار نظام محلي إذا لم يتوفر الدفع الحقيقي (التطبيق في الخلفية فقط) */
+async function notifyReg() {
+  if (notifReg) return notifReg;
+  if (!('serviceWorker' in navigator)) return null;
+  try { const reg = await navigator.serviceWorker.register('notify-sw.js', { scope: './__notify/' }); notifReg = await whenActive(reg); return notifReg; } catch { return null; }
+}
+async function systemNotify(m) {
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+  const data = { kind: m.kind, orderId: m.orderId, orderNo: m.orderNo, id: m.id };
+  const opts = { body: m.body, tag: 'rio-' + m.id, renotify: true, vibrate: [200], dir: 'rtl', lang: 'ar', data };
+  try {
+    const reg = await notifyReg();
+    if (reg) { await reg.showNotification(m.title, opts); return; }
+    const n = new Notification(m.title, opts);
+    n.onclick = () => { window.focus(); handleNotifTap(data); n.close(); };
+  } catch { /* بعض المتصفحات لا تدعم الإشعارات */ }
+}
+async function checkNotifs() {
+  if (!S.user || !['merchant', 'driver'].includes(S.user.role) || nBusy) return;
+  nBusy = true;
+  try {
+    const last = store.get(nKey('nlast2'));
+    const r = await api('GET', last !== null ? `/api/notifs?after=${last}` : '/api/notifs?mode=poll');
+    store.set(nKey('nlast2'), String(r.last));
+    setUnread(r.unread);
+    if (!r.items.length) return;
+    const openId = S.sheet && S.sheet.type === 'chat' && !document.hidden ? S.sheet.id : null;
+    const seen = r.items.filter((m) => m.kind === 'chat' && m.orderId === openId);
+    if (seen.length) markChatRead(openId);
+    const fresh = r.items.filter((m) => !seen.includes(m));
+    if (S.tab === 'notifs' && !document.hidden) refresh();
+    if (!fresh.length) return;
+    const m = fresh[fresh.length - 1];
+    if (document.hidden) { if (!S.pushOn) systemNotify(m); } else { beep(); toast(m.title); }
+  } catch { /* ignore */ } finally { nBusy = false; }
+}
+
+/* تنقّل عند الضغط على إشعار (من القائمة أو من إشعار النظام) */
+function handleNotifTap(d) {
+  if (!S.user || !d) return;
+  const kind = String(d.kind || ''), id = Number(d.orderId) || 0;
+  if (d.id) markServerRead({ ids: [Number(d.id)] });
+  S.sheet = null;
+  if (kind === 'chat' && id) return openChatFor(id, d.orderNo);
+  const driver = S.user.role === 'driver';
+  if (kind === 'order_new') return go(driver ? 'home' : 'orders');
+  if (kind.startsWith('wallet')) return go(driver ? 'wallet' : 'notifs');
+  if (kind.startsWith('order')) { if (driver) S.ordersTab = 'current'; return go('orders'); }
+  return go('notifs');
+}
+function openChatFor(id, no) {
+  id = Number(id); if (!id || !S.user) return;
+  markChatRead(id);
+  S.sheet = null;
+  openSheet({ type: 'chat', id, no: no || id, msgs: [], loaded: false });
+  startChat();
+}
+function openPendingChat() {
+  try {
+    const p = new URLSearchParams(location.search);
+    const kind = p.get('open') || (p.get('chat') ? 'chat' : '');
+    if (!kind) return;
+    const id = p.get('id') || p.get('chat'), no = p.get('no');
+    history.replaceState(null, '', location.pathname + location.hash);
+    handleNotifTap({ kind, orderId: id, orderNo: no, id: p.get('nid') });
+  } catch { /* ignore */ }
+}
+
+/* ---- صفحة الإشعارات ---- */
+const NK = { chat: ['chat', 'blue'], order_new: ['orders', 'accent'], order_accepted: ['check', 'green'], order_assigned: ['orders', 'accent'], order_status: ['orders', 'amber'], order_returned: ['x', 'red'], wallet_credit: ['wallet', 'green'], wallet_debit: ['wallet', 'red'] };
+function notifsView() {
+  const d = S.data, items = d.items || [];
+  const tools = `<div class="nt-tools"><button class="btn ghost sm" data-act="notif-readall" ${d.unread ? '' : 'disabled'}>${ico('check')} تحديد الكل كمقروء</button><button class="btn danger sm" data-act="notif-clear" ${items.length ? '' : 'disabled'}>${ico('trash')} مسح الكل</button></div>`;
+  const list = items.map((n) => { const [ic, c] = NK[n.kind] || ['bell', '']; return `<button class="nt ${n.read ? '' : 'unread'}" data-act="open-notif" data-id="${n.id}" data-kind="${n.kind}" data-order="${n.orderId || ''}" data-no="${n.orderNo || ''}"><span class="nt-ic ${c}">${ico(ic)}</span><span class="nt-b"><b>${esc(n.title)}</b>${n.body ? `<p>${esc(n.body)}</p>` : ''}<small>${ago(n.at)} · ${dt(n.at)}</small></span>${n.read ? '' : '<span class="dot" aria-label="جديد"></span>'}</button>`; }).join('');
+  return `${head('الإشعارات', d.unread ? `${d.unread} غير مقروء` : 'كل شيء مقروء', `<button class="btn ghost sm" data-act="notif-back">${ico('chev')} رجوع</button>`)}${tools}
+  ${items.length ? `<div class="nt-list">${list}</div>${d.hasMore ? '<button class="btn ghost block" style="margin-top:12px" data-act="notif-more">عرض المزيد</button>' : ''}` : emptyBox('لا توجد إشعارات بعد', 'ستظهر هنا الطلبات الجديدة وقبولها ورفضها وإرجاعها وعمليات المحفظة والمحادثات.')}`;
+}
+
+/* ---- الدفع للهاتف: يصل حتى والتطبيق مغلق ---- */
+const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+const key64 = (b64) => { const pad = '='.repeat((4 - (b64.length % 4)) % 4); const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(raw, (c) => c.charCodeAt(0)); };
+const webPushOk = () => !isNative() && 'serviceWorker' in navigator && 'PushManager' in window && typeof Notification !== 'undefined';
+async function ensureWebPush() {
+  if (!webPushOk() || Notification.permission !== 'granted' || !S.user || ADMIN_ONLY) return false;
+  try {
+    const reg = await withTimeout(navigator.serviceWorker.ready, 5000);
+    const k = await api('GET', '/api/push/key');
+    if (!k.key) return false;
+    let sub = await reg.pushManager.getSubscription();
+    if (sub && store.get('rio_push_key') !== k.key) { await sub.unsubscribe(); sub = null; }
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key64(k.key) });
+    store.set('rio_push_key', k.key);
+    await api('POST', '/api/push/subscribe', { type: 'web', subscription: sub.toJSON() });
+    S.pushOn = true; return true;
+  } catch { return false; }
+}
+let nativeBound = false;
+async function ensureNativePush() {
+  if (!isNative() || !S.user) return false;
+  try {
+    const PN = window.Capacitor.registerPlugin('PushNotifications');
+    if (!nativeBound) {
+      nativeBound = true;
+      await PN.addListener('registration', async (t) => { store.set('rio_fcm', t.value); try { await api('POST', '/api/push/subscribe', { type: 'fcm', token: t.value }); store.set('rio_native_push', '1'); S.pushOn = true; if (S.tab === 'me') render(); } catch { /* ignore */ } });
+      await PN.addListener('registrationError', () => { store.del('rio_native_push'); });
+      await PN.addListener('pushNotificationActionPerformed', (a) => { const d = (a.notification && a.notification.data) || {}; handleNotifTap({ kind: d.kind, orderId: d.orderId, orderNo: d.orderNo, id: d.id }); });
+    }
+    const perm = await PN.requestPermissions();
+    if (perm.receive !== 'granted') return false;
+    await PN.register();
+    return true;
+  } catch { return false; }
+}
+const ensurePush = () => (isNative() ? ensureNativePush() : ensureWebPush());
+async function unsubscribePush() {
+  try {
+    if (isNative()) { const t = store.get('rio_fcm'); if (t) await api('POST', '/api/push/unsubscribe', { token: t }); store.del('rio_native_push'); }
+    else if (webPushOk()) { const reg = await withTimeout(navigator.serviceWorker.ready, 1500); const sub = await reg.pushManager.getSubscription(); if (sub) await api('POST', '/api/push/unsubscribe', { endpoint: sub.endpoint }); }
+  } catch { /* ignore */ }
+  S.pushOn = false;
+}
+async function doLogout() {
+  if (S.user && S.user.role !== 'admin') { try { await withTimeout(unsubscribePush(), 2500); } catch { /* ignore */ } }
+  logout();
+}
+async function askNotifPermission() {
+  if (isNative()) { const ok = await ensureNativePush(); toast(ok ? 'تم تفعيل الإشعارات' : 'لم يتم منح إذن الإشعارات', !ok); if (S.user && S.tab === 'me') render(); return; }
+  if (typeof Notification === 'undefined') return;
+  try {
+    const r = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+    if (r === 'granted') { const ok = await ensureWebPush(); toast(ok ? 'تم تفعيل الإشعارات' : 'تم تفعيل الإشعارات داخل التطبيق'); }
+    else if (r === 'denied') toast('الإشعارات محظورة من إعدادات المتصفح', true);
+  } catch { /* ignore */ }
+  if (S.user && S.tab === 'me') render();
+}
+function notifSetting() {
+  if (isNative()) return li('bell', 'إشعارات الهاتف', store.get('rio_native_push') === '1' ? 'مفعّلة — تصلك حتى لو كان التطبيق مغلقاً' : 'اضغط لتفعيل الإشعارات', 'enable-notifs');
+  if (typeof Notification === 'undefined') return '';
+  const p = Notification.permission;
+  return li('bell', 'إشعارات الهاتف', p === 'granted' ? (S.pushOn ? 'مفعّلة — تصلك حتى لو كان التطبيق مغلقاً' : 'مفعّلة — اضغط لإكمال التفعيل') : p === 'denied' ? 'محظورة من إعدادات المتصفح — فعّلها من إعدادات الموقع' : 'اضغط لتفعيل الإشعارات', 'enable-notifs');
+}
+if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', (e) => { const d = e.data || {}; if (d.type === 'open-notif') handleNotifTap(d.data); else if (d.type === 'open-chat') openChatFor(d.orderId, d.orderNo); });
+setInterval(checkNotifs, 15000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkNotifs(); });
 
 /* ============ النوافذ المنبثقة ============ */
 function sheetShell(title, body) {
   return `<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="sheet-h"><h2>${title}</h2><button class="x" data-act="close-sheet" aria-label="إغلاق">${ico('x')}</button></div>${body}</div>`;
 }
 function openSheet(s) { S.sheet = s; render(); setTimeout(() => { const f = $('.sheet [autofocus], .sheet input:not([type=hidden]), .sheet textarea'); if (f) f.focus(); }, 60); }
-function closeSheet() { S.sheet = null; stopChat(); render(); }
+function closeSheet() { S.sheet = null; stopChat(); render(); if (S.dirty) { S.dirty = false; refresh(); } }
 
 const field = (id, label, inner, hint) => `<div class="field"><label for="${id}">${label}</label>${inner}${hint ? `<span class="hint">${hint}</span>` : ''}</div>`;
 
@@ -941,6 +1695,7 @@ function renderSheet() {
   const root = $('#sheet-root');
   const s = S.sheet;
   if (!s) { root.hidden = true; root.innerHTML = ''; return; }
+  if ((s.type === 'receipt' || s.type === 'report-receipt') && !receiptsOn()) { S.sheet = null; root.hidden = true; root.innerHTML = ''; return; }
   root.hidden = false;
   const b = SHEETS[s.type];
   root.innerHTML = b ? sheetShell(...b(s)) : '';
@@ -968,8 +1723,45 @@ const SHEETS = {
     return ['إنشاء طلب', body];
   },
   note(s) {
-    const o = S.data.available.find((x) => x.id === s.id);
+    const o = findOrder(s.id);
     return [`ملاحظة طلب #${o ? o.no : ''}`, `<p>${o && o.note ? esc(o.note) : '<span class="muted">لا توجد ملاحظات من التاجر لهذا الطلب.</span>'}</p>`];
+  },
+  receipt(s) {
+    const o = findOrder(s.id);
+    if (!o) return ['وصل الطلب', '<p class="muted">تعذّر العثور على الطلب.</p>'];
+    return [`وصل طلب #${o.no}`, `${rsizeSeg()}<div class="rcpt-wrap">${receiptHtml(o)}</div>
+    <div class="row wrapx" style="margin-top:14px;justify-content:center">
+      <button class="btn" data-act="print-receipt" data-id="${o.id}">طباعة</button>
+      <button class="btn ghost" data-act="dl-receipt" data-id="${o.id}">حفظ صورة</button>
+      ${navigator.share ? `<button class="btn ghost" data-act="share-receipt" data-id="${o.id}">مشاركة</button>` : ''}
+      <a class="btn wa" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a>
+    </div>`];
+  },
+  register(s) {
+    const m = s.role === 'merchant';
+    return [m ? 'تسجيل كتاجر' : 'تسجيل كسائق', `<form class="stack" data-form="register">
+      <div class="seg"><button type="button" data-act="register-role" data-role="merchant" aria-pressed="${m}">${ico('store')} تاجر</button><button type="button" data-act="register-role" data-role="driver" aria-pressed="${!m}">${ico('user')} سائق</button></div>
+      ${field('r-name', m ? 'اسم المتجر' : 'اسمك الكامل', '<input class="in" id="r-name" name="name" required>')}
+      ${field('r-phone', 'رقم الهاتف', '<input class="in mono" id="r-phone" name="phone" inputmode="tel" placeholder="07XX XXX XXXX" required>')}
+      ${field('r-pass', 'كلمة المرور', '<input class="in" id="r-pass" name="password" type="password" minlength="6" autocomplete="new-password" required>', '6 أحرف أو أكثر')}
+      ${m ? field('r-area', 'منطقة المتجر', '<input class="in" id="r-area" name="area" placeholder="مثال: الكرادة" required>') + field('r-map', 'رابط موقع المتجر على الخريطة (اختياري)', '<input class="in mono" id="r-map" name="mapUrl" dir="ltr" placeholder="https://maps.app.goo.gl/...">', 'يظهر للسائق ليصل إليك بسهولة') : `<div class="field"><span class="lbl">نوع المركبة</span><div class="seg"><button type="button" data-act="nu-veh" data-v="bike" aria-pressed="${(s.vehicle || 'bike') === 'bike'}">${ico('bike')} دراجة</button><button type="button" data-act="nu-veh" data-v="car" aria-pressed="${s.vehicle === 'car'}">${ico('car')} سيارة</button></div></div>`}
+      <p class="hint">بعد التسجيل تراجع الإدارة طلبك وتفعّل حسابك، ثم تستطيع الدخول.</p>
+      <p class="hint" id="r-err" style="color:var(--red)" role="alert"></p><button class="btn block" type="submit">إنشاء الحساب</button></form>`];
+  },
+  registered() {
+    return ['تم إرسال طلبك', `<p style="text-align:center;font-size:17px;margin:8px 0 18px">تم إنشاء حسابك وهو بانتظار موافقة الإدارة. سنفعّله قريباً، وبعدها سجّل الدخول برقم هاتفك وكلمة المرور.</p><button class="btn block" data-act="close-sheet">حسناً</button>`];
+  },
+  confirm(s) {
+    return [s.title, `<p style="text-align:center;font-size:17px;margin:8px 0 18px">${esc(s.text)}</p><div class="row"><button class="btn danger grow" data-act="${s.yes}" data-id="${s.id}">نعم</button><button class="btn ghost grow" data-act="close-sheet">لا</button></div>`];
+  },
+  'report-receipt'(s) {
+    const m = s.rep.receipt;
+    return ['وصل مختصر', `${rsizeSeg()}<div class="rcpt-wrap">${modelHtml(m)}</div>
+    <div class="row wrapx" style="margin-top:14px;justify-content:center">
+      <button class="btn" data-act="rr-print">طباعة</button>
+      <button class="btn ghost" data-act="rr-png">حفظ صورة</button>
+      ${navigator.share ? `<button class="btn ghost" data-act="rr-share">مشاركة</button>` : ''}
+    </div>`];
   },
   chat(s) {
     return [`محادثة طلب #${s.no}`, `<div class="chat" id="chat-box">${chatHtml(s.msgs)}</div><form class="row" data-form="chat"><input class="in grow" id="chat-in" name="text" maxlength="500" placeholder="اكتب رسالة…" autocomplete="off" aria-label="رسالة"><button class="btn" type="submit">إرسال</button></form>`];
@@ -986,7 +1778,6 @@ const SHEETS = {
     return ['بياناتي', `<form class="stack" data-form="edit-me">
       ${field('m-name', 'الاسم', `<input class="in" id="m-name" name="name" value="${esc(me.name)}" required>`)}
       ${field('m-phone', 'رقم الهاتف', `<input class="in mono" id="m-phone" value="${esc(fmtPhone(me.phone))}" disabled>`, 'لتغيير رقم الهاتف تواصل مع الإدارة.')}
-      ${me.role === 'driver' ? `<div class="field"><span class="lbl">المركبة</span><div class="seg"><button type="button" data-act="me-veh" data-v="bike" aria-pressed="${(S.sheet.vehicle || me.vehicle) === 'bike'}">${ico('bike')} دراجة</button><button type="button" data-act="me-veh" data-v="car" aria-pressed="${(S.sheet.vehicle || me.vehicle) === 'car'}">${ico('car')} سيارة</button></div></div>` : ''}
       <p class="hint" id="m-err" style="color:var(--red)" role="alert"></p><button class="btn block" type="submit">حفظ</button></form>`];
   },
   password() {
@@ -1007,6 +1798,7 @@ const SHEETS = {
       ${field('u-phone', 'رقم الهاتف', '<input class="in mono" id="u-phone" name="phone" inputmode="tel" placeholder="07XX XXX XXXX" required>')}
       ${field('u-pass', 'كلمة المرور', '<input class="in" id="u-pass" name="password" minlength="6" required>', '6 أحرف أو أكثر. أعطها للمستخدم ليغيّرها بعد أول دخول.')}
       ${d ? `<div class="field"><span class="lbl">المركبة</span><div class="seg"><button type="button" data-act="nu-veh" data-v="bike" aria-pressed="${(s.vehicle || 'bike') === 'bike'}">${ico('bike')} دراجة</button><button type="button" data-act="nu-veh" data-v="car" aria-pressed="${s.vehicle === 'car'}">${ico('car')} سيارة</button></div></div>` : field('u-area', 'منطقة المتجر', '<input class="in" id="u-area" name="area" placeholder="مثال: الكرادة" required>', 'تُستخدم لتحديد سعر التوصيل (نفس المنطقة أو منطقة ثانية).')}
+      ${d ? '' : field('u-map', 'رابط موقع المتجر على الخريطة (اختياري)', '<input class="in mono" id="u-map" name="mapUrl" dir="ltr" placeholder="https://maps.app.goo.gl/...">', 'يظهر للسائقين ليفتحوه عبر Waze أو أي تطبيق خرائط')}
       <p class="hint" id="u-err" style="color:var(--red)" role="alert"></p><button class="btn block" type="submit">إنشاء الحساب</button></form>`];
   },
   'edit-user'(s) {
@@ -1016,6 +1808,7 @@ const SHEETS = {
       ${field('e-name', 'الاسم', `<input class="in" id="e-name" name="name" value="${esc(u.name)}" required>`)}
       ${field('e-phone', 'رقم الهاتف', `<input class="in mono" id="e-phone" name="phone" value="${esc(u.phone)}" inputmode="tel" required>`)}
       ${u.role === 'merchant' ? field('e-area', 'المنطقة', `<input class="in" id="e-area" name="area" value="${esc(u.area)}" required>`) : `<div class="field"><span class="lbl">المركبة</span><div class="seg"><button type="button" data-act="eu-veh" data-v="bike" aria-pressed="${(s.vehicle || u.vehicle) === 'bike'}">${ico('bike')} دراجة</button><button type="button" data-act="eu-veh" data-v="car" aria-pressed="${(s.vehicle || u.vehicle) === 'car'}">${ico('car')} سيارة</button></div></div>`}
+      ${u.role === 'merchant' ? field('e-map', 'رابط موقع المتجر على الخريطة', `<input class="in mono" id="e-map" name="mapUrl" dir="ltr" value="${esc(u.mapUrl || '')}" placeholder="https://maps.app.goo.gl/...">`, 'يظهر للسائق ليفتحه عبر Waze أو أي تطبيق خرائط') : ''}
       ${field('e-pass', 'كلمة مرور جديدة (اتركها فارغة بدون تغيير)', '<input class="in" id="e-pass" name="password" minlength="6" autocomplete="off">')}
       <p class="hint" id="e-err" style="color:var(--red)" role="alert"></p><button class="btn block" type="submit">حفظ</button></form>`];
   },
@@ -1065,20 +1858,31 @@ function stopChat() { if (chatTimer) { clearInterval(chatTimer); chatTimer = nul
 /* ============ الأحداث ============ */
 const ACTIONS = {
   tab: (el) => go(el.dataset.tab),
-  'tab-wallet': () => go('wallet'),
-  logout: () => logout(),
+  'tab-wallet': () => { S.walletTab = 'rep'; go('wallet'); },
+  logout: () => doLogout(),
+  theme: (el) => { RioTheme.set(el.dataset.t); render(); },
   retry: () => refresh(true),
   filter: (el) => { S.filter = el.dataset.f; render(); },
   afilter: (el) => { S.adminFilter = el.dataset.f; S.data = null; lastSig = ''; render(); refresh(); },
   otab: (el) => { S.ordersTab = el.dataset.t; S.menu = null; render(); },
   wtab: (el) => { S.walletTab = el.dataset.t; render(); },
   'new-order': () => openSheet({ type: 'new-order', form: newOrderForm() }),
+  receipt: (el) => receiptsOn() && openSheet({ type: 'receipt', id: Number(el.dataset.id) }),
+  rsize: (el) => { RSIZE = el.dataset.k; store.set('rio_rsize', RSIZE); renderSheet(); },
+  'print-receipt': (el) => { const o = findOrder(Number(el.dataset.id)); if (o) printReceipt(o); },
+  'dl-receipt': (el) => { const o = findOrder(Number(el.dataset.id)); if (o) downloadReceipt(o); },
+  'share-receipt': (el) => { const o = findOrder(Number(el.dataset.id)); if (o) shareReceipt(o); },
   note: (el) => openSheet({ type: 'note', id: Number(el.dataset.id) }),
   charge: () => openSheet({ type: 'charge' }),
   'edit-me': () => openSheet({ type: 'edit-me' }),
   password: () => openSheet({ type: 'password' }),
   'delete-me': () => openSheet({ type: 'delete-me' }),
   'close-sheet': () => closeSheet(),
+  register: (el) => { openSheet({ type: 'register', role: el.dataset.role, vehicle: 'bike' }); },
+  'register-role': (el) => openSheet({ type: 'register', role: el.dataset.role, vehicle: S.sheet.vehicle || 'bike' }),
+  eye: (el) => { const i = el.parentElement.querySelector('input'); const show = i.type === 'password'; i.type = show ? 'text' : 'password'; el.setAttribute('aria-label', show ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'); },
+  'ask-return': (el) => { S.menu = null; openSheet({ type: 'confirm', title: 'إرجاع الطلب', text: 'عزيزي الكابتن، هل أنت متأكد من إرجاع الطلب للتاجر؟', yes: 'do-return', id: el.dataset.id }); },
+  'ask-recv': (el) => openSheet({ type: 'confirm', title: 'استلام المرتجع', text: 'هل استلمت الطلب المرتجع من السائق؟', yes: 'do-recv', id: el.dataset.id }),
   'add-user': (el) => openSheet({ type: 'add-user', role: el.dataset.role }),
   'edit-user': (el) => openSheet({ type: 'edit-user', id: Number(el.dataset.id) }),
   adjust: (el) => openSheet({ type: 'adjust', id: Number(el.dataset.id) }),
@@ -1089,8 +1893,27 @@ const ACTIONS = {
   'me-veh': (el) => { S.sheet.vehicle = el.dataset.v; syncVeh(el); },
   'nu-veh': (el) => { S.sheet.vehicle = el.dataset.v; syncVeh(el); },
   'eu-veh': (el) => { S.sheet.vehicle = el.dataset.v; syncVeh(el); },
+  'exp-range': (el) => { S.expRange = el.dataset.k; render(); },
+  async 'exp-xlsx'() { const rep = await act(buildReport); if (rep) await act(() => exportReportXlsx(rep), 'تم تجهيز ملف Excel'); },
+  async 'exp-word'() { const rep = await act(buildReport); if (rep) { exportReportWord(rep); toast('تم تجهيز ملف Word'); } },
+  async 'exp-receipt'() { if (!receiptsOn()) return; const rep = await act(buildReport); if (rep) openSheet({ type: 'report-receipt', rep }); },
+  'rr-print': () => printModel(S.sheet.rep.receipt),
+  'rr-png': () => downloadModel(S.sheet.rep.receipt, `rio-summary-${fmtDT(Date.now()).slice(0, 10)}.png`),
+  'rr-share': () => shareModel(S.sheet.rep.receipt, `rio-summary-${fmtDT(Date.now()).slice(0, 10)}.png`, 'وصل مختصر'),
+  notifs: () => go('notifs'),
+  'notif-back': () => go(defaultTab()),
+  'open-notif': (el) => { const it = (S.data.items || []).find((n) => n.id === Number(el.dataset.id)); if (it) it.read = true; handleNotifTap({ id: el.dataset.id, kind: el.dataset.kind, orderId: el.dataset.order, orderNo: el.dataset.no }); },
+  async 'notif-readall'() { await markServerRead({ all: true }); (S.data.items || []).forEach((n) => { n.read = true; }); S.data.unread = 0; lastSig = ''; render(); },
+  async 'notif-clear'() { if (await act(() => api('POST', '/api/notifs/clear'), 'تم مسح الإشعارات')) { setUnread(0); refresh(true); } },
+  async 'notif-more'() {
+    const items = S.data.items || [];
+    const r = await act(() => api('GET', `/api/notifs?limit=40&before=${items[items.length - 1].id}`));
+    if (r) { S.data.items = items.concat(r.items); S.data.hasMore = r.hasMore; render(); }
+  },
+  'enable-notifs': () => askNotifPermission(),
   async chat(el) {
     const id = Number(el.dataset.id);
+    markChatRead(id);
     const all = [...(S.data.orders || []), ...(S.data.attention || [])];
     const o = all.find((x) => x.id === id);
     openSheet({ type: 'chat', id, no: o ? o.no : id, msgs: [], loaded: false });
@@ -1105,6 +1928,17 @@ const ACTIONS = {
   async accept(el) {
     if (await act(() => api('POST', `/api/driver/orders/${el.dataset.id}/accept`), 'تم قبول الطلب. توجّه للتاجر لاستلامه')) { S.ordersTab = 'current'; go('orders'); } else refresh(true);
   },
+  async 'do-return'(el) {
+    const id = el.dataset.id; closeSheet();
+    if (await act(() => api('POST', `/api/driver/orders/${id}/status`, { status: 'return_sent' }), 'تم تسجيل الإرجاع — بانتظار تأكيد التاجر')) refresh(true);
+  },
+  async 'do-recv'(el) {
+    const id = el.dataset.id; closeSheet();
+    if (await act(() => api('POST', `/api/merchant/orders/${id}/return`, { received: true }), 'تم تأكيد استلام المرتجع')) refresh(true);
+  },
+  async 'not-recv'(el) {
+    if (await act(() => api('POST', `/api/merchant/orders/${el.dataset.id}/return`, { received: false }), 'تم تسجيل أنك لم تستلم الطلب')) refresh(true);
+  },
   async 'set-status'(el) {
     S.menu = null;
     if (await act(() => api('POST', `/api/driver/orders/${el.dataset.id}/status`, { status: el.dataset.s }), 'تم تحديث الحالة')) refresh(true); else render();
@@ -1114,8 +1948,10 @@ const ACTIONS = {
     if (await act(() => api('PUT', '/api/driver/receiving', { receiving: next }), next ? 'تم تفعيل استقبال الطلبات' : 'تم إيقاف استقبال الطلبات')) refresh(true);
   },
   async 'toggle-user'(el) {
-    const u = S.data.users.find((x) => x.id === Number(el.dataset.id));
-    if (u && await act(() => api('PUT', `/api/admin/users/${u.id}`, { active: !u.active }), u.active ? 'تم إيقاف الحساب' : 'تم تفعيل الحساب')) refresh(true);
+    const u = S.data.users.find((x) => x.id === Number(el.dataset.id)); if (!u) return;
+    const prev = u.active; u.active = prev ? 0 : 1; render();
+    try { await api('PUT', `/api/admin/users/${u.id}`, { active: !prev }); toast(prev ? 'تم إيقاف الحساب' : 'تم تفعيل الحساب'); refresh(true); }
+    catch (e) { u.active = prev; render(); toast(e.message, true); }
   },
   async requeue(el) {
     if (S.armed !== 'r' + el.dataset.id) { S.armed = 'r' + el.dataset.id; el.textContent = 'اضغط للتأكيد'; setTimeout(() => { S.armed = null; if (el.isConnected) el.textContent = 'إعادة للسائقين'; }, 4000); return; }
@@ -1136,6 +1972,8 @@ const ACTIONS = {
 function syncVeh(el) { el.parentElement.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === el))); }
 
 document.addEventListener('click', (e) => {
+  unlockAudio();
+  if (S.user && S.user.role !== 'admin' && !store.get('rio_asked') && (isNative() || (typeof Notification !== 'undefined' && Notification.permission === 'default'))) { store.set('rio_asked', '1'); askNotifPermission(); }
   const el = e.target.closest('[data-act]');
   if (S.menu && !(el && el.dataset.act === 'menu') && !e.target.closest('.menu')) { S.menu = null; if (!el) render(); }
   if (!el) return;
@@ -1166,10 +2004,18 @@ document.addEventListener('change', async (e) => {
 });
 
 const FORMS = {
+  async register(f) {
+    const role = S.sheet.role;
+    await api('POST', '/api/register', { role, name: f.name.value, phone: f.phone.value, password: f.password.value, area: f.area ? f.area.value : '', mapUrl: f.mapUrl ? f.mapUrl.value : '', vehicle: S.sheet.vehicle || 'bike' });
+    closeSheet(); openSheet({ type: 'registered' });
+  },
   async login(f, err) {
     const r = await api('POST', '/api/login', { phone: f.phone.value, password: f.password.value });
-    S.token = r.token; store.set('rio_token', r.token); setUser(r.user);
+    if (r.user.role === 'staff') throw new Error('حساب الإدارة يدخل من لوحة التحكم (صفحة admin.html)');
+    if (ADMIN_ONLY && r.user.role !== 'admin') throw new Error('هذه اللوحة للمدير فقط');
+    S.token = r.token; if (f.remember && !f.remember.checked) { try { sessionStorage.setItem(TOKEN_KEY, r.token); } catch { /* ignore */ } store.del(TOKEN_KEY); } else store.set(TOKEN_KEY, r.token); setUser(r.user);
     go(S.tab && TABS[r.user.role].some((t) => t[0] === S.tab) ? S.tab : defaultTab());
+    openPendingChat();
     void err;
   },
   async 'new-order'(f) {
@@ -1185,7 +2031,7 @@ const FORMS = {
     closeSheet(); refresh(true);
   },
   async 'edit-me'(f) {
-    const r = await api('PUT', '/api/me/profile', { name: f.name.value, vehicle: S.sheet.vehicle });
+    const r = await api('PUT', '/api/me/profile', { name: f.name.value });
     setUser(r.user); toast('تم حفظ بياناتك'); closeSheet(); refresh(true);
   },
   async password(f) { await api('PUT', '/api/me/password', { current: f.current.value, next: f.next.value }); toast('تم تحديث كلمة المرور'); closeSheet(); },
@@ -1198,11 +2044,12 @@ const FORMS = {
     S.sheet.loaded = false; await loadChat();
   },
   async 'add-user'(f) {
-    await api('POST', '/api/admin/users', { role: S.sheet.role, name: f.name.value, phone: f.phone.value, password: f.password.value, area: f.area ? f.area.value : '', vehicle: S.sheet.vehicle || 'bike' });
+    await api('POST', '/api/admin/users', { role: S.sheet.role, name: f.name.value, phone: f.phone.value, password: f.password.value, area: f.area ? f.area.value : '', mapUrl: f.mapUrl ? f.mapUrl.value : '', vehicle: S.sheet.vehicle || 'bike' });
     toast('تم إنشاء الحساب'); closeSheet(); refresh(true);
   },
   async 'edit-user'(f) {
     const body = { name: f.name.value, phone: f.phone.value };
+    if (f.mapUrl) body.mapUrl = f.mapUrl.value;
     if (f.area) body.area = f.area.value; else body.vehicle = S.sheet.vehicle || S.data.users.find((x) => x.id === S.sheet.id).vehicle;
     if (f.password.value) body.password = f.password.value;
     await api('PUT', `/api/admin/users/${S.sheet.id}`, body);
@@ -1219,11 +2066,12 @@ const FORMS = {
   async settings(f) {
     const body = {};
     for (const k of ['bikeSame', 'bikeOther', 'carSame', 'carOther', 'feeSame', 'feeOther', 'support']) body[k] = f[k].value;
+    body.receipts = f.receipts.checked;
     await api('PUT', '/api/admin/settings', body);
     toast('تم حفظ الإعدادات'); refresh(true);
   }
 };
-const ERR_ID = { login: 'l-err', 'new-order': 'o-err', charge: 'c-err', 'edit-me': 'm-err', password: 'p-err', 'delete-me': 'd-err', 'add-user': 'u-err', 'edit-user': 'e-err', adjust: 'a-err' };
+const ERR_ID = { login: 'l-err', 'new-order': 'o-err', charge: 'c-err', 'edit-me': 'm-err', password: 'p-err', 'delete-me': 'd-err', 'add-user': 'u-err', 'edit-user': 'e-err', adjust: 'a-err', register: 'r-err' };
 
 document.addEventListener('submit', async (e) => {
   const form = e.target.closest('[data-form]');
@@ -1244,7 +2092,7 @@ document.addEventListener('submit', async (e) => {
 /* ============ التشغيل ============ */
 window.addEventListener('hashchange', () => {
   const t = location.hash.replace('#/', '');
-  if (S.user && t && t !== S.tab && TABS[S.user.role].some((x) => x[0] === t)) go(t);
+  if (S.user && t && t !== S.tab && (t === 'notifs' && S.user.role !== 'admin' || TABS[S.user.role].some((x) => x[0] === t))) go(t);
 });
 
 setInterval(() => {
@@ -1259,9 +2107,11 @@ async function boot() {
   if (S.token) {
     try {
       const r = await api('GET', '/api/me');
+      if (r.user.role === 'staff' || (ADMIN_ONLY && r.user.role !== 'admin')) throw new Error('not admin');
       setUser(r.user);
-      const ok = TABS[r.user.role].some((t) => t[0] === wanted);
+      const ok = TABS[r.user.role].some((t) => t[0] === wanted) || (wanted === 'notifs' && r.user.role !== 'admin');
       go(ok ? wanted : defaultTab());
+      openPendingChat();
       return;
     } catch { /* يظهر تسجيل الدخول */ }
   }

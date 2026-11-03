@@ -39,6 +39,7 @@ const IC = {
   money: '<rect x="2" y="6" width="20" height="12" rx="3"/><circle cx="12" cy="12" r="2.8"/><path d="M6 10v4M18 10v4"/>', voucher: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
   card: '<rect x="2" y="5" width="20" height="14" rx="3"/><path d="M2 10h20M6 15h4"/>', settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>',
   dl: '<path d="M12 4v11M7 11l5 5 5-5M5 20h14"/>',
+  pin: '<path d="M12 21s7-6 7-11a7 7 0 10-14 0c0 5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>', phone: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2z"/>', wallet: '<rect x="3" y="6" width="18" height="14" rx="3"/><path d="M3 10h18"/><path d="M16 15h2"/>', user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>', chat: '<path d="M4 5h16v11H9l-5 4z"/>', out: '<path d="M10 4H5v16h5M15 8l5 4-5 4M20 12H9"/>',
   plus: '<path d="M12 5v14M5 12h14"/>', xl: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8l8 8M16 8l-8 8"/>', pdf: '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 14h6M9 17h4"/>',
   print: '<path d="M7 9V3h10v6M7 17H4v-6h16v6h-3"/><rect x="7" y="14" width="10" height="7"/>', refresh: '<path d="M20 11a8 8 0 10-2.3 5.7M20 4v7h-7"/>'
 };
@@ -186,7 +187,7 @@ function draw() {
   const rng = ['today', 'week', 'month', 'year', 'all', 'custom'].map((k) => `<option value="${k}" ${R === k ? 'selected' : ''}>${RN[k]}</option>`).join('');
   r.innerHTML = `<div class="app${MENU ? ' open' : ''}"><div class="mbar"><button class="mb" data-a="menu" aria-label="القائمة" aria-expanded="${MENU}"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><b>${title}</b>${LOGO}</div><div class="ov" data-a="menu-x"></div><aside class="side"><div class="brand">${LOGO}<div><b>لوحة الإدارة</b><small>ريو للتوصيل أسرع</small></div></div>
   <nav class="nav" aria-label="التنقل">${PAGES.map(([k, l, i]) => `<button data-a="page" data-k="${k}" class="${P === k ? 'on' : ''}" ${P === k ? 'aria-current="page"' : ''}>${ico(i)}<span>${l}</span>${badge(k)}</button>`).join('')}</nav>
-  <div class="foot"><div class="live ${LIVE ? 'on' : ''}"><i></i><span>${LIVE ? 'مزامنة فورية' : 'غير متصل — تحديث دوري'}</span></div><br><button data-a="logout">تسجيل الخروج</button></div></aside>
+  <div class="foot"><div class="live ${LIVE ? 'on' : ''}"><i></i><span>${LIVE ? 'مزامنة فورية' : 'غير متصل — تحديث دوري'}</span></div>${PAGES.some((x) => x[0] === 'settings') ? '' : '<br><button data-a="logout">تسجيل الخروج</button>'}</div></aside>
   <main class="main"><div class="top"><div><h2>${title}</h2><div class="sub">${esc(rangeLabel())}</div></div>
   <div class="tools"><select class="in" data-c="range" aria-label="الفترة">${rng}</select>${R === 'custom' ? `<input class="in" type="date" data-c="cf" value="${CF}" aria-label="من"><input class="in" type="date" data-c="ct" value="${CT}" aria-label="إلى">` : ''}<button class="btn g" data-a="reload">${ico('refresh')} تحديث</button></div></div>
   <div id="view" class="${perm(P) === 'edit' ? '' : 'ro'}">${!D ? `<div class="card">${E ? `${esc(E)} <button class="btn sm" data-a="reload">إعادة المحاولة</button>` : 'جارٍ التحميل…'}</div>` : E ? `<div class="card" style="color:var(--red)">${esc(E)}</div>` + page() : page()}</div></main></div>`;
@@ -252,15 +253,37 @@ function filteredOrders() {
 }
 const ASSIGNABLE = ['pending', 'picking_up', 'on_the_way', 'no_answer', 'postponed', 'problem', 'other'];
 const driverPhone = (o) => { const d = D.drivers.find((x) => x.id === o.driverId); return d ? d.phone : ''; };
+const wazeHref = (o) => {
+  const u = o.merchantMap || '';
+  const m = String(u).match(/(-?\d{1,3}\.\d{3,})\s*[,%2C]+\s*(-?\d{1,3}\.\d{3,})/i) || String(u).match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  return m ? `https://waze.com/ul?ll=${m[1]},${m[2]}&navigate=yes` : `https://waze.com/ul?q=${encodeURIComponent((o.merchantName || '') + ' ' + (o.merchantArea || ''))}&navigate=yes`;
+};
+const ocRow = (i, l, v) => `<div class="oc-r"><span class="oc-i">${ico(i)}</span><span class="oc-l">${l}:</span><span class="oc-v">${v}</span></div>`;
+const dinar = (n) => `<span class="num">${nf(n)}</span> دينار`;
+function ocard(o) {
+  const drv = o.driverId ? D.drivers.find((x) => x.id === o.driverId) : null;
+  return `<article class="oc">
+    <div class="oc-top"><div class="oc-no">رقم الطلب : <bdi>#${o.no}</bdi><small>${ago(o.createdAt)} · ${fdt(o.createdAt)}</small></div>${o.driverId ? `<div class="oc-corner"><button class="oc-cb g" data-a="chat" data-id="${o.id}"><span>محادثة</span>${ico('chat')}</button></div>` : ''}</div>
+    ${ocRow('store', 'اسم المتجر', esc(o.merchantName))}
+    <div class="oc-r"><span class="oc-i"><span class="oc-d">$</span></span><span class="oc-l">سعر الطلب:</span><span class="oc-v">${dinar(o.productPrice)}</span><span class="oc-grp"><span class="oc-plus">+</span><span class="oc-l">التوصيل:</span><span class="oc-v">${dinar(o.deliveryPrice)}</span></span></div>
+    ${ocRow('pin', 'عنوان المتجر', `<span class="oc-chip">${esc(o.merchantArea || '—')}</span>`)}
+    ${ocRow('pin', 'عنوان الزبون', `<span class="oc-chip">${esc(o.customerArea)}</span>`)}
+    <hr class="oc-sep">
+    ${ocRow('orders', 'الحالة', `<select class="in" data-c="status" data-id="${o.id}" aria-label="حالة الطلب ${o.no}">${stKeys(o.status).map((k) => `<option value="${k}" ${o.status === k ? 'selected' : ''}>${ST[k]}</option>`).join('')}</select>`)}
+    ${ocRow('phone', 'رقم الزبون', `<span class="num">${esc(o.customerPhone)}</span>`)}
+    ${ocRow('wallet', 'المطلوب من الزبون', `<b>${dinar(o.total)}</b>`)}
+    ${ocRow('orders', 'المنتج', `${esc(o.product)} × ${o.qty} · ${o.vehicle === 'car' ? 'سيارة' : 'دراجة'}`)}
+    ${ocRow('user', 'السائق', esc(o.driverName || '—'))}
+    ${o.note ? `<div class="oc-note">ملاحظة: ${esc(o.note)}</div>` : ''}
+    <div class="oc-act">${rOn() ? `<button class="btn sm" data-a="receipt" data-id="${o.id}">وصل</button>` : ''}<a class="btn sm w" target="_blank" rel="noopener" href="${wa(o.customerPhone, custMsg(o))}">واتساب الزبون</a>${o.driverId && driverPhone(o) ? `<a class="btn sm w" target="_blank" rel="noopener" href="${wa(driverPhone(o), drvMsg(o, drv))}">واتساب السائق</a>` : ''}<a class="btn sm g" target="_blank" rel="noopener" href="${esc(wazeHref(o))}">${ico('pin')} Waze · موقع المتجر</a>${ASSIGNABLE.includes(o.status) ? `<button class="btn sm" data-a="assign" data-id="${o.id}">${o.driverId ? 'تحويل لسائق' : 'تعيين سائق'}</button>` : ''}${o.driverId && o.status !== 'pending' ? `<button class="btn sm g" data-a="requeue" data-id="${o.id}">إعادة</button>` : ''}</div>
+  </article>`;
+}
 function ordersList() {
   const l = filteredOrders();
   const tot = l.filter((o) => DONE.includes(o.status));
-  return `<div class="tw"><table><thead><tr><th>الطلب</th><th>المتجر</th><th>الزبون</th><th>المنتج</th><th class="n">البضاعة</th><th class="n">التوصيل</th><th class="n">الإجمالي</th><th>المندوب</th><th>الحالة</th><th></th></tr></thead><tbody>
-  ${l.slice(0, 400).map((o) => `<tr><td><b>#${o.no}</b><div class="hint">${fdt(o.createdAt)}</div></td><td>${esc(o.merchantName)}</td><td>${esc(o.customerArea)}<div class="hint num">${esc(o.customerPhone)}</div></td><td>${esc(o.product)} × ${o.qty}</td>
-  <td class="n">${nn(o.productPrice)}</td><td class="n">${nn(o.deliveryPrice)}</td><td class="n"><b>${nn(o.total)}</b></td><td>${esc(o.driverName || '—')}</td>
-  <td><select class="in" style="min-height:34px;padding:4px 8px" data-c="status" data-id="${o.id}" aria-label="حالة الطلب ${o.no}">${stKeys(o.status).map((k) => `<option value="${k}" ${o.status === k ? 'selected' : ''}>${ST[k]}</option>`).join('')}</select></td>
-  <td class="act"><div class="row">${rOn() ? `<button class="btn sm" data-a="receipt" data-id="${o.id}">وصل</button>` : ''}${o.driverId ? `<button class="btn sm g" data-a="chat" data-id="${o.id}">محادثة</button>` : ''}<a class="btn sm w" target="_blank" rel="noopener" href="${wa(o.customerPhone, custMsg(o))}">واتساب الزبون</a>${o.driverId && driverPhone(o) ? `<a class="btn sm w" target="_blank" rel="noopener" href="${wa(driverPhone(o), drvMsg(o, D.drivers.find((x) => x.id === o.driverId)))}">واتساب السائق</a>` : ''}${ASSIGNABLE.includes(o.status) ? `<button class="btn sm" data-a="assign" data-id="${o.id}">${o.driverId ? 'تحويل لسائق' : 'تعيين سائق'}</button>` : ''}${o.driverId && o.status !== 'pending' ? `<button class="btn sm g" data-a="requeue" data-id="${o.id}">إعادة</button>` : ''}</div></td></tr>`).join('')}
-  </tbody>${l.length ? `<tfoot><tr><td colspan="4">${nn(l.length)} طلب (المسلّم ${nn(tot.length)})</td><td class="n">${nn(tot.reduce((a, o) => a + o.productPrice, 0))}</td><td class="n">${nn(tot.reduce((a, o) => a + o.deliveryPrice, 0))}</td><td class="n">${nn(tot.reduce((a, o) => a + o.total, 0))}</td><td colspan="3"></td></tr></tfoot>` : ''}</table></div>${l.length > 400 ? `<p class="hint">يُعرض أول 400 سجل — استخدم البحث أو التصدير للحصول على الكل (${nn(l.length)}).</p>` : ''}${l.length ? '' : empty('لا توجد طلبات مطابقة')}`;
+  const sum = (k) => tot.reduce((a, o) => a + o[k], 0);
+  return `<div class="oc-sum"><span>${nn(l.length)} طلب (المسلّم ${nn(tot.length)})</span><span>البضاعة ${mm(sum('productPrice'))}</span><span>التوصيل ${mm(sum('deliveryPrice'))}</span><span>الإجمالي ${mm(sum('total'))}</span></div>
+  <div class="ocgrid">${l.slice(0, 150).map(ocard).join('')}</div>${l.length > 150 ? `<p class="hint">يُعرض أول 150 طلباً — استخدم البحث أو التصدير للحصول على الكل (${nn(l.length)}).</p>` : ''}${l.length ? '' : empty('لا توجد طلبات مطابقة')}`;
 }
 function orders() {
   const ms = D.merchants.map((m) => `<option value="${m.id}" ${FM === m.id ? 'selected' : ''}>${esc(m.name)}</option>`).join('');
@@ -389,7 +412,9 @@ function settings() {
   <p class="hint" style="margin:0 0 8px">اضغط على متغير لإدخاله في القالب الذي تكتب فيه. تُستبدل المتغيرات بتفاصيل الطلب تلقائياً.</p>
   <div class="chips" style="margin-bottom:12px">${TPL_VARS.map(([v, l]) => `<button type="button" class="chip" data-a="tpl-var" data-v="{${v}}" title="${esc(l)}">{${v}} <small class="muted">${esc(l)}</small></button>`).join('')}</div>
   ${TPL_DEFS.map(([k, l]) => `<div class="field" style="margin-bottom:12px"><label for="t-${k}">${l}</label><textarea class="in" id="t-${k}" rows="4" style="min-height:92px;font-family:inherit">${esc((SET.templates || {})[k] || '')}</textarea><div class="row" style="margin-top:4px"><button type="button" class="btn sm g" data-a="tpl-reset" data-k="${k}">استعادة الافتراضي</button></div></div>`).join('')}</div>
-  <div class="err" id="fe" role="alert"></div><button class="btn" style="min-height:44px">حفظ الإعدادات</button></form>`;
+  <div class="err" id="fe" role="alert"></div><button class="btn" style="min-height:44px">حفظ الإعدادات</button></form>
+  <div class="card" style="margin-top:16px"><div class="ch">المظهر <small>يُحفظ على هذا الجهاز</small></div>${RioTheme.picker('data-a')}</div>
+  <div class="card"><button class="btn d" data-a="logout" style="min-height:44px">${ico('out')} تسجيل الخروج</button></div>`;
 }
 const TPL_DEFS = [['cust_picking_up', 'رسالة للزبون: قيد الاستلام من التاجر'], ['cust_on_the_way', 'رسالة للزبون: في الطريق للزبون'], ['cust_delivered', 'رسالة للزبون: تم التسليم'], ['cust_rejected', 'رسالة للزبون: مرفوض من زبون'], ['cust_no_answer', 'رسالة للزبون: لا يرد'], ['cust_postponed', 'رسالة للزبون: تأجيل'], ['cust_default', 'رسالة للزبون: عامة (بقية الحالات)'], ['driver_support', 'من السائق إلى الدعم'], ['admin_driver', 'من الإدارة إلى السائق (بخصوص طلب)'], ['admin_merchant', 'من الإدارة إلى التاجر (بخصوص طلب)'], ['account', 'بيانات الحساب الجديد (للتاجر أو السائق)']];
 const TPL_VARS = [['order_no', 'رقم الطلب'], ['status', 'الحالة'], ['merchant', 'المتجر'], ['merchant_phone', 'هاتف المتجر'], ['merchant_area', 'عنوان المتجر'], ['customer_phone', 'هاتف الزبون'], ['customer_area', 'منطقة الزبون'], ['product', 'المنتج'], ['qty', 'العدد'], ['product_price', 'سعر المنتج'], ['delivery_price', 'سعر التوصيل'], ['total', 'المبلغ المطلوب'], ['driver', 'المندوب'], ['note', 'الملاحظة'], ['name', 'الاسم'], ['phone', 'الهاتف'], ['password', 'كلمة المرور'], ['login_url', 'رابط الدخول'], ['support', 'رقم الدعم'], ['app', 'اسم التطبيق'], ['date', 'التاريخ']];
@@ -629,6 +654,7 @@ const clickActs = {
   'menu-x'() { MENU = false; draw(); },
   page(el) { MENU = false; P = el.dataset.k; ls.set('rio_page', P); Q = ''; FS = 'all'; FM = 0; load(); },
   logout() { logout(); },
+  theme(el) { RioTheme.set(el.dataset.t); draw(); },
   'batch-x'() { BATCH = null; draw(); },
   async 'del-card'(el) { if (confirm('حذف هذا الكرت؟') && await act(() => api('DELETE', '/api/admin/cards/' + el.dataset.n), 'تم الحذف')) load(); },
   reload() { load(); },

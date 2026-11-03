@@ -11,9 +11,9 @@ self.addEventListener('notificationclick', (e) => {
     const target = all.find((c) => c.url.startsWith(root));
     if (target) {
       try { await target.focus(); } catch { /* ignore */ }
-      target.postMessage({ type: 'open-chat', orderId: d.orderId, orderNo: d.orderNo });
+      target.postMessage({ type: 'open-notif', data: d });
     } else {
-      await self.clients.openWindow(`${root}?chat=${encodeURIComponent(d.orderId || '')}&no=${encodeURIComponent(d.orderNo || '')}#/orders`);
+      await self.clients.openWindow(`${root}?open=${encodeURIComponent(d.kind || 'x')}&id=${encodeURIComponent(d.orderId || '')}&no=${encodeURIComponent(d.orderNo || '')}&nid=${encodeURIComponent(d.id || '')}`);
     }
   })());
 });

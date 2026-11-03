@@ -1,7 +1,7 @@
 // node tools/build-demo.js  ->  demo.html (ملف واحد مستقل)
 const fs = require('fs'), path = require('path');
 const r = (p) => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
-const css = r('web/style.css'), app = r('web/app.js'), mock = fs.readFileSync(path.join(__dirname, 'demo-mock.js'), 'utf8');
+const css = r('web/style.css'), app = r('web/app.js'), theme = r('web/theme.js'), mock = fs.readFileSync(path.join(__dirname, 'demo-mock.js'), 'utf8');
 const html = `<!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -16,6 +16,7 @@ const html = `<!doctype html>
 <div id="app" aria-live="polite"></div>
 <div id="sheet-root" hidden></div>
 <div id="toast-root" role="status"></div>
+<script>${theme}</script>
 <script>${mock}</script>
 <script>${app}</script>
 </body>

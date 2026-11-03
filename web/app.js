@@ -91,7 +91,7 @@ const vehName = (v) => (v === 'car' ? 'سيارة' : 'دراجة');
 /* ============ الحالة ============ */
 const S = {
   token: store.get(TOKEN_KEY) || (() => { try { return sessionStorage.getItem(TOKEN_KEY); } catch { return null; } })(), user: null, tab: '', data: null, loading: false, error: '',
-  sheet: null, menu: null, armed: null, filter: 'all', walletTab: 'log', ordersTab: 'current', adminFilter: 'all', cardsBatch: null, expRange: 'month'
+  unread: 0, pushOn: false, sheet: null, menu: null, armed: null, filter: 'all', walletTab: 'log', ordersTab: 'current', adminFilter: 'all', cardsBatch: null, expRange: 'month'
 };
 let lastSig = '';
 let chatTimer = null;
@@ -140,6 +140,7 @@ function defaultTab() { return TABS[S.user.role][0][0]; }
 
 async function fetchData() {
   const role = S.user.role;
+  if (role !== 'admin' && S.tab === 'notifs') return api('GET', '/api/notifs?limit=40');
   if (role === 'merchant') return api('GET', '/api/merchant/home');
   if (role === 'driver') return api('GET', '/api/driver/home');
   const t = S.tab;
@@ -160,6 +161,7 @@ async function refresh(manual) {
     if (tab !== S.tab) return;
     const sig = JSON.stringify(d);
     S.loading = false; S.error = '';
+    if (tab === 'notifs' && d && d.unread !== undefined) S.unread = d.unread;
     if (sig !== lastSig || manual) { lastSig = sig; S.data = d; render(); }
   } catch (e) {
     if (!S.user) return;
@@ -180,7 +182,7 @@ let es = null, liveT = null;
 function connectLive() {
   if (es || !S.token || typeof EventSource === 'undefined') return;
   es = new EventSource(API + '/api/stream?token=' + encodeURIComponent(S.token));
-  es.addEventListener('change', () => { clearTimeout(liveT); liveT = setTimeout(liveRefresh, 300); setTimeout(checkNotifs, 200); setTimeout(checkNewOrders, 250); });
+  es.addEventListener('change', () => { clearTimeout(liveT); liveT = setTimeout(liveRefresh, 300); setTimeout(checkNotifs, 200); });
 }
 function disconnectLive() { if (es) { es.close(); es = null; } }
 function liveRefresh() {
@@ -189,9 +191,9 @@ function liveRefresh() {
   if (S.sheet || S.menu || (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))) { S.dirty = true; return; }
   refresh();
 }
-function setUser(u) { S.user = u; connectLive(); setTimeout(checkNotifs, 600); }
+function setUser(u) { S.user = u; connectLive(); setTimeout(checkNotifs, 600); if (u && u.role !== 'admin') setTimeout(ensurePush, 1200); }
 function logout() {
-  S.token = null; S.user = null; S.data = null; S.sheet = null; S.menu = null; lastSig = '';
+  S.token = null; S.user = null; S.data = null; S.sheet = null; S.menu = null; lastSig = ''; S.unread = 0; S.pushOn = false;
   store.del(TOKEN_KEY);
   history.replaceState(null, '', location.pathname);
   stopChat(); disconnectLive();
@@ -220,7 +222,7 @@ function shell() {
   const un = unreadCount();
   const bell = role === 'admin' ? '' : `<button class="bell" id="bell" data-act="notifs" aria-label="الإشعارات">${ico('bell')}<span class="badge" id="bell-n" ${un ? '' : 'hidden'}>${un}</span></button>`;
   const fab = role === 'merchant' && S.tab !== 'me' ? `<button class="btn fab" data-act="new-order">${ico('plus')} إنشاء طلب</button>` : '';
-  return `<header class="topbar"><div class="grp">${logo()}<span class="rolechip">${ico(ROLE_ICON[role])}${ROLE_NAME[role]}</span></div><div class="grp">${bell}<button class="link" data-act="logout">تسجيل الخروج</button></div></header>
+  return `<header class="topbar"><div class="grp">${logo()}<span class="rolechip">${ico(ROLE_ICON[role])}${ROLE_NAME[role]}</span></div><div class="grp">${bell}</div></header>
 <div class="shell"><nav class="nav" aria-label="التنقل">${nav}</nav><main class="main"><div class="col ${role === 'admin' ? 'wide' : ''}">${view()}</div></main></div>${fab}`;
 }
 
@@ -267,25 +269,73 @@ function tile(label, sub, n, color) {
   return `<div class="tile" style="--c:${color}"><span class="ring">${n}</span><div><b>${label}</b>${sub ? `<small>${sub}</small>` : ''}</div></div>`;
 }
 
+/* ============ بطاقة الطلب الموحّدة (التاجر / السائق / المدير) ============ */
+const dinar = (n) => `<span class="num">${nf.format(Math.round(n || 0))}</span> دينار`;
+const OCI = { store: ico('store'), pin: ico('pin'), phone: ico('phone'), box: ico('orders'), cash: ico('wallet'), user: ico('user'), status: ico('orders') };
+const ocRow = (i, l, v, cls = '') => `<div class="oc-r ${cls}"><span class="oc-i">${OCI[i]}</span><span class="oc-l">${l}:</span><span class="oc-v">${v}</span></div>`;
+const noteBtn = (o) => `<button class="oc-cb r" data-act="note" data-id="${o.id}"><span>ملاحظة</span><span class="oc-ex">!</span></button>`;
+const chatBtn = (o) => `<button class="oc-cb g" data-act="chat" data-id="${o.id}"><span>محادثة</span>${ico('chat')}</button>`;
+function wazeLinks(o) {
+  const url = o.merchantMap || '';
+  if (!url && !o.merchantArea) return '';
+  const c = mapCoords(url);
+  const wz = c ? `https://waze.com/ul?ll=${c[0]},${c[1]}&navigate=yes` : `https://waze.com/ul?q=${encodeURIComponent((o.merchantName || '') + ' ' + (o.merchantArea || ''))}&navigate=yes`;
+  return `<a class="btn soft sm" href="${esc(wz)}" target="_blank" rel="noopener">${ico('pin')} Waze · موقع المتجر</a>${url ? `<a class="btn ghost sm" href="${esc(url)}" target="_blank" rel="noopener">الخريطة</a>` : ''}`;
+}
+/* opt: corner (أزرار الزاوية العلوية)، rows (تفاصيل إضافية)، after (تنبيهات)، actions (الأزرار السفلية) */
+function orderCard(o, opt = {}) {
+  const corner = (opt.corner || '') + (opt.noteBtn ? noteBtn(o) : '');
+  return `<article class="oc">
+    <div class="oc-top"><div class="oc-no">رقم الطلب : <bdi>#${o.no}</bdi><small>${ago(o.createdAt)}</small></div>${corner ? `<div class="oc-corner">${corner}</div>` : ''}</div>
+    ${ocRow('store', 'اسم المتجر', esc(o.merchantName))}
+    <div class="oc-r"><span class="oc-i"><span class="oc-d">$</span></span><span class="oc-l">سعر الطلب:</span><span class="oc-v">${dinar(o.productPrice)}</span><span class="oc-grp"><span class="oc-plus">+</span><span class="oc-l">التوصيل:</span><span class="oc-v">${dinar(o.deliveryPrice)}</span></span></div>
+    ${ocRow('pin', 'عنوان المتجر', `<span class="oc-chip">${esc(o.merchantArea || '—')}</span>`)}
+    ${ocRow('pin', 'عنوان الزبون', `<span class="oc-chip">${esc(o.customerArea)}</span>`)}
+    ${opt.rows ? `<hr class="oc-sep">${opt.rows}` : ''}${opt.after || ''}
+    ${opt.actions ? `<div class="oc-act">${opt.actions}</div>` : ''}
+  </article>`;
+}
+const customerRows = (o) => ocRow('phone', 'رقم الزبون', telLink(o.customerPhone)) + ocRow('cash', 'المطلوب من الزبون', money(o.total)) + ocRow('box', 'المنتج', `${esc(o.product)} × ${o.qty} · ${vehName(o.vehicle)}`);
+
 function merchantOrderCard(o, withCancel) {
   const armed = S.armed === 'c' + o.id;
-  return `<article class="card ord">
-    <div class="ord-h"><div><div class="ord-no">طلب #${o.no}</div><div class="hint">${esc(o.customerArea)} · ${ago(o.createdAt)}</div></div>${pill(o.status)}</div>
-    <dl class="kv">
-      <div><dt>المنتج</dt><dd>${esc(o.product)} × ${o.qty}</dd></div>
-      <div><dt>التوصيل</dt><dd>${vehName(o.vehicle)} · ${money(o.deliveryPrice)}</dd></div>
-      <div><dt>رقم الزبون</dt><dd>${telLink(o.customerPhone)}</dd></div>
-      <div><dt>الإجمالي على الزبون</dt><dd>${money(o.total)}</dd></div>
-      ${o.driverName ? `<div class="full"><dt>السائق</dt><dd>${esc(o.driverName)}</dd></div>` : ''}
-      ${o.note ? `<div class="full"><dt>ملاحظة</dt><dd>${esc(o.note)}</dd></div>` : ''}
-    </dl>
-    ${o.status === 'return_sent' ? `<div class="notice">السائق ${esc(o.driverName || '')} أعلن أنه أرجع الطلب إليك. أكّد الاستلام عند وصول البضاعة.</div>` : ''}
-    <div class="row wrapx">
-      ${o.driverId ? `<button class="btn ghost sm" data-act="chat" data-id="${o.id}">${ico('chat')} محادثة السائق</button>` : ''}
-      <a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a>
-      ${o.status === 'return_sent' ? `<button class="btn sm" data-act="ask-recv" data-id="${o.id}">تأكيد استلام المرتجع</button><button class="btn ghost sm" data-act="not-recv" data-id="${o.id}">لم أستلمه</button>` : ''}
-      ${withCancel && o.status === 'pending' ? `<button class="btn danger sm ${armed ? 'arm' : ''}" data-act="cancel" data-id="${o.id}">${armed ? 'اضغط للتأكيد' : 'إلغاء الطلب'}</button>` : ''}
-    </div></article>`;
+  return orderCard(o, {
+    corner: o.driverId ? chatBtn(o) : '', noteBtn: !!o.note,
+    rows: ocRow('status', 'الحالة', pill(o.status)) + customerRows(o) + (o.driverName ? ocRow('user', 'السائق', esc(o.driverName)) : ''),
+    after: o.status === 'return_sent' ? `<div class="notice">السائق ${esc(o.driverName || '')} أعلن أنه أرجع الطلب إليك. أكّد الاستلام عند وصول البضاعة.</div>` : '',
+    actions: `<a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a>${wazeLinks(o)}${o.status === 'return_sent' ? `<button class="btn sm" data-act="ask-recv" data-id="${o.id}">تأكيد استلام المرتجع</button><button class="btn ghost sm" data-act="not-recv" data-id="${o.id}">لم أستلمه</button>` : ''}${withCancel && o.status === 'pending' ? `<button class="btn danger sm ${armed ? 'arm' : ''}" data-act="cancel" data-id="${o.id}">${armed ? 'اضغط للتأكيد' : 'إلغاء الطلب'}</button>` : ''}`
+  });
+}
+
+function availOrderCard(o, s, receiving) {
+  return orderCard(o, {
+    corner: `<button class="oc-cb g" data-act="accept" data-id="${o.id}"><span>قبول الطلب</span>${ico('check')}</button><button class="oc-cb r" data-act="note" data-id="${o.id}"><span>ملاحظة</span><span class="oc-ex">!</span></button>`,
+    rows: ocRow('box', 'المنتج', `${esc(o.product)} × ${o.qty} · ${vehName(o.vehicle)}`),
+    after: `<p class="hint" style="margin-top:12px">رسوم التطبيق عند القبول ${money(o.sameArea ? s.feeSame : s.feeOther)}</p>`,
+    actions: wazeLinks(o)
+  });
+}
+
+function driverOrderCard(o) {
+  const open = S.menu === o.id;
+  const locked = ['delivered', 'return_sent', 'returned'].includes(o.status);
+  const m = open && !locked ? `<div class="menu" role="menu">${DRIVER_ST.map((s) => `<button role="menuitem" data-act="set-status" data-id="${o.id}" data-s="${s}"><span class="ck">${o.status === s ? ico('check') : ''}</span>${ST[s][0]}</button>`).join('')}${RETURNABLE.includes(o.status) ? `<button role="menuitem" data-act="ask-return" data-id="${o.id}"><span class="ck"></span><b>تم الإرجاع للتاجر</b></button>` : ''}</div>` : '';
+  const st = locked ? pill(o.status) : `<span class="menuwrap"><button class="pill ${ST[o.status]?.[1] || ''}" data-act="menu" data-id="${o.id}" aria-haspopup="menu" aria-expanded="${open}">${esc(ST[o.status]?.[0] || o.status)} <span aria-hidden="true">▾</span></button>${m}</span>`;
+  return orderCard(o, {
+    corner: chatBtn(o), noteBtn: !!o.note,
+    rows: ocRow('status', 'الحالة', st) + customerRows(o) + ocRow('phone', 'هاتف المتجر', telLink(o.merchantPhone)),
+    after: o.status === 'picking_up' ? `<div class="notice">ادفع للتاجر ${money(o.productPrice)} عند الاستلام، وبعدها غيّر الحالة إلى «في الطريق للزبون».</div>` : '',
+    actions: `${receiptsOn() ? `<button class="btn ghost sm" data-act="receipt" data-id="${o.id}">وصل</button>` : ''}<a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a><a class="btn ghost sm" href="${supportLink(o)}" target="_blank" rel="noopener">واتساب الدعم</a>${wazeLinks(o)}`
+  });
+}
+
+/* المدير داخل التطبيق: نفس البطاقة مع التحكم بالحالة */
+function adminOrderCard(o) {
+  return orderCard(o, {
+    corner: o.driverId ? chatBtn(o) : '', noteBtn: !!o.note,
+    rows: ocRow('status', 'الحالة', statusSelect(o)) + customerRows(o) + ocRow('user', 'السائق', esc(o.driverName || '—')),
+    actions: `<a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a>${receiptsOn() || true ? `<button class="btn ghost sm" data-act="receipt" data-id="${o.id}">وصل</button>` : ''}${wazeLinks(o)}${o.driverId && o.status !== 'pending' ? `<button class="btn soft sm" data-act="requeue" data-id="${o.id}">إعادة للسائقين</button>` : ''}`
+  });
 }
 
 const VIEWS = {
@@ -323,14 +373,7 @@ const VIEWS = {
     const s = d.settings;
     return `${head('الطلبات المتاحة', d.me.receiving ? 'تُحدَّث القائمة تلقائياً' : '')}
     ${!d.me.receiving ? `<div class="notice red" style="margin-bottom:12px">استقبال الطلبات متوقف. فعّله من «الملف الشخصي» لتتمكن من قبول الطلبات.</div>` : ''}
-    <div class="stack">${d.available.length ? d.available.map((o) => `
-      <article class="card avail">
-        <div class="info"><div class="hint">طلب #${o.no}</div><h3>${esc(o.merchantName)}</h3>
-          <div class="muted">${esc(o.merchantArea)} - ${esc(o.customerArea)}</div>
-          <div class="price-line">${money(o.productPrice)} + ${money(o.deliveryPrice)}</div>
-          <div class="hint">سعر المنتج + سعر التوصيل · رسوم التطبيق ${money(o.sameArea ? s.feeSame : s.feeOther)}</div></div>
-        <div class="act"><button class="btn" data-act="accept" data-id="${o.id}">قبول الطلب</button><button class="btn ghost" data-act="note" data-id="${o.id}">ملاحظة</button></div>
-      </article>`).join('') : emptyBox('لا توجد طلبات متاحة الآن', 'ستظهر الطلبات الجديدة هنا فور رفعها من التجار.')}</div>`;
+    <div class="stack">${d.available.length ? d.available.map((o) => availOrderCard(o, s, d.me.receiving)).join('') : emptyBox('لا توجد طلبات متاحة الآن', 'ستظهر الطلبات الجديدة هنا فور رفعها من التجار.')}</div>`;
   },
   'driver:orders'() {
     const all = S.data.orders;
@@ -376,6 +419,8 @@ const VIEWS = {
   }
 };
 
+VIEWS['merchant:notifs'] = VIEWS['driver:notifs'] = notifsView;
+
 function li(ic, t, sub, a, extra = '') {
   return `<button class="list-item" data-act="${a}" ${extra}>${ico(ic)}<span class="grow"><b>${t}</b><small>${sub}</small></span><span class="chev">${ico('chev')}</span></button>`;
 }
@@ -385,12 +430,12 @@ function profileHead(me) {
 function accountLinks(settings) {
   const sp = settings.support;
   const msg = encodeURIComponent(`مرحباً، أحتاج مساعدة في تطبيق ريو\nالاسم: ${S.user.name}\nالهاتف: ${S.user.phone}`);
-  const perm = typeof Notification !== 'undefined' ? Notification.permission : 'unsupported';
-  const notifItem = perm === 'unsupported' ? '' : li('bell', 'إشعارات المحادثة', perm === 'granted' ? 'مفعّلة — يصلك تنبيه بصوت عند وصول رسالة' : perm === 'denied' ? 'محظورة من إعدادات المتصفح' : 'اضغط لتفعيل التنبيهات', 'enable-notifs');
-  return `${notifItem ? '<h2 class="sec">التنبيهات</h2>' + notifItem : ''}<h2 class="sec">الدعم والسياسات</h2>
+  return `<h2 class="sec">المظهر</h2>${RioTheme.picker('data-act')}
+  <h2 class="sec">الإشعارات</h2>${notifSetting()}${li('bell', 'كل الإشعارات', 'سجل كامل بالطلبات والمحفظة والمحادثات', 'notifs')}
+  <h2 class="sec">الدعم والسياسات</h2>
   ${sp ? `<a class="list-item" href="https://wa.me/${waNumber(sp)}?text=${msg}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${ico('wa')}<span class="grow"><b>التواصل مع الدعم</b><small dir="ltr" style="text-align:right">${esc(fmtPhone(sp))} · واتساب</small></span><span class="chev">${ico('chev')}</span></a>
   <a class="list-item" href="tel:${esc(sp)}" style="color:inherit;text-decoration:none">${ico('support')}<span class="grow"><b>اتصال بالدعم</b><small dir="ltr" style="text-align:right">${esc(fmtPhone(sp))}</small></span><span class="chev">${ico('chev')}</span></a>` : ''}
-  <button class="btn ghost block" data-act="logout">${ico('out')} تسجيل الخروج</button>`;
+  <button class="btn ghost block" style="margin-top:8px" data-act="logout">${ico('out')} تسجيل الخروج</button>`;
 }
 function profileView(me, settings) {
   return `${profileHead(me)}
@@ -404,15 +449,6 @@ function mapCoords(url) {
   const m = String(url || '').match(/(-?\d{1,3}\.\d{3,})\s*[,%2C]+\s*(-?\d{1,3}\.\d{3,})/i) || String(url || '').match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
   return m ? [m[1], m[2]] : null;
 }
-function mapButtons(o) {
-  const url = o.merchantMap || '';
-  if (!url && !o.merchantArea) return '';
-  const c = mapCoords(url);
-  const wz = c ? `https://waze.com/ul?ll=${c[0]},${c[1]}&navigate=yes` : `https://waze.com/ul?q=${encodeURIComponent((o.merchantName || '') + ' ' + (o.merchantArea || ''))}&navigate=yes`;
-  const a = (h, t, cls = 'ghost') => `<a class="btn ${cls} sm grow" href="${esc(h)}" target="_blank" rel="noopener">${t}</a>`;
-  return `<div class="hint" style="margin-top:4px">موقع المتجر — افتحه بالتطبيق الذي تفضّله</div>
-    <div class="row wrapx">${a(wz, 'Waze', 'soft')}${url ? a(url, 'خرائط / الرابط الأصلي') : ''}${c ? a(`geo:${c[0]},${c[1]}?q=${c[0]},${c[1]}`, 'تطبيق آخر') : ''}</div>`;
-}
 function tplText(key, vars) {
   const T = (S.data && S.data.settings && S.data.settings.templates) || {};
   return String(T[key] || '').replace(/\{(\w+)\}/g, (m, k) => (vars[k] !== undefined && vars[k] !== null ? String(vars[k]) : m));
@@ -425,28 +461,6 @@ function supportLink(o) {
   const sp = (S.data && S.data.settings && S.data.settings.support) || '';
   const msg = tplText('driver_support', ordVars(o)) || `مرحباً، أحتاج مساعدة بخصوص الطلب #${o.no}`;
   return `https://wa.me/${waNumber(sp)}?text=${encodeURIComponent(msg)}`;
-}
-function driverOrderCard(o) {
-  const open = S.menu === o.id;
-  const locked = ['delivered', 'return_sent', 'returned'].includes(o.status);
-  const m = open && !locked ? `<div class="menu" role="menu">${DRIVER_ST.map((s) => `<button role="menuitem" data-act="set-status" data-id="${o.id}" data-s="${s}"><span class="ck">${o.status === s ? ico('check') : ''}</span>${ST[s][0]}</button>`).join('')}${RETURNABLE.includes(o.status) ? `<button role="menuitem" data-act="ask-return" data-id="${o.id}"><span class="ck"></span><b>تم الإرجاع للتاجر</b></button>` : ''}</div>` : '';
-  return `<article class="card ord">
-    <div class="ord-h"><div class="menuwrap">${locked ? pill(o.status) : `<button class="pill ${ST[o.status]?.[1] || ''}" data-act="menu" data-id="${o.id}" aria-haspopup="menu" aria-expanded="${open}">${esc(ST[o.status]?.[0] || o.status)} <span aria-hidden="true">▾</span></button>`}${m}</div><div class="ord-no">طلب #${o.no}</div></div>
-    <dl class="kv">
-      <div><dt>الزبون</dt><dd>${esc(o.customerArea)}</dd></div>
-      <div><dt>تحصل من الزبون</dt><dd>${money(o.total)}</dd></div>
-      <div><dt>رقم الزبون</dt><dd>${telLink(o.customerPhone)}</dd></div>
-      <div><dt>دفعت للتاجر</dt><dd>${money(o.productPrice)}</dd></div>
-      <div><dt>المنتج</dt><dd>${esc(o.product)} × ${o.qty} · ${vehName(o.vehicle)}</dd></div>
-      <div><dt>توصيل</dt><dd>${money(o.deliveryPrice)}</dd></div>
-      ${o.note ? `<div class="full"><dt>ملاحظة</dt><dd>${esc(o.note)}</dd></div>` : ''}
-    </dl>
-    ${o.status === 'picking_up' ? `<div class="notice">ادفع للتاجر ${money(o.productPrice)} عند الاستلام، وبعدها غيّر الحالة إلى «في الطريق للزبون».</div>` : ''}
-    <div class="row wrapx"><button class="btn ghost grow" data-act="chat" data-id="${o.id}">${ico('chat')} محادثة</button>${receiptsOn() ? `<button class="btn ghost grow" data-act="receipt" data-id="${o.id}">وصل</button>` : ''}<a class="btn wa grow" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a><a class="btn ghost grow" href="${supportLink(o)}" target="_blank" rel="noopener">واتساب الدعم</a></div>
-    <hr class="rule" style="margin:0">
-    <dl class="kv"><div><dt>المتجر</dt><dd>${esc(o.merchantName)}</dd></div><div><dt>العنوان</dt><dd>${esc(o.merchantArea)}</dd></div><div class="full"><dt>هاتف المتجر</dt><dd>${telLink(o.merchantPhone)}</dd></div></dl>
-    ${mapButtons(o)}
-  </article>`;
 }
 
 /* ============ المدير ============ */
@@ -477,11 +491,7 @@ function statusSelect(o) {
   return `<select class="in" style="min-height:38px;padding:6px 10px;min-width:150px" data-chg="admin-status" data-id="${o.id}" aria-label="حالة الطلب ${o.no}">${stKeys(o.status).map((s) => `<option value="${s}" ${o.status === s ? 'selected' : ''}>${ST[s][0]}</option>`).join('')}</select>`;
 }
 function ordersTable(list) {
-  return `<div class="tblwrap"><table><thead><tr><th>الطلب</th><th>التاجر</th><th>الزبون</th><th>المنتج</th><th>الإجمالي</th><th>السائق</th><th>الحالة</th><th></th></tr></thead><tbody>
-  ${list.map((o) => `<tr><td><b>#${o.no}</b><div class="hint">${ago(o.createdAt)}</div><div class="row wrapx" style="margin-top:8px"><a class="btn sm wa" href="${waLink(o)}" target="_blank" rel="noopener" aria-label="واتساب الزبون">واتساب</a><button class="btn sm ghost" data-act="receipt" data-id="${o.id}">وصل</button></div></td><td>${esc(o.merchantName)}</td><td>${esc(o.customerArea)}<div>${telLink(o.customerPhone)}</div></td>
-  <td>${esc(o.product)} × ${o.qty}<div class="hint">${vehName(o.vehicle)}</div></td><td>${money(o.total)}</td><td>${esc(o.driverName || '—')}</td><td>${statusSelect(o)}</td>
-  <td><div class="row wrapx">${o.driverId ? `<button class="btn sm ghost" data-act="chat" data-id="${o.id}">محادثة</button>` : ''}${o.driverId && o.status !== 'pending' ? `<button class="btn sm soft" data-act="requeue" data-id="${o.id}">إعادة للسائقين</button>` : ''}</div></td></tr>`).join('')}
-  </tbody></table></div>`;
+  return `<div class="stack">${list.map(adminOrderCard).join('')}</div>`;
 }
 
 VIEWS['admin:orders'] = () => {
@@ -521,7 +531,9 @@ VIEWS['admin:settings'] = () => {
       <div class="kpis" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">${f('feeSame', 'نفس المنطقة')}${f('feeOther', 'منطقة ثانية')}</div></div>
     <div class="card stack"><h2 style="font-size:18px">الوصولات</h2><label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="s-receipts" name="receipts" ${s.receipts !== 0 ? 'checked' : ''} style="width:22px;height:22px"><span><b>تفعيل الوصولات</b><span class="hint" style="display:block">عند الإيقاف يختفي زر «وصل» من حسابات التجار والسائقين. تبقى متاحة لك كمدير.</span></span></label></div>
     <div class="card stack"><h2 style="font-size:18px">الدعم</h2><div class="field"><label for="s-support">رقم الدعم (يظهر للتجار والسائقين)</label><input class="in mono" id="s-support" name="support" inputmode="tel" value="${esc(s.support)}" placeholder="07XX XXX XXXX"></div></div>
-    <button class="btn" type="submit" style="align-self:flex-start">حفظ الإعدادات</button></form>`;
+    <button class="btn" type="submit" style="align-self:flex-start">حفظ الإعدادات</button></form>
+  <h2 class="sec">المظهر</h2>${RioTheme.picker('data-act')}
+  <button class="btn ghost block" style="margin-top:16px" data-act="logout">${ico('out')} تسجيل الخروج</button>`;
 };
 
 /* ============ وصل الطلب: معاينة / طباعة / صورة / واتساب ============ */
@@ -533,7 +545,7 @@ function fmtDT(t) {
 }
 function findOrder(id) {
   const d = S.data || {};
-  return (d.orders || []).find((x) => x.id === id) || (d.attention || []).find((x) => x.id === id) || null;
+  return (d.orders || []).find((x) => x.id === id) || (d.attention || []).find((x) => x.id === id) || (d.available || []).find((x) => x.id === id) || null;
 }
 function waNumber(phone) {
   const d = String(phone || '').replace(/\D/g, '');
@@ -805,17 +817,20 @@ function exportCard(title, hint) {
   <p class="hint">${hint}</p></div>`;
 }
 
-/* ============ إشعارات المحادثة: جرس + صوت + إشعار نظام ============ */
+/* ============ الإشعارات: قائمة كاملة من الخادم + دفع للهاتف ============ */
 let nBusy = false, audioCtx = null, notifReg = null;
 const nKey = (k) => `rio_${k}_${S.user ? S.user.id : 0}`;
-function loadNotifs() { try { return JSON.parse(store.get(nKey('notifs')) || '[]'); } catch { return []; } }
-function saveNotifs(l) { store.set(nKey('notifs'), JSON.stringify(l.slice(0, 40))); }
-function unreadCount() { return S.user && S.user.role !== 'admin' ? loadNotifs().filter((n) => !n.read).length : 0; }
+const isNative = () => { const c = window.Capacitor; return !!(c && typeof c.isNativePlatform === 'function' && c.isNativePlatform()); };
+const unreadCount = () => (S.user && S.user.role !== 'admin' ? S.unread || 0 : 0);
 function updateBell() {
   const b = $('#bell-n'); if (!b) return;
-  const n = unreadCount(); b.textContent = n; b.hidden = !n;
+  const n = unreadCount(); b.textContent = n > 99 ? '99+' : n; b.hidden = !n;
 }
-function markRead(orderId) { const l = loadNotifs(); let ch = false; l.forEach((n) => { if (!n.read && (orderId == null || n.orderId === orderId)) { n.read = true; ch = true; } }); if (ch) { saveNotifs(l); updateBell(); } }
+function setUnread(n) { S.unread = Number(n) || 0; updateBell(); }
+async function markServerRead(body) {
+  try { const r = await api('POST', '/api/notifs/read', body); setUnread(r.unread); } catch { /* ignore */ }
+}
+function markChatRead(orderId) { return markServerRead({ orderId }); }
 function unlockAudio() {
   try {
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
@@ -844,6 +859,7 @@ function whenActive(reg) {
     setTimeout(() => res(reg.active ? reg : null), 4000);
   });
 }
+/* احتياط: إشعار نظام محلي إذا لم يتوفر الدفع الحقيقي (التطبيق في الخلفية فقط) */
 async function notifyReg() {
   if (notifReg) return notifReg;
   if (!('serviceWorker' in navigator)) return null;
@@ -851,55 +867,51 @@ async function notifyReg() {
 }
 async function systemNotify(m) {
   if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
-  const opts = { body: m.text, tag: m.tag || ('rio-chat-' + m.orderId), renotify: true, vibrate: [200], dir: 'rtl', lang: 'ar', data: { orderId: m.orderId, orderNo: m.orderNo } };
-  const title = m.title || `${m.name} · طلب #${m.orderNo}`;
+  const data = { kind: m.kind, orderId: m.orderId, orderNo: m.orderNo, id: m.id };
+  const opts = { body: m.body, tag: 'rio-' + m.id, renotify: true, vibrate: [200], dir: 'rtl', lang: 'ar', data };
   try {
     const reg = await notifyReg();
-    if (reg) { await reg.showNotification(title, opts); return; }
-    const n = new Notification(title, opts);
-    n.onclick = () => { window.focus(); openChatFor(m.orderId, m.orderNo); n.close(); };
+    if (reg) { await reg.showNotification(m.title, opts); return; }
+    const n = new Notification(m.title, opts);
+    n.onclick = () => { window.focus(); handleNotifTap(data); n.close(); };
   } catch { /* بعض المتصفحات لا تدعم الإشعارات */ }
 }
 async function checkNotifs() {
-  if (!S.user || S.user.role === 'admin' || nBusy) return;
+  if (!S.user || !['merchant', 'driver'].includes(S.user.role) || nBusy) return;
   nBusy = true;
   try {
-    const last = store.get(nKey('nlast'));
-    const r = await api('GET', '/api/notifications' + (last !== null ? `?after=${last}` : ''));
-    store.set(nKey('nlast'), String(r.last));
+    const last = store.get(nKey('nlast2'));
+    const r = await api('GET', last !== null ? `/api/notifs?after=${last}` : '/api/notifs?mode=poll');
+    store.set(nKey('nlast2'), String(r.last));
+    setUnread(r.unread);
     if (!r.items.length) return;
     const openId = S.sheet && S.sheet.type === 'chat' && !document.hidden ? S.sheet.id : null;
-    const fresh = r.items.map((m) => ({ ...m, read: openId === m.orderId }));
-    saveNotifs([...fresh.slice().reverse(), ...loadNotifs()]);
-    updateBell();
-    const unread = fresh.filter((m) => !m.read);
-    if (!unread.length) return;
-    const m = unread[unread.length - 1];
-    if (document.hidden) systemNotify(m);
-    else { beep(); toast(`رسالة جديدة من ${m.name} (طلب #${m.orderNo})`); }
+    const seen = r.items.filter((m) => m.kind === 'chat' && m.orderId === openId);
+    if (seen.length) markChatRead(openId);
+    const fresh = r.items.filter((m) => !seen.includes(m));
+    if (S.tab === 'notifs' && !document.hidden) refresh();
+    if (!fresh.length) return;
+    const m = fresh[fresh.length - 1];
+    if (document.hidden) { if (!S.pushOn) systemNotify(m); } else { beep(); toast(m.title); }
   } catch { /* ignore */ } finally { nBusy = false; }
 }
-let knownAvail = null, aBusy = false;
-async function checkNewOrders() {
-  if (!S.user || S.user.role !== 'driver' || aBusy) return;
-  aBusy = true;
-  try {
-    const d = await api('GET', '/api/driver/home');
-    const ids = (d.available || []).map((o) => o.id);
-    const seen = knownAvail;
-    knownAvail = new Set(ids);
-    if (seen === null || !d.me.receiving) return;
-    const fresh = d.available.filter((o) => !seen.has(o.id));
-    if (!fresh.length) return;
-    const o = fresh[0];
-    const text = `${o.merchantName} — ${o.merchantArea} ← ${o.customerArea}`;
-    if (document.hidden) systemNotify({ title: 'طلب جديد #' + o.no, text, tag: 'rio-new-order' });
-    else { beep(); toast('طلب جديد متاح: ' + text); }
-  } catch { /* ignore */ } finally { aBusy = false; }
+
+/* تنقّل عند الضغط على إشعار (من القائمة أو من إشعار النظام) */
+function handleNotifTap(d) {
+  if (!S.user || !d) return;
+  const kind = String(d.kind || ''), id = Number(d.orderId) || 0;
+  if (d.id) markServerRead({ ids: [Number(d.id)] });
+  S.sheet = null;
+  if (kind === 'chat' && id) return openChatFor(id, d.orderNo);
+  const driver = S.user.role === 'driver';
+  if (kind === 'order_new') return go(driver ? 'home' : 'orders');
+  if (kind.startsWith('wallet')) return go(driver ? 'wallet' : 'notifs');
+  if (kind.startsWith('order')) { if (driver) S.ordersTab = 'current'; return go('orders'); }
+  return go('notifs');
 }
 function openChatFor(id, no) {
   id = Number(id); if (!id || !S.user) return;
-  markRead(id);
+  markChatRead(id);
   S.sheet = null;
   openSheet({ type: 'chat', id, no: no || id, msgs: [], loaded: false });
   startChat();
@@ -907,19 +919,90 @@ function openChatFor(id, no) {
 function openPendingChat() {
   try {
     const p = new URLSearchParams(location.search);
-    const id = p.get('chat');
-    if (id) { history.replaceState(null, '', location.pathname + location.hash); openChatFor(id, p.get('no')); }
+    const kind = p.get('open') || (p.get('chat') ? 'chat' : '');
+    if (!kind) return;
+    const id = p.get('id') || p.get('chat'), no = p.get('no');
+    history.replaceState(null, '', location.pathname + location.hash);
+    handleNotifTap({ kind, orderId: id, orderNo: no, id: p.get('nid') });
   } catch { /* ignore */ }
 }
+
+/* ---- صفحة الإشعارات ---- */
+const NK = { chat: ['chat', 'blue'], order_new: ['orders', 'accent'], order_accepted: ['check', 'green'], order_assigned: ['orders', 'accent'], order_status: ['orders', 'amber'], order_returned: ['x', 'red'], wallet_credit: ['wallet', 'green'], wallet_debit: ['wallet', 'red'] };
+function notifsView() {
+  const d = S.data, items = d.items || [];
+  const tools = `<div class="nt-tools"><button class="btn ghost sm" data-act="notif-readall" ${d.unread ? '' : 'disabled'}>${ico('check')} تحديد الكل كمقروء</button><button class="btn danger sm" data-act="notif-clear" ${items.length ? '' : 'disabled'}>${ico('trash')} مسح الكل</button></div>`;
+  const list = items.map((n) => { const [ic, c] = NK[n.kind] || ['bell', '']; return `<button class="nt ${n.read ? '' : 'unread'}" data-act="open-notif" data-id="${n.id}" data-kind="${n.kind}" data-order="${n.orderId || ''}" data-no="${n.orderNo || ''}"><span class="nt-ic ${c}">${ico(ic)}</span><span class="nt-b"><b>${esc(n.title)}</b>${n.body ? `<p>${esc(n.body)}</p>` : ''}<small>${ago(n.at)} · ${dt(n.at)}</small></span>${n.read ? '' : '<span class="dot" aria-label="جديد"></span>'}</button>`; }).join('');
+  return `${head('الإشعارات', d.unread ? `${d.unread} غير مقروء` : 'كل شيء مقروء', `<button class="btn ghost sm" data-act="notif-back">${ico('chev')} رجوع</button>`)}${tools}
+  ${items.length ? `<div class="nt-list">${list}</div>${d.hasMore ? '<button class="btn ghost block" style="margin-top:12px" data-act="notif-more">عرض المزيد</button>' : ''}` : emptyBox('لا توجد إشعارات بعد', 'ستظهر هنا الطلبات الجديدة وقبولها ورفضها وإرجاعها وعمليات المحفظة والمحادثات.')}`;
+}
+
+/* ---- الدفع للهاتف: يصل حتى والتطبيق مغلق ---- */
+const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+const key64 = (b64) => { const pad = '='.repeat((4 - (b64.length % 4)) % 4); const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(raw, (c) => c.charCodeAt(0)); };
+const webPushOk = () => !isNative() && 'serviceWorker' in navigator && 'PushManager' in window && typeof Notification !== 'undefined';
+async function ensureWebPush() {
+  if (!webPushOk() || Notification.permission !== 'granted' || !S.user || ADMIN_ONLY) return false;
+  try {
+    const reg = await withTimeout(navigator.serviceWorker.ready, 5000);
+    const k = await api('GET', '/api/push/key');
+    if (!k.key) return false;
+    let sub = await reg.pushManager.getSubscription();
+    if (sub && store.get('rio_push_key') !== k.key) { await sub.unsubscribe(); sub = null; }
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key64(k.key) });
+    store.set('rio_push_key', k.key);
+    await api('POST', '/api/push/subscribe', { type: 'web', subscription: sub.toJSON() });
+    S.pushOn = true; return true;
+  } catch { return false; }
+}
+let nativeBound = false;
+async function ensureNativePush() {
+  if (!isNative() || !S.user) return false;
+  try {
+    const PN = window.Capacitor.registerPlugin('PushNotifications');
+    if (!nativeBound) {
+      nativeBound = true;
+      await PN.addListener('registration', async (t) => { store.set('rio_fcm', t.value); try { await api('POST', '/api/push/subscribe', { type: 'fcm', token: t.value }); store.set('rio_native_push', '1'); S.pushOn = true; if (S.tab === 'me') render(); } catch { /* ignore */ } });
+      await PN.addListener('registrationError', () => { store.del('rio_native_push'); });
+      await PN.addListener('pushNotificationActionPerformed', (a) => { const d = (a.notification && a.notification.data) || {}; handleNotifTap({ kind: d.kind, orderId: d.orderId, orderNo: d.orderNo, id: d.id }); });
+    }
+    const perm = await PN.requestPermissions();
+    if (perm.receive !== 'granted') return false;
+    await PN.register();
+    return true;
+  } catch { return false; }
+}
+const ensurePush = () => (isNative() ? ensureNativePush() : ensureWebPush());
+async function unsubscribePush() {
+  try {
+    if (isNative()) { const t = store.get('rio_fcm'); if (t) await api('POST', '/api/push/unsubscribe', { token: t }); store.del('rio_native_push'); }
+    else if (webPushOk()) { const reg = await withTimeout(navigator.serviceWorker.ready, 1500); const sub = await reg.pushManager.getSubscription(); if (sub) await api('POST', '/api/push/unsubscribe', { endpoint: sub.endpoint }); }
+  } catch { /* ignore */ }
+  S.pushOn = false;
+}
+async function doLogout() {
+  if (S.user && S.user.role !== 'admin') { try { await withTimeout(unsubscribePush(), 2500); } catch { /* ignore */ } }
+  logout();
+}
 async function askNotifPermission() {
+  if (isNative()) { const ok = await ensureNativePush(); toast(ok ? 'تم تفعيل الإشعارات' : 'لم يتم منح إذن الإشعارات', !ok); if (S.user && S.tab === 'me') render(); return; }
   if (typeof Notification === 'undefined') return;
-  try { const r = await Notification.requestPermission(); if (r === 'granted') { notifyReg(); toast('تم تفعيل الإشعارات'); } else if (r === 'denied') toast('الإشعارات محظورة من إعدادات المتصفح', true); } catch { /* ignore */ }
+  try {
+    const r = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+    if (r === 'granted') { const ok = await ensureWebPush(); toast(ok ? 'تم تفعيل الإشعارات' : 'تم تفعيل الإشعارات داخل التطبيق'); }
+    else if (r === 'denied') toast('الإشعارات محظورة من إعدادات المتصفح', true);
+  } catch { /* ignore */ }
   if (S.user && S.tab === 'me') render();
 }
-if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', (e) => { const d = e.data || {}; if (d.type === 'open-chat') openChatFor(d.orderId, d.orderNo); });
+function notifSetting() {
+  if (isNative()) return li('bell', 'إشعارات الهاتف', store.get('rio_native_push') === '1' ? 'مفعّلة — تصلك حتى لو كان التطبيق مغلقاً' : 'اضغط لتفعيل الإشعارات', 'enable-notifs');
+  if (typeof Notification === 'undefined') return '';
+  const p = Notification.permission;
+  return li('bell', 'إشعارات الهاتف', p === 'granted' ? (S.pushOn ? 'مفعّلة — تصلك حتى لو كان التطبيق مغلقاً' : 'مفعّلة — اضغط لإكمال التفعيل') : p === 'denied' ? 'محظورة من إعدادات المتصفح — فعّلها من إعدادات الموقع' : 'اضغط لتفعيل الإشعارات', 'enable-notifs');
+}
+if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', (e) => { const d = e.data || {}; if (d.type === 'open-notif') handleNotifTap(d.data); else if (d.type === 'open-chat') openChatFor(d.orderId, d.orderNo); });
 setInterval(checkNotifs, 15000);
-setInterval(checkNewOrders, 15000);
-document.addEventListener('visibilitychange', () => { if (!document.hidden) { checkNotifs(); checkNewOrders(); } });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkNotifs(); });
 
 /* ============ النوافذ المنبثقة ============ */
 function sheetShell(title, body) {
@@ -962,7 +1045,7 @@ const SHEETS = {
     return ['إنشاء طلب', body];
   },
   note(s) {
-    const o = S.data.available.find((x) => x.id === s.id);
+    const o = findOrder(s.id);
     return [`ملاحظة طلب #${o ? o.no : ''}`, `<p>${o && o.note ? esc(o.note) : '<span class="muted">لا توجد ملاحظات من التاجر لهذا الطلب.</span>'}</p>`];
   },
   receipt(s) {
@@ -1001,12 +1084,6 @@ const SHEETS = {
       <button class="btn ghost" data-act="rr-png">حفظ صورة</button>
       ${navigator.share ? `<button class="btn ghost" data-act="rr-share">مشاركة</button>` : ''}
     </div>`];
-  },
-  notifs(s) {
-    const list = loadNotifs();
-    const fresh = s.fresh || [];
-    const body = list.length ? list.map((n) => `<button class="list-item" data-act="open-notif" data-id="${n.orderId}" data-no="${n.orderNo}">${ico('chat')}<span class="grow"><b>${esc(n.name)} · طلب #${n.orderNo}${fresh.includes(n.id) ? ' <span class="dot" aria-label="جديد"></span>' : ''}</b><small>${esc(n.text)} · ${ago(n.at)}</small></span><span class="chev">${ico('chev')}</span></button>`).join('') + `<button class="btn ghost block" data-act="clear-notifs">مسح الكل</button>` : '<p class="muted" style="text-align:center;margin:20px 0">لا توجد إشعارات بعد. ستظهر هنا رسائل المحادثة.</p>';
-    return ['الإشعارات', body];
   },
   chat(s) {
     return [`محادثة طلب #${s.no}`, `<div class="chat" id="chat-box">${chatHtml(s.msgs)}</div><form class="row" data-form="chat"><input class="in grow" id="chat-in" name="text" maxlength="500" placeholder="اكتب رسالة…" autocomplete="off" aria-label="رسالة"><button class="btn" type="submit">إرسال</button></form>`];
@@ -1104,7 +1181,8 @@ function stopChat() { if (chatTimer) { clearInterval(chatTimer); chatTimer = nul
 const ACTIONS = {
   tab: (el) => go(el.dataset.tab),
   'tab-wallet': () => { S.walletTab = 'rep'; go('wallet'); },
-  logout: () => logout(),
+  logout: () => doLogout(),
+  theme: (el) => { RioTheme.set(el.dataset.t); render(); },
   retry: () => refresh(true),
   filter: (el) => { S.filter = el.dataset.f; render(); },
   afilter: (el) => { S.adminFilter = el.dataset.f; S.data = null; lastSig = ''; render(); refresh(); },
@@ -1144,13 +1222,20 @@ const ACTIONS = {
   'rr-print': () => printModel(S.sheet.rep.receipt),
   'rr-png': () => downloadModel(S.sheet.rep.receipt, `rio-summary-${fmtDT(Date.now()).slice(0, 10)}.png`),
   'rr-share': () => shareModel(S.sheet.rep.receipt, `rio-summary-${fmtDT(Date.now()).slice(0, 10)}.png`, 'وصل مختصر'),
-  notifs: () => { const fresh = loadNotifs().filter((n) => !n.read).map((n) => n.id); markRead(null); openSheet({ type: 'notifs', fresh }); },
-  'open-notif': (el) => openChatFor(el.dataset.id, el.dataset.no),
-  'clear-notifs': () => { saveNotifs([]); updateBell(); render(); },
+  notifs: () => go('notifs'),
+  'notif-back': () => go(defaultTab()),
+  'open-notif': (el) => { const it = (S.data.items || []).find((n) => n.id === Number(el.dataset.id)); if (it) it.read = true; handleNotifTap({ id: el.dataset.id, kind: el.dataset.kind, orderId: el.dataset.order, orderNo: el.dataset.no }); },
+  async 'notif-readall'() { await markServerRead({ all: true }); (S.data.items || []).forEach((n) => { n.read = true; }); S.data.unread = 0; lastSig = ''; render(); },
+  async 'notif-clear'() { if (await act(() => api('POST', '/api/notifs/clear'), 'تم مسح الإشعارات')) { setUnread(0); refresh(true); } },
+  async 'notif-more'() {
+    const items = S.data.items || [];
+    const r = await act(() => api('GET', `/api/notifs?limit=40&before=${items[items.length - 1].id}`));
+    if (r) { S.data.items = items.concat(r.items); S.data.hasMore = r.hasMore; render(); }
+  },
   'enable-notifs': () => askNotifPermission(),
   async chat(el) {
     const id = Number(el.dataset.id);
-    markRead(id);
+    markChatRead(id);
     const all = [...(S.data.orders || []), ...(S.data.attention || [])];
     const o = all.find((x) => x.id === id);
     openSheet({ type: 'chat', id, no: o ? o.no : id, msgs: [], loaded: false });
@@ -1210,7 +1295,7 @@ function syncVeh(el) { el.parentElement.querySelectorAll('button').forEach((b) =
 
 document.addEventListener('click', (e) => {
   unlockAudio();
-  if (S.user && S.user.role !== 'admin' && typeof Notification !== 'undefined' && Notification.permission === 'default' && !store.get('rio_asked')) { store.set('rio_asked', '1'); askNotifPermission(); }
+  if (S.user && S.user.role !== 'admin' && !store.get('rio_asked') && (isNative() || (typeof Notification !== 'undefined' && Notification.permission === 'default'))) { store.set('rio_asked', '1'); askNotifPermission(); }
   const el = e.target.closest('[data-act]');
   if (S.menu && !(el && el.dataset.act === 'menu') && !e.target.closest('.menu')) { S.menu = null; if (!el) render(); }
   if (!el) return;
@@ -1329,7 +1414,7 @@ document.addEventListener('submit', async (e) => {
 /* ============ التشغيل ============ */
 window.addEventListener('hashchange', () => {
   const t = location.hash.replace('#/', '');
-  if (S.user && t && t !== S.tab && TABS[S.user.role].some((x) => x[0] === t)) go(t);
+  if (S.user && t && t !== S.tab && (t === 'notifs' && S.user.role !== 'admin' || TABS[S.user.role].some((x) => x[0] === t))) go(t);
 });
 
 setInterval(() => {
@@ -1346,7 +1431,7 @@ async function boot() {
       const r = await api('GET', '/api/me');
       if (r.user.role === 'staff' || (ADMIN_ONLY && r.user.role !== 'admin')) throw new Error('not admin');
       setUser(r.user);
-      const ok = TABS[r.user.role].some((t) => t[0] === wanted);
+      const ok = TABS[r.user.role].some((t) => t[0] === wanted) || (wanted === 'notifs' && r.user.role !== 'admin');
       go(ok ? wanted : defaultTab());
       openPendingChat();
       return;
