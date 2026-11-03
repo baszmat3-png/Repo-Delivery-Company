@@ -372,16 +372,15 @@ function merchantOrderCard(o, withCancel) {
 function availOrderCard(o, s, receiving) {
   return orderCard(o, {
     corner: `<button class="oc-cb g" data-act="accept" data-id="${o.id}"><span>قبول الطلب</span>${ico('check')}</button><button class="oc-cb r" data-act="note" data-id="${o.id}"><span>ملاحظة</span><span class="oc-ex">!</span></button>`,
-    rows: ocRow('box', 'المنتج', `${esc(o.product)} × ${o.qty} · ${vehName(o.vehicle)}`),
-    after: `<p class="hint" style="margin-top:12px">رسوم التطبيق عند القبول ${money(o.sameArea ? s.feeSame : s.feeOther)}</p>`,
-    actions: wazeLinks(o)
+    /* قبل قبول الطلب: لا موقع متجر (Waze) ولا تفاصيل منتج، فقط السعر والتوصيل والعنوانين نصاً */
+    after: OCD === 'classic' ? `<p class="hint" style="margin-top:12px">رسوم التطبيق عند القبول ${money(o.sameArea ? s.feeSame : s.feeOther)}</p>` : ''
   });
 }
 
 function driverOrderCard(o) {
   const open = S.menu === o.id;
   const locked = ['delivered', 'return_sent', 'returned'].includes(o.status);
-  const m = open && !locked ? `<div class="menu" role="menu">${DRIVER_ST.map((s) => `<button role="menuitem" data-act="set-status" data-id="${o.id}" data-s="${s}"><span class="ck">${o.status === s ? ico('check') : ''}</span>${ST[s][0]}</button>`).join('')}${RETURNABLE.includes(o.status) ? `<button role="menuitem" data-act="ask-return" data-id="${o.id}"><span class="ck"></span><b>تم الإرجاع للتاجر</b></button>` : ''}</div>` : '';
+  const m = '';
   const st = locked ? pill(o.status) : `<span class="menuwrap"><button class="pill ${ST[o.status]?.[1] || ''}" data-act="menu" data-id="${o.id}" aria-haspopup="menu" aria-expanded="${open}">${esc(ST[o.status]?.[0] || o.status)} <span aria-hidden="true">▾</span></button>${m}</span>`;
   return orderCard(o, {
     corner: chatBtn(o), noteBtn: !!o.note,
@@ -1258,6 +1257,14 @@ const SHEETS = {
   registered() {
     return ['تم إرسال طلبك', `<p style="text-align:center;font-size:17px;margin:8px 0 18px">تم إنشاء حسابك وهو بانتظار موافقة الإدارة. سنفعّله قريباً، وبعدها سجّل الدخول برقم هاتفك وكلمة المرور.</p><button class="btn block" data-act="close-sheet">حسناً</button>`];
   },
+  /* تغيير حالة الطلب: ورقة سفلية كاملة تظهر فوق شريط التنقل ولا تُقصّ داخل البطاقة */
+  status(s) {
+    const o = findOrder(s.id);
+    if (!o) return ['حالة الطلب', '<p class="muted">تعذّر العثور على الطلب.</p>'];
+    const btns = DRIVER_ST.map((k) => `<button type="button" class="st-opt ${o.status === k ? 'on' : ''}" data-act="set-status" data-id="${o.id}" data-s="${k}"><span class="ck">${o.status === k ? ico('check') : ''}</span>${ST[k][0]}</button>`).join('');
+    const ret = RETURNABLE.includes(o.status) ? `<button type="button" class="st-opt" data-act="ask-return" data-id="${o.id}"><span class="ck"></span><b>تم الإرجاع للتاجر</b></button>` : '';
+    return [`حالة الطلب #${o.no}`, `<div class="st-list" role="menu">${btns}${ret}</div>`];
+  },
   confirm(s) {
     return [s.title, `<p style="text-align:center;font-size:17px;margin:8px 0 18px">${esc(s.text)}</p><div class="row"><button class="btn danger grow" data-act="${s.yes}" data-id="${s.id}">نعم</button><button class="btn ghost grow" data-act="close-sheet">لا</button></div>`];
   },
@@ -1400,7 +1407,7 @@ const ACTIONS = {
   'add-user': (el) => openSheet({ type: 'add-user', role: el.dataset.role }),
   'edit-user': (el) => openSheet({ type: 'edit-user', id: Number(el.dataset.id) }),
   adjust: (el) => openSheet({ type: 'adjust', id: Number(el.dataset.id) }),
-  menu: (el) => { const id = Number(el.dataset.id); S.menu = S.menu === id ? null : id; render(); },
+  menu: (el) => { S.menu = null; openSheet({ type: 'status', id: Number(el.dataset.id) }); },
   qty: (el) => { const f = S.sheet.form; f.qty = Math.min(99, Math.max(1, f.qty + Number(el.dataset.d))); updateOrderForm(); },
   veh: (el) => { S.sheet.form.vehicle = el.dataset.v; updateOrderForm(); },
   zone: (el) => { S.sheet.form.zone = el.dataset.z; S.sheet.form.zoneManual = true; updateOrderForm(); },
@@ -1457,7 +1464,7 @@ const ACTIONS = {
     if (await act(() => api('POST', `/api/merchant/orders/${el.dataset.id}/return`, { received: false }), 'تم تسجيل أنك لم تستلم الطلب')) refresh(true);
   },
   async 'set-status'(el) {
-    S.menu = null;
+    S.menu = null; if (S.sheet && S.sheet.type === 'status') { S.sheet = null; render(); }
     if (await act(() => api('POST', `/api/driver/orders/${el.dataset.id}/status`, { status: el.dataset.s }), 'تم تحديث الحالة')) refresh(true); else render();
   },
   async receiving() {

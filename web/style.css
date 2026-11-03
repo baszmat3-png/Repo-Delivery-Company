@@ -668,3 +668,103 @@ a.btn{text-decoration:none}
 /* قائمة تغيير الحالة كانت تُقصّ داخل البطاقة فلا يظهر خيار «تم الإرجاع للتاجر»: نسمح لها بالخروج من البطاقة */
 .oc:has(.menu){overflow:visible}
 .oc .menu{max-height:70vh;overflow:auto}
+
+/* ===== قائمة الحالة داخل التصاميم الجديدة: تُفتح نحو داخل الشاشة ولا تخرج منها ===== */
+.od .menu{inset-inline-start:auto;inset-inline-end:auto;right:0;left:auto;min-width:200px;max-width:calc(100vw - 40px);max-height:70vh;overflow:auto}
+
+/* ===== بطاقات مضغوطة بشكل مستطيل (أقل ارتفاعاً) ===== */
+.od{font-size:14px}
+.od .od-no{font-size:22px}
+.od-ticket .od-no{font-size:24px}
+.od .od-ago{font-size:12.5px}
+.od .od-body{padding:10px 14px 12px}
+.od.od-night .od-body{padding:0}
+.od .od-st{font-size:15px}
+.od .od-store{gap:8px}
+.od .od-sn{display:flex;align-items:baseline;gap:4px 8px;flex-wrap:wrap}
+.od .od-sn small{font-size:12px}
+.od .od-sn b{font-size:17px}
+.od .od-pr{margin-top:6px;gap:4px 8px}
+.od .od-pl{font-size:12px}
+.od .od-big{font-size:30px}
+.od .od-pr em{font-size:13px}
+.od .od-ad{margin-top:8px;gap:8px}
+.od .od-ab{padding:6px 12px}
+.od .od-ab small{font-size:12px}
+.od .od-ab b{font-size:16px}
+.od .od-tg{margin-top:8px;padding:8px;font-size:14px;border-width:1.5px}
+.od .od-det{margin-top:8px;padding:2px 14px}
+.od .oc-r{padding:7px 0;font-size:13.5px}
+.od .od-links{margin-top:8px;gap:8px}
+.od .od-links .btn{min-height:42px;font-size:14px}
+.od .od-main{margin-top:8px;gap:8px}
+.od .oc-cb{min-height:42px;font-size:15px;padding:4px 10px}
+.od .notice{margin-top:8px;padding:8px 12px}
+.od .hint{margin-top:6px}
+.od-bold{border-width:2.5px;border-radius:18px}
+.od-bold .od-top{padding:9px 16px;border-radius:15px 15px 0 0}
+.od-bold .od-st{padding:8px 16px}
+.od-bold .od-pr{margin-top:6px}
+.od-bold .od-big{font-size:30px}
+.od-green{border-radius:20px}
+.od-green .od-top{padding:12px 16px 14px;border-radius:20px 20px 0 0}
+.od-green .od-no{font-size:22px}
+.od-green .od-store{margin-top:2px}
+.od-green .od-sn b{font-size:16px}
+.od-green .od-pr{flex-direction:row;align-items:center;justify-content:space-between;margin-top:4px}
+.od-green .od-dl{font-size:13px}
+.od-green .od-body{padding:10px 14px 12px}
+.od-green .od-st{font-size:14px}
+.od-green .od-sl{font-size:14px}
+.od-steps{margin:6px 0 0}
+.od-s{width:46px;gap:3px}
+.od-s i{width:32px;height:32px}
+.od-s i svg{width:16px;height:16px}
+.od-s small{font-size:12px}
+.od-ln{height:4px;margin-top:14px}
+.od-green .od-ad{margin-top:8px}
+.od-green .od-ab{padding:6px 12px;border-radius:14px}
+.od-ticket .od-top{padding:12px 16px 14px}
+.od-ticket .od-bot{padding:12px 16px 14px}
+.od-ticket .od-st{margin-top:8px;padding:8px 14px;border-radius:14px}
+.od-ticket .od-store{margin-top:8px}
+.od-ticket .od-av{width:38px;height:38px;border-radius:11px;font-size:18px}
+.od-ticket .od-big{font-size:30px}
+.od-ticket .od-ago{padding:4px 12px;font-size:12.5px}
+.od-ticket .od-nol{font-size:12px}
+.od-ticket .od-ab{padding:6px 12px;border-radius:14px}
+.od-ticket .oc-r{font-size:14px;padding:5px 0}
+.od-sun{border-radius:22px}
+.od-sun .od-top{padding:9px 18px;border-radius:22px 22px 0 0}
+.od-sun .od-no{font-size:22px}
+.od-sun .od-body{padding:10px 14px 14px}
+.od-sun .od-st{padding:7px 14px;border-radius:14px;margin-bottom:8px}
+.od-sun .od-av{width:34px;height:34px;font-size:17px}
+.od-sun .od-sn b{font-size:17px}
+.od-sun .od-pr{margin-top:8px;gap:8px}
+.od-sun .od-pb,.od-sun .od-db{padding:8px 14px;border-radius:18px}
+.od-sun .od-pb .od-big{font-size:24px}
+.od-sun .od-db b{font-size:19px}
+.od-sun .od-ab{border-radius:16px}
+.od-sun .od-tg,.od-sun .od-det{border-radius:18px}
+.od-night{border-radius:20px;padding:12px 14px 14px}
+.od-night .od-no{font-size:24px}
+.od-night .od-st{margin-top:8px;padding:7px 12px;border-radius:12px}
+.od-night .od-store{margin-top:8px}
+.od-night .od-av{width:10px;height:10px}
+.od-night .od-sn b{font-size:16px}
+.od-night .od-pr{margin-top:8px;padding:8px 14px;border-radius:18px}
+.od-night .od-big{font-size:32px}
+.od-night .od-dl{font-size:13px}
+.od-night .od-ad{gap:10px;margin-top:10px}
+.od-night .od-ab{padding:0 38px 0 0}
+.od-night .od-ab::before{width:18px;height:18px;top:5px;border-width:3px}
+.od-night .od-ab:first-child::after{right:8px;top:26px;bottom:-14px}
+.od-night .od-ab b{font-size:16px}
+
+/* ===== ورقة اختيار الحالة (لا يرد / رفض / ...) ===== */
+.st-list{display:flex;flex-direction:column;gap:8px;padding-bottom:6px}
+.st-opt{display:flex;align-items:center;gap:12px;width:100%;min-height:54px;padding:10px 14px;border-radius:16px;border:2px solid var(--line);background:var(--surface-2);color:var(--fg);font:800 17px var(--font-display);text-align:start;cursor:pointer}
+.st-opt.on{border-color:var(--accent);background:var(--accent-soft)}
+.st-opt .ck{width:22px;display:inline-grid;place-items:center;color:var(--accent-text)}
+.st-opt .ck svg{width:20px;height:20px;stroke-width:3}
