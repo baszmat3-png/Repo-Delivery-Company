@@ -33,6 +33,11 @@ self.addEventListener('notificationclick', (e) => {
   const root = new URL('./', self.registration.scope).href;
   e.waitUntil((async () => {
     const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    if (d.url) {
+      const w = all.find((c) => c.url.includes(d.url));
+      if (w) { try { await w.focus(); } catch { /* ignore */ } } else await self.clients.openWindow(root + d.url);
+      return;
+    }
     const target = all.find((c) => c.url.startsWith(root));
     if (target) {
       try { await target.focus(); } catch { /* ignore */ }

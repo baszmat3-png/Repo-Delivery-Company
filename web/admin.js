@@ -105,6 +105,7 @@ async function load(silent) {
     if (M && M.type === 'stmt') { try { M.st = await fetchStmt(M.q); } catch { /* ignore */ } }
   } catch (e) { E = e.message; }
   DIRTY = false; draw(); drawModal();
+  if (D && !entryAsked) setTimeout(promptOnEntry, 300);
 }
 const typing = () => { const a = document.activeElement; return a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.closest('#view'); };
 function connect() {
@@ -119,7 +120,82 @@ function disconnect() { if (es) { es.close(); es = null; } LIVE = false; }
 function setLive() { document.querySelectorAll('.live').forEach((e) => { e.classList.toggle('on', LIVE); const s = e.querySelector('span'); if (s) s.textContent = LIVE ? 'مزامنة فورية' : 'غير متصل — تحديث دوري'; }); }
 setInterval(() => { if (T && !document.hidden && !LIVE) load(true); }, 20000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden && T) load(true); });
-function logout() { MENU = false; T = ''; ls.del(KEY); try { localStorage.removeItem('rio_admin_me'); } catch { /* ignore */ } ME = null; applyPerms(); disconnect(); D = null; M = null; draw(); drawModal(); }
+function logout() { unsubscribePush(T); entryAsked = false; clickAsked = false; MENU = false; T = ''; ls.del(KEY); try { localStorage.removeItem('rio_admin_me'); } catch { /* ignore */ } ME = null; applyPerms(); disconnect(); D = null; M = null; draw(); drawModal(); }
+
+/* ---------------- الإشعارات (المدير والموظفون) ---------------- */
+const NOFF_K = 'rio_admin_notif_off';
+const nOff = () => ls.get(NOFF_K) === '1';
+const wpOk = () => 'serviceWorker' in navigator && 'PushManager' in window && typeof Notification !== 'undefined';
+let PUSHON = false, entryAsked = false, clickAsked = false;
+const wTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+const key64 = (b64) => { const pad = '='.repeat((4 - (b64.length % 4)) % 4); const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(raw, (c) => c.charCodeAt(0)); };
+function nState() {
+  if (typeof Notification === 'undefined') return 'na';
+  const p = Notification.permission;
+  if (p === 'denied') return 'blocked';
+  if (p === 'default') return 'ask';
+  return nOff() ? 'off' : 'on';
+}
+const blockedHelp = () => 'اضغط على أيقونة القفل بجانب عنوان الموقع ← الإشعارات ← سماح، ثم حدّث الصفحة';
+async function ensureWebPush() {
+  if (!wpOk() || Notification.permission !== 'granted' || nOff() || !T) return false;
+  try {
+    const reg = await wTimeout(navigator.serviceWorker.ready, 8000);
+    const k = await api('GET', '/api/push/key');
+    if (!k.key) return false;
+    let sub = await reg.pushManager.getSubscription();
+    if (sub && ls.get('rio_admin_push_key') !== k.key) { await sub.unsubscribe(); sub = null; }
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key64(k.key) });
+    ls.set('rio_admin_push_key', k.key);
+    await api('POST', '/api/push/subscribe', { type: 'web', subscription: sub.toJSON() });
+    PUSHON = true; return true;
+  } catch { return false; }
+}
+async function unsubscribePush(tk) {
+  try {
+    if (wpOk()) {
+      const reg = await wTimeout(navigator.serviceWorker.ready, 1500); const sub = await reg.pushManager.getSubscription();
+      if (sub) await fetch(API + '/api/push/unsubscribe', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (tk || T) }, body: JSON.stringify({ endpoint: sub.endpoint }) });
+    }
+  } catch { /* ignore */ }
+  PUSHON = false;
+}
+const reqPerm = () => new Promise((res) => { try { const r = Notification.requestPermission(res); if (r && r.then) r.then(res, () => res('default')); } catch { res('default'); } });
+function updateNb() {
+  let b = document.getElementById('nb');
+  const st = T ? nState() : 'x';
+  const html = st === 'ask' ? `<b>اسمح بالإشعارات</b><span>لتصلك الطلبات وتغيّر حالاتها فوراً في لوحة إشعارات جهازك</span><button class="btn sm" data-a="enable-notifs">سماح</button>`
+    : st === 'blocked' ? `<b>الإشعارات محظورة</b><span>${blockedHelp()}</span><button class="btn sm g" data-a="reload">تحديث</button>` : '';
+  if (!html) { if (b) b.remove(); return; }
+  if (!b) { b = document.createElement('div'); b.id = 'nb'; document.body.appendChild(b); }
+  b.className = 'nb' + (st === 'blocked' ? ' warn' : ''); b.innerHTML = html;
+}
+async function promptOnEntry() {
+  if (!T || entryAsked || typeof Notification === 'undefined') return;
+  entryAsked = true;
+  if (Notification.permission === 'default' && !nOff()) {
+    const t0 = Date.now(); await reqPerm(); clickAsked = Date.now() - t0 > 400; updateNb();
+  }
+  if (Notification.permission === 'granted') await ensureWebPush();
+  updateNb(); if (P === 'settings') draw();
+}
+async function askPerm() {
+  ls.del(NOFF_K);
+  if (typeof Notification === 'undefined') return;
+  const r = Notification.permission === 'granted' ? 'granted' : await reqPerm();
+  updateNb();
+  if (r === 'granted') { const ok = await ensureWebPush(); toast(ok ? 'تم تفعيل الإشعارات' : 'تم السماح — جارٍ تفعيل الاستقبال، أعد المحاولة بعد لحظات', !ok); }
+  else if (r === 'denied') toast('الإشعارات محظورة — ' + blockedHelp(), true);
+  if (P === 'settings') draw();
+}
+function notifCard() {
+  const st = nState();
+  if (st === 'na') return `<div class="card"><div class="ch">إشعارات الطلبات</div><p class="hint">هذا المتصفح لا يدعم الإشعارات — جرّب Chrome.</p></div>`;
+  const sub = { on: PUSHON ? 'مفعّلة ✓ — تصلك الطلبات وتغيّر حالاتها فوراً حتى لو كانت اللوحة مغلقة' : 'مفعّلة ✓ — جارٍ تفعيل الاستقبال في الخلفية…', off: 'متوقفة — فعّلها من المربع', ask: 'غير مفعّلة — اضغط «سماح» ليظهر طلب الإذن', blocked: 'محظورة — ' + blockedHelp() }[st];
+  return `<div class="card"><div class="ch">إشعارات الطلبات <small>تظهر في لوحة إشعارات الهاتف</small></div><label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" data-a="toggle-notifs" ${st === 'on' ? 'checked' : ''} style="width:22px;height:22px"><span><b>تفعيل الإشعارات على هذا الجهاز</b><span class="hint" style="display:block">${sub}</span></span></label>${st === 'on' ? '<div class="row" style="margin-top:10px"><button class="btn sm g" type="button" data-a="test-notif">إرسال إشعار تجريبي</button></div>' : ''}</div>`;
+}
+document.addEventListener('click', () => { if (T && !clickAsked && !nOff() && nState() === 'ask') { clickAsked = true; askPerm(); } });
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 
 /* ---------------- أدوات عرض ---------------- */
 const kpi = (l, v, c, sub) => `<div class="kpi ${c || ''}"><small>${l}</small><b>${v}</b>${sub ? `<em>${sub}</em>` : ''}</div>`;
@@ -415,6 +491,7 @@ function settings() {
   return `<form data-f="settings">
   <div class="card"><div class="ch">أسعار التوصيل للزبون <small>بالدينار العراقي</small></div><div class="frm">${f('bikeSame', 'دراجة · نفس المنطقة')}${f('bikeOther', 'دراجة · منطقة ثانية')}${f('carSame', 'سيارة · نفس المنطقة')}${f('carOther', 'سيارة · منطقة ثانية')}</div></div>
   <div class="card"><div class="ch">رسوم التطبيق على السائق <small>تُخصم من محفظة السائق عند قبول كل طلب</small></div><div class="frm">${f('feeSame', 'نفس المنطقة')}${f('feeOther', 'منطقة ثانية')}</div></div>
+  ${notifCard()}
   <div class="card"><div class="ch">الوصولات <small>تحكم بظهور زر «وصل» في كل مكان</small></div><label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="s-receipts" ${SET.receipts !== 0 ? 'checked' : ''} style="width:22px;height:22px"><span><b>تفعيل الوصولات</b><span class="hint" style="display:block">عند الإيقاف يختفي زر «وصل» من حسابات التجار والسائقين ومن لوحة التحكم أيضاً.</span></span></label></div>
   <div class="card"><div class="ch">التنبيهات والدعم</div><div class="frm">${f('lateMin', 'مدة التأخير بالدقائق (لتنبيه الطلبات المتأخرة)')}
   <div class="field"><label for="s-support">رقم الدعم (يظهر للتجار والسائقين)</label><input class="in" id="s-support" inputmode="tel" value="${esc(SET.support || '')}" placeholder="07XX XXX XXXX"></div></div></div>
@@ -676,6 +753,10 @@ const clickActs = {
   cat(el) { const i = $('#ec'); if (i) { i.value = el.dataset.k; i.focus(); } },
   scope(el) { M.scope = el.dataset.k; drawModal(); },
   close() { closeModal(); },
+  'enable-notifs'() { askPerm(); },
+  reload() { location.reload(); },
+  async 'toggle-notifs'(el) { if (!el.checked) { ls.set(NOFF_K, '1'); await unsubscribePush(); toast('تم إيقاف الإشعارات'); updateNb(); draw(); } else askPerm(); },
+  async 'test-notif'() { try { await api('POST', '/api/push/test'); toast('تم إرسال إشعار تجريبي'); } catch (e) { toast(e.message, true); } },
   'close-bg'(el, e) { if (e.target === el) closeModal(); },
   'add-user'(el) { M = { type: 'add-user', role: el.dataset.r }; drawModal(); },
   'tpl-var'(el) { const t = document.getElementById(TPLF); if (!t) { toast('اختر قالباً أولاً بالضغط داخله', true); return; } const a = t.selectionStart || 0, b = t.selectionEnd || 0; t.value = t.value.slice(0, a) + el.dataset.v + t.value.slice(b); t.focus(); t.setSelectionRange(a + el.dataset.v.length, a + el.dataset.v.length); },
