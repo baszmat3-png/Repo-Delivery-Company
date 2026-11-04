@@ -95,7 +95,7 @@ const need = (user, pages, level) => { if (!can(user, pages, level)) fail('لي�
 
 const pub = (u) => ({
   id: u.id, role: u.role, name: u.name, phone: u.phone, active: !!u.active,
-  area: u.area, vehicle: u.vehicle, balance: u.balance, receiving: !!u.receiving, discount: 0, mapUrl: u.map_url || '', createdAt: u.created_at,
+  area: u.area, vehicle: u.vehicle, balance: u.balance, receiving: !!u.receiving, discount: 0, mapUrl: u.map_url || '', createdAt: u.created_at, avatar: u.avatar || '', verified: !!u.verified,
   ...(u.role === 'staff' ? { username: String(u.phone).replace(/^staff:/, ''), perms: permsOf(u) } : {})
 });
 
@@ -196,9 +196,20 @@ route('POST', '/api/register', { public: true }, async (c) => {
 route('GET', '/api/me', async (c) => ({ user: pub(c.user) }));
 
 route('PUT', '/api/me/profile', async (c) => {
-  const name = clean(c.body.name, 60);
-  if (name.length < 2) fail('اكتب الاسم');
-  const patch = { name };
+  const patch = {};
+  const locked = c.user.role === 'merchant' || c.user.role === 'driver';
+  if (c.body.name !== undefined) {
+    const name = clean(c.body.name, 60);
+    if (locked) { if (name !== c.user.name) fail('لا يمكن تغيير الاسم، تواصل مع الإدارة', 403); }
+    else { if (name.length < 2) fail('اكتب الاسم'); patch.name = name; }
+  }
+  if (c.body.avatar !== undefined) {
+    const av = String(c.body.avatar || '');
+    if (av && !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(av)) fail('صيغة الصورة غير مدعومة');
+    if (av.length > 60000) fail('الصورة كبيرة جداً');
+    patch.avatar = av;
+  }
+  if (!Object.keys(patch).length) return { user: pub(c.user) };
   const u = await db.update('users', 'id', c.user.id, patch);
   return { user: pub(u) };
 });
@@ -696,6 +707,7 @@ route('PUT', '/api/admin/users/:id', ADM(['merchants', 'drivers'], 'edit'), asyn
   if (b.area !== undefined) patch.area = clean(b.area, 60);
   if (b.vehicle !== undefined) patch.vehicle = b.vehicle === 'car' ? 'car' : 'bike';
   if (b.active !== undefined) patch.active = b.active ? 1 : 0;
+  if (b.verified !== undefined) patch.verified = b.verified ? 1 : 0;
   if (b.mapUrl !== undefined && u.role === 'merchant') patch.map_url = cleanUrl(b.mapUrl);
   if (b.password) {
     if (String(b.password).length < 6) fail('كلمة المرور لا تقل عن 6 أحرف');

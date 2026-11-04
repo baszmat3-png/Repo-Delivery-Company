@@ -89,6 +89,8 @@ async function init() {
   await addColumn('users', 'map_url', "TEXT NOT NULL DEFAULT ''");
   await addColumn('orders', 'merchant_map', "TEXT NOT NULL DEFAULT ''");
   await addColumn('users', 'perms', "TEXT NOT NULL DEFAULT ''");
+  await addColumn('users', 'avatar', "TEXT NOT NULL DEFAULT ''");
+  await addColumn('users', 'verified', 'INTEGER NOT NULL DEFAULT 0');
   for (const s of [
     'CREATE INDEX IF NOT EXISTS orders_created_idx ON orders(created_at)',
     'CREATE INDEX IF NOT EXISTS orders_phone_idx ON orders(customer_phone)',

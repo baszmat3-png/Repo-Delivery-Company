@@ -768,3 +768,16 @@ a.btn{text-decoration:none}
 .st-opt.on{border-color:var(--accent);background:var(--accent-soft)}
 .st-opt .ck{width:22px;display:inline-grid;place-items:center;color:var(--accent-text)}
 .st-opt .ck svg{width:20px;height:20px;stroke-width:3}
+
+/* ===== صورة الحساب وشارة التوثيق ===== */
+.vb{display:inline-flex;vertical-align:middle;margin-inline-start:4px}
+.vb-s{width:1.15em;height:1.15em}
+.vb.driver{color:#16a34a}.vb.merchant{color:#1d6fe0}
+.pimg{border-radius:50%;object-fit:cover;background:#ddd;flex:none;vertical-align:middle}
+.avatar.img{padding:0;overflow:hidden;position:relative}
+.avatar.img img{width:100%;height:100%;object-fit:cover}
+.av-wrap{position:relative;width:104px;margin:6px auto 10px}
+.av-wrap .avatar{margin:0}
+.av-cam{position:absolute;inset-block-end:0;inset-inline-end:0;width:36px;height:36px;border-radius:50%;background:#111;color:#ffd21f;display:grid;place-items:center;border:3px solid var(--bg,#fff);cursor:pointer}
+.av-cam svg{width:18px;height:18px}
+.av-cam input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;font-size:0}

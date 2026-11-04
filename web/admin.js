@@ -383,6 +383,9 @@ function orders() {
 const SORTS = { orders: ['الأكثر طلباً', (a, b) => b.orders - a.orders], active: ['الأكثر نشاطاً', (a, b) => b.lastAt - a.lastAt], goods: ['الأعلى مبيعاً', (a, b) => b.goods - a.goods] };
 const mapHref = (u) => (/^https?:/i.test(u) ? u : 'https://www.google.com/maps?q=' + encodeURIComponent(u));
 const wapw = (u) => wa(u.phone, `مرحباً ${u.name}، ريو للتوصيل أسرع`);
+const VSEAL = `<svg class="vb-s" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.8l2.4 1.7 2.9-.2 1 2.8 2.5 1.5-.6 2.9 1.2 2.7-2 2.2-.2 2.9-2.9.9L14 21.6 12 23l-2-1.4-2.4-1.5-2.9-.9-.2-2.9-2-2.2 1.2-2.7-.6-2.9 2.5-1.5 1-2.8 2.9.2z" fill="currentColor"/><path d="M8 12.3l2.7 2.7L16.3 9.4" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const vbadge = (u, role) => (u && u.verified ? `<span class="vb ${role}" title="حساب موثّق">${VSEAL}</span>` : '');
+const upImg = (u, px) => (u && u.avatar ? `<img class="pimg" src="${esc(u.avatar)}" alt="" style="width:${px}px;height:${px}px"> ` : '');
 function merchantList() {
   const q = norm(Q.trim());
   const l = [...D.merchants].filter((m) => !q || norm(m.name + ' ' + m.phone + ' ' + m.area).includes(q)).sort(SORTS[SORT][1]);
@@ -390,10 +393,10 @@ function merchantList() {
   const mx = Math.max(1, ...l.map((m) => m.orders));
   const t = (k) => l.reduce((a, m) => a + (m[k] || 0), 0);
   return `<div class="tw"><table><thead><tr><th>#</th><th>المتجر</th><th>الطلبات</th><th class="n">المسلّمة</th><th class="n">الراجع</th><th class="n">قيمة البضائع</th><th class="n">أجور التوصيل</th><th>الموقع</th><th>آخر نشاط</th><th></th></tr></thead><tbody>
-  ${l.map((m, i) => `<tr><td>${rankB(i)}</td><td><b>${esc(m.name)}</b> ${!m.active ? bdg('موقوف', 'red') : ''} ${top.includes(m.id) ? bdg('الأكثر طلباً', 'y') : ''}<div class="hint">${esc(m.area)} · <span class="num">${esc(m.phone)}</span></div></td>
+  ${l.map((m, i) => `<tr><td>${rankB(i)}</td><td>${upImg(m, 30)}<b>${esc(m.name)}</b>${vbadge(m, 'merchant')} ${!m.active ? bdg('موقوف', 'red') : ''} ${top.includes(m.id) ? bdg('الأكثر طلباً', 'y') : ''}<div class="hint">${esc(m.area)} · <span class="num">${esc(m.phone)}</span></div></td>
   <td style="min-width:120px"><b>${nn(m.orders)}</b><div class="bar"><i style="width:${pct(m.orders, mx)}%"></i></div></td><td class="n">${nn(m.delivered)}</td><td class="n">${m.returned ? `<span class="neg">${nn(m.returned)}</span><div class="hint">${mm(m.returnedValue)}</div>` : '0'}</td>
   <td class="n">${mm(m.goods)}</td><td class="n">${mm(m.delivery)}</td><td>${m.mapUrl ? `<a class="btn sm g" target="_blank" rel="noopener" href="${esc(mapHref(m.mapUrl))}">خريطة</a>` : '<span class="muted">—</span>'}</td><td>${ago(m.lastAt)}</td>
-  <td class="act"><div class="row"><button class="btn sm" data-a="stmt" data-t="merchant" data-id="${m.id}">كشف / تصدير</button><button class="btn sm g" data-a="mloc" data-id="${m.id}">العنوان والموقع</button><button class="btn sm g" data-a="pw" data-id="${m.id}">كلمة سر</button><a class="btn sm w" target="_blank" rel="noopener" href="${wapw(m)}">واتساب</a><button class="btn sm ${m.active ? 'g' : 'd'}" data-a="toggle" data-id="${m.id}">${m.active ? 'إيقاف' : 'تفعيل'}</button></div></td></tr>`).join('')}
+  <td class="act"><div class="row"><button class="btn sm" data-a="stmt" data-t="merchant" data-id="${m.id}">كشف / تصدير</button><button class="btn sm g" data-a="mloc" data-id="${m.id}">العنوان والموقع</button><button class="btn sm g" data-a="pw" data-id="${m.id}">كلمة سر</button><a class="btn sm w" target="_blank" rel="noopener" href="${wapw(m)}">واتساب</a><button class="btn sm ${m.verified ? 'g' : 'o'}" data-a="verify" data-id="${m.id}">${m.verified ? 'إلغاء التوثيق' : 'توثيق'}</button><button class="btn sm ${m.active ? 'g' : 'd'}" data-a="toggle" data-id="${m.id}">${m.active ? 'إيقاف' : 'تفعيل'}</button></div></td></tr>`).join('')}
   </tbody>${l.length ? `<tfoot><tr><td colspan="2">${l.length} متجر</td><td>${nn(t('orders'))}</td><td class="n">${nn(t('delivered'))}</td><td class="n">${nn(t('returned'))}</td><td class="n">${mm(t('goods'))}</td><td class="n">${mm(t('delivery'))}</td><td colspan="3"></td></tr></tfoot>` : ''}</table></div>${l.length ? '' : empty('لا توجد متاجر', 'أضف أول متجر من الزر أعلاه.')}`;
 }
 function merchants() {
@@ -408,10 +411,10 @@ function driverList() {
   const q = norm(Q.trim());
   const l = [...D.drivers].filter((m) => !q || norm(m.name + ' ' + m.phone).includes(q)).sort((a, b) => b.delivered - a.delivered);
   return `<div class="tw"><table><thead><tr><th>#</th><th>المندوب</th><th class="n">المنجز</th><th class="n">جارٍ</th><th class="n">متأخر</th><th class="n">راجع</th><th class="n">مشاكل</th><th class="n">الرصيد</th><th class="n">المحصّل</th><th class="n">رسوم مخصومة</th><th>آخر نشاط</th><th></th></tr></thead><tbody>
-  ${l.map((m, i) => `<tr><td>${rankB(i)}</td><td><b>${esc(m.name)}</b> ${!m.active ? bdg('موقوف', 'red') : m.receiving ? bdg('يستقبل', 'green') : bdg('متوقف الاستقبال', 'gray')}<div class="hint">${m.vehicle === 'car' ? 'سيارة' : 'دراجة'} · <span class="num">${esc(m.phone)}</span></div></td>
+  ${l.map((m, i) => `<tr><td>${rankB(i)}</td><td>${upImg(m, 30)}<b>${esc(m.name)}</b>${vbadge(m, 'driver')} ${!m.active ? bdg('موقوف', 'red') : m.receiving ? bdg('يستقبل', 'green') : bdg('متوقف الاستقبال', 'gray')}<div class="hint">${m.vehicle === 'car' ? 'سيارة' : 'دراجة'} · <span class="num">${esc(m.phone)}</span></div></td>
   <td class="n"><b>${nn(m.delivered)}</b></td><td class="n">${nn(m.live)}</td><td class="n">${m.late ? `<b class="neg">${nn(m.late)}</b>` : '0'}</td><td class="n">${nn(m.returned)}</td><td class="n">${nn(m.problems)}</td>
   <td class="n"><b class="${m.balance < (D.settingsFee || 1000) ? 'neg' : ''}">${mm(m.balance)}</b></td><td class="n">${mm(m.collected)}</td><td class="n">${mm(m.fees)}</td><td>${ago(m.lastAt)}</td>
-  <td class="act"><div class="row"><button class="btn sm" data-a="stmt" data-t="driver" data-id="${m.id}">كشف / تصدير</button><button class="btn sm g" data-a="adjust" data-id="${m.id}">رصيد</button><button class="btn sm g" data-a="pw" data-id="${m.id}">كلمة سر</button><a class="btn sm w" target="_blank" rel="noopener" href="${wapw(m)}">واتساب</a><button class="btn sm ${m.active ? 'g' : 'd'}" data-a="toggle" data-id="${m.id}">${m.active ? 'إيقاف' : 'تفعيل'}</button></div></td></tr>`).join('')}
+  <td class="act"><div class="row"><button class="btn sm" data-a="stmt" data-t="driver" data-id="${m.id}">كشف / تصدير</button><button class="btn sm g" data-a="adjust" data-id="${m.id}">رصيد</button><button class="btn sm g" data-a="pw" data-id="${m.id}">كلمة سر</button><a class="btn sm w" target="_blank" rel="noopener" href="${wapw(m)}">واتساب</a><button class="btn sm ${m.verified ? 'g' : 'o'}" data-a="verify" data-id="${m.id}">${m.verified ? 'إلغاء التوثيق' : 'توثيق'}</button><button class="btn sm ${m.active ? 'g' : 'd'}" data-a="toggle" data-id="${m.id}">${m.active ? 'إيقاف' : 'تفعيل'}</button></div></td></tr>`).join('')}
   </tbody></table></div>${l.length ? '' : empty('لا يوجد مندوبون')}`;
 }
 function drivers() {
@@ -822,6 +825,12 @@ const clickActs = {
   'exp-merchants'() { doExcel('merchants'); }, 'pdf-merchants'() { doPdf('merchants'); },
   'exp-drivers'() { doExcel('drivers'); }, 'pdf-drivers'() { doPdf('drivers'); },
   'exp-customers'() { doExcel('customers'); }, 'exp-expenses'() { doExcel('expenses'); }, 'exp-vouchers'() { doExcel('vouchers'); },
+  async verify(el) {
+    const u = findU(Number(el.dataset.id)); if (!u) return;
+    const prev = !!u.verified; u.verified = !prev; draw();
+    try { await api('PUT', '/api/admin/users/' + u.id, { verified: !prev }); toast(prev ? 'أُلغي توثيق الحساب' : 'تم توثيق الحساب'); load(); }
+    catch (e) { u.verified = prev; draw(); toast(e.message, true); }
+  },
   async toggle(el) {
     const u = findU(Number(el.dataset.id)); if (!u) return;
     const prev = u.active; u.active = prev ? 0 : 1; draw();

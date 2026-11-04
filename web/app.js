@@ -506,8 +506,26 @@ VIEWS['merchant:notifs'] = VIEWS['driver:notifs'] = notifsView;
 function li(ic, t, sub, a, extra = '') {
   return `<button class="list-item" data-act="${a}" ${extra}>${ico(ic)}<span class="grow"><b>${t}</b><small>${sub}</small></span><span class="chev">${ico('chev')}</span></button>`;
 }
+const VSEAL = `<svg class="vb-s" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.8l2.4 1.7 2.9-.2 1 2.8 2.5 1.5-.6 2.9 1.2 2.7-2 2.2-.2 2.9-2.9.9L14 21.6 12 23l-2-1.4-2.4-1.5-2.9-.9-.2-2.9-2-2.2 1.2-2.7-.6-2.9 2.5-1.5 1-2.8 2.9.2z" fill="currentColor"/><path d="M8 12.3l2.7 2.7L16.3 9.4" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const vbadge = (u) => (u && u.verified && (u.role === 'driver' || u.role === 'merchant') ? `<span class="vb ${u.role}" title="حساب موثّق">${VSEAL}</span>` : '');
+const upImg = (u, px) => (u && u.avatar ? `<img class="pimg" src="${esc(u.avatar)}" alt="" width="${px}" height="${px}" style="width:${px}px;height:${px}px">` : '');
+function resizeImage(file, px = 160) {
+  return new Promise((ok, no) => {
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => {
+      const c = document.createElement('canvas'); c.width = c.height = px;
+      const ctx = c.getContext('2d'), m = Math.min(img.width, img.height);
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, px, px);
+      ctx.drawImage(img, (img.width - m) / 2, (img.height - m) / 2, m, m, 0, 0, px, px);
+      URL.revokeObjectURL(url); ok(c.toDataURL('image/jpeg', 0.78));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); no(new Error('تعذّر قراءة الصورة')); };
+    img.src = url;
+  });
+}
 function profileHead(me) {
-  return `<div style="text-align:center;margin-top:8px"><div class="avatar">${esc((me.name || '؟').trim().charAt(0))}</div><h1 style="font-size:24px">${esc(me.name)}</h1><p class="muted">${ROLE_NAME[me.role]}</p></div><div style="height:16px"></div>`;
+  const cam = `<label class="av-cam" aria-label="تغيير الصورة الشخصية"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="4"/></svg><input type="file" accept="image/*" data-chg="avatar"></label>`;
+  return `<div style="text-align:center;margin-top:8px"><div class="av-wrap"><div class="avatar ${me.avatar ? 'img' : ''}">${me.avatar ? `<img src="${esc(me.avatar)}" alt="">` : esc((me.name || '؟').trim().charAt(0))}</div>${cam}</div><h1 style="font-size:24px">${esc(me.name)}${vbadge(me)}</h1><p class="muted">${ROLE_NAME[me.role]}${me.verified ? ' · حساب موثّق' : ''}</p>${me.avatar ? '<button class="lg-link" style="font-size:13px" data-act="rm-avatar">حذف الصورة</button>' : ''}</div><div style="height:16px"></div>`;
 }
 function accountLinks(settings) {
   const sp = settings.support;
@@ -551,9 +569,9 @@ const userTable = (role) => {
   const isD = role === 'driver';
   return `${head(isD ? 'السائقون' : 'التجار', `${users.length} حساب`, `<button class="btn" data-act="add-user" data-role="${role}">${ico('plus')} ${isD ? 'إضافة سائق' : 'إضافة تاجر'}</button>`)}
   ${users.length ? `<div class="tblwrap"><table><thead><tr><th>الاسم</th><th>الهاتف</th><th>${isD ? 'المركبة' : 'المنطقة'}</th>${isD ? '<th>الرصيد</th>' : ''}<th>الحالة</th><th></th></tr></thead><tbody>
-  ${users.map((u) => `<tr><td><b>${esc(u.name)}</b></td><td>${telLink(u.phone)}</td><td>${isD ? vehName(u.vehicle) : esc(u.area)}</td>${isD ? `<td>${money(u.balance)}</td>` : ''}
+  ${users.map((u) => `<tr><td>${upImg(u, 28)} <b>${esc(u.name)}</b>${vbadge(u)}</td><td>${telLink(u.phone)}</td><td>${isD ? vehName(u.vehicle) : esc(u.area)}</td>${isD ? `<td>${money(u.balance)}</td>` : ''}
   <td><button class="pill ${u.active ? 'green' : 'red'}" data-act="toggle-user" data-id="${u.id}">${u.active ? 'فعّال' : 'موقوف'}</button></td>
-  <td><div class="row">${isD ? `<button class="btn sm soft" data-act="adjust" data-id="${u.id}">شحن / خصم</button>` : ''}<button class="btn sm ghost" data-act="edit-user" data-id="${u.id}">تعديل</button></div></td></tr>`).join('')}
+  <td><div class="row">${isD ? `<button class="btn sm soft" data-act="adjust" data-id="${u.id}">شحن / خصم</button>` : ''}<button class="btn sm ${u.verified ? 'ghost' : 'soft'}" data-act="verify-user" data-id="${u.id}">${u.verified ? 'إلغاء التوثيق' : 'توثيق'}</button><button class="btn sm ghost" data-act="edit-user" data-id="${u.id}">تعديل</button></div></td></tr>`).join('')}
   </tbody></table></div>` : emptyBox('لا توجد حسابات بعد', 'اضغط الزر أعلاه لإضافة أول حساب.')}`;
 };
 
@@ -1336,7 +1354,7 @@ const SHEETS = {
   'edit-me'() {
     const me = S.user;
     return ['بياناتي', `<form class="stack" data-form="edit-me">
-      ${field('m-name', 'الاسم', `<input class="in" id="m-name" name="name" value="${esc(me.name)}" required>`)}
+      ${field('m-name', 'الاسم', `<input class="in" id="m-name" name="name" value="${esc(me.name)}" ${me.role === 'merchant' || me.role === 'driver' ? 'disabled' : 'required'}>`, me.role === 'merchant' || me.role === 'driver' ? 'لتغيير الاسم تواصل مع الإدارة.' : '')}
       ${field('m-phone', 'رقم الهاتف', `<input class="in mono" id="m-phone" value="${esc(fmtPhone(me.phone))}" disabled>`, 'لتغيير رقم الهاتف تواصل مع الإدارة.')}
       <p class="hint" id="m-err" style="color:var(--red)" role="alert"></p><button class="btn block" type="submit">حفظ</button></form>`];
   },
@@ -1519,6 +1537,13 @@ const ACTIONS = {
     const next = !S.data.me.receiving;
     if (await act(() => api('PUT', '/api/driver/receiving', { receiving: next }), next ? 'تم تفعيل استقبال الطلبات' : 'تم إيقاف استقبال الطلبات')) refresh(true);
   },
+  async 'rm-avatar'() { if (await act(() => api('PUT', '/api/me/profile', { avatar: '' }).then((r) => setUser(r.user)), 'تم حذف الصورة')) render(); },
+  async 'verify-user'(el) {
+    const u = S.data.users.find((x) => x.id === Number(el.dataset.id)); if (!u) return;
+    const prev = !!u.verified; u.verified = !prev; render();
+    try { await api('PUT', `/api/admin/users/${u.id}`, { verified: !prev }); toast(prev ? 'أُلغي توثيق الحساب' : 'تم توثيق الحساب'); refresh(true); }
+    catch (e) { u.verified = prev; render(); toast(e.message, true); }
+  },
   async 'toggle-user'(el) {
     const u = S.data.users.find((x) => x.id === Number(el.dataset.id)); if (!u) return;
     const prev = u.active; u.active = prev ? 0 : 1; render();
@@ -1570,6 +1595,10 @@ document.addEventListener('input', (e) => {
 
 document.addEventListener('change', async (e) => {
   const t = e.target;
+  if (t.dataset && t.dataset.chg === 'avatar' && t.files && t.files[0]) {
+    try { const av = await resizeImage(t.files[0]); const r = await api('PUT', '/api/me/profile', { avatar: av }); setUser(r.user); toast('تم تحديث الصورة'); render(); } catch (err) { toast(err.message || 'تعذّر رفع الصورة', true); }
+    t.value = ''; return;
+  }
   if (t.dataset && t.dataset.chg === 'admin-status') {
     if (await act(() => api('POST', `/api/admin/orders/${t.dataset.id}/status`, { status: t.value }), 'تم تغيير الحالة')) refresh(true); else refresh(true);
   }
@@ -1603,7 +1632,8 @@ const FORMS = {
     closeSheet(); refresh(true);
   },
   async 'edit-me'(f) {
-    const r = await api('PUT', '/api/me/profile', { name: f.name.value });
+    const locked = S.user.role === 'merchant' || S.user.role === 'driver';
+    const r = await api('PUT', '/api/me/profile', locked ? {} : { name: f.name.value });
     setUser(r.user); toast('تم حفظ بياناتك'); closeSheet(); refresh(true);
   },
   async password(f) { await api('PUT', '/api/me/password', { current: f.current.value, next: f.next.value }); toast('تم تحديث كلمة المرور'); closeSheet(); },

@@ -287,3 +287,11 @@ tfoot td{font-weight:800;background:var(--soft2);position:sticky;bottom:0}
 .oct b{font-size:14px;margin-top:6px}
 .oct small{font-size:12px;color:var(--mut)}
 .oct[aria-checked="true"]{border-color:var(--green);box-shadow:0 0 0 3px rgba(31,157,106,.25)}
+
+/* ===== صورة الحساب وشارة التوثيق ===== */
+.vb{display:inline-flex;vertical-align:middle;margin-inline-start:4px}
+.vb-s{width:1.15em;height:1.15em}
+.vb.driver{color:#16a34a}.vb.merchant{color:#1d6fe0}
+.pimg{border-radius:50%;object-fit:cover;background:#ddd;flex:none;vertical-align:middle}
+.avatar.img{padding:0;overflow:hidden;position:relative}
+.avatar.img img{width:100%;height:100%;object-fit:cover}
