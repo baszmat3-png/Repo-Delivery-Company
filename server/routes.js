@@ -30,7 +30,7 @@ const isRet = (o) => o.status === 'returned' || o.status === 'return_sent' || o.
 
 const STATUSES = ['pending', 'picking_up', 'on_the_way', 'delivered', 'no_answer', 'postponed', 'rejected', 'return_sent', 'returned', 'cancelled'];
 const DRIVER_STATUSES = ['picking_up', 'on_the_way', 'delivered', 'rejected', 'no_answer', 'postponed', 'return_sent'];
-const RETURNABLE = ['rejected', 'no_answer', 'postponed'];
+const RETURNABLE = ['picking_up', 'on_the_way', 'rejected', 'no_answer', 'postponed'];
 const TROUBLE = ['no_answer', 'postponed', 'problem', 'other'];
 const DONE = ['delivered', 'partial'];
 
@@ -504,7 +504,7 @@ route('POST', '/api/driver/orders/:id/status', DRIVER, async (c) => {
   if (!o) fail('الطلب غير موجود', 404);
   if (o.status === 'delivered') fail('تم تسليم هذا الطلب ولا يمكن تغيير حالته', 409);
   if (o.status === 'return_sent' || o.status === 'returned') fail('تم إرجاع هذا الطلب للتاجر ولا يمكن تغيير حالته', 409);
-  if (status === 'return_sent' && !RETURNABLE.includes(o.status)) fail('يمكن الإرجاع للتاجر بعد حالة: مرفوض أو لا يرد أو تأجيل', 409);
+  if (status === 'return_sent' && !RETURNABLE.includes(o.status)) fail('يمكن الإرجاع للتاجر قبل التسليم فقط', 409);
   const now = Date.now();
   const u = await db.update('orders', 'id', o.id, {
     status, updated_at: now, delivered_at: DONE.includes(status) ? (o.delivered_at || now) : null, log: pushLog(o, status, now)

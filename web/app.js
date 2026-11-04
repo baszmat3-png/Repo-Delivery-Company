@@ -110,11 +110,11 @@ const logo = (cls = '') => `<span class="logo ${cls}" aria-label="ريو للت�
 const ST = {
   pending: ['بانتظار سائق', 'amber'], picking_up: ['قيد الاستلام من التاجر', 'accent'], on_the_way: ['في الطريق للزبون', 'accent'],
   delivered: ['تم التسليم', 'green'], rejected: ['مرفوض من زبون', 'red'], postponed: ['تأجيل', 'amber'], no_answer: ['لا يرد', 'red'], problem: ['مشكلة', 'red'], other: ['حالة أخرى', 'red'],
-  returned: ['راجع — استلمه التاجر', 'blue'], return_sent: ['أُرجع للتاجر — بانتظار تأكيده', 'amber'], partial: ['راجع جزئي', 'blue'], cancelled: ['ملغي', '']
+  returned: ['راجع — استلمه التاجر', 'blue'], return_sent: ['إرجاع للمتجر — بانتظار تأكيد التاجر', 'amber'], partial: ['راجع جزئي', 'blue'], cancelled: ['ملغي', '']
 };
 const DRIVER_ST = ['picking_up', 'on_the_way', 'delivered', 'rejected', 'no_answer', 'postponed'];
 const ST_OK = ['pending', 'picking_up', 'on_the_way', 'delivered', 'rejected', 'no_answer', 'postponed', 'return_sent', 'returned', 'cancelled'];
-const RETURNABLE = ['rejected', 'no_answer', 'postponed'];
+const RETURNABLE = ['picking_up', 'on_the_way', 'rejected', 'no_answer', 'postponed'];
 const stKeys = (cur) => Object.keys(ST).filter((k) => ST_OK.includes(k) || k === cur);
 const pill = (s) => `<span class="pill ${ST[s]?.[1] || ''}">${esc(ST[s]?.[0] || s)}</span>`;
 const vehName = (v) => (v === 'car' ? 'سيارة' : 'دراجة');
@@ -1308,7 +1308,7 @@ const SHEETS = {
     const o = findOrder(s.id);
     if (!o) return ['حالة الطلب', '<p class="muted">تعذّر العثور على الطلب.</p>'];
     const btns = DRIVER_ST.map((k) => `<button type="button" class="st-opt ${o.status === k ? 'on' : ''}" data-act="set-status" data-id="${o.id}" data-s="${k}"><span class="ck">${o.status === k ? ico('check') : ''}</span>${ST[k][0]}</button>`).join('');
-    const ret = RETURNABLE.includes(o.status) ? `<button type="button" class="st-opt" data-act="ask-return" data-id="${o.id}"><span class="ck"></span><b>تم الإرجاع للتاجر</b></button>` : '';
+    const ret = !["delivered","return_sent","returned"].includes(o.status) ? `<button type="button" class="st-opt" data-act="ask-return" data-id="${o.id}"><span class="ck"></span><b>إرجاع للمتجر — بانتظار تأكيد التاجر</b></button>` : '';
     return [`حالة الطلب #${o.no}`, `<div class="st-list" role="menu">${btns}${ret}</div>`];
   },
   confirm(s) {
