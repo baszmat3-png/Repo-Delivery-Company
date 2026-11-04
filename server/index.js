@@ -82,7 +82,7 @@ function serveStatic(req, res, pathname) {
       return fs.readFile(path.join(WEB, 'index.html'), (e2, b2) => (e2 ? send(res, 404, 'Not found', { 'Content-Type': 'text/plain' }) : send(res, 200, b2, { 'Content-Type': MIME['.html'] })));
     }
     const ext = path.extname(file).toLowerCase();
-    const noCache = ['/sw.js', '/index.html', '/admin.html', '/admin.js', '/admin-lib.js', '/notify-sw.js', '/admin.css', '/config.js', '/app.js', '/style.css', '/theme.js'].includes(rel);
+    const noCache = ['/sw.js', '/index.html', '/admin.html', '/admin.js', '/admin-lib.js', '/notify-sw.js', '/admin.css', '/config.js', '/app.js', '/style.css', '/theme.js', '/oc-preview.js'].includes(rel);
     send(res, 200, buf, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': noCache ? 'no-cache' : 'public, max-age=3600' });
   });
 }

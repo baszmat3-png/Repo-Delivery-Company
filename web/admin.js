@@ -51,6 +51,7 @@ let T = ls.get(KEY) || '', P = ls.get('rio_page') || 'home', R = ls.get('rio_ran
 let BASIS = ls.get('rio_basis') || 'fees', SORT = ls.get('rio_sort') || 'orders', FP = 'month', VK = 'in', Q = '', FS = 'all', FM = 0;
 let MENU = false, D = null, O = [], FN = null, V = [], CARDS = [], SET = null, BATCH = null, E = '', M = null, LIVE = false, DIRTY = false, loading = false;
 applyPerms();
+let SSEC = ls.get('rio_ssec') || 'prices', OCSEL = null;
 if (!['orders', 'active', 'goods'].includes(SORT)) SORT = 'orders';
 
 function range() {
@@ -165,7 +166,7 @@ function updateNb() {
   let b = document.getElementById('nb');
   const st = T ? nState() : 'x';
   const html = st === 'ask' ? `<b>اسمح بالإشعارات</b><span>لتصلك الطلبات وتغيّر حالاتها فوراً في لوحة إشعارات جهازك</span><button class="btn sm" data-a="enable-notifs">سماح</button>`
-    : st === 'blocked' ? `<b>الإشعارات محظورة</b><span>${blockedHelp()}</span><button class="btn sm g" data-a="reload">تحديث</button>` : '';
+    : ''; /* لا نعرض رسالة «الإشعارات محظورة» أبداً */
   if (!html) { if (b) b.remove(); return; }
   if (!b) { b = document.createElement('div'); b.id = 'nb'; document.body.appendChild(b); }
   b.className = 'nb' + (st === 'blocked' ? ' warn' : ''); b.innerHTML = html;
@@ -185,13 +186,13 @@ async function askPerm() {
   const r = Notification.permission === 'granted' ? 'granted' : await reqPerm();
   updateNb();
   if (r === 'granted') { const ok = await ensureWebPush(); toast(ok ? 'تم تفعيل الإشعارات' : 'تم السماح — جارٍ تفعيل الاستقبال، أعد المحاولة بعد لحظات', !ok); }
-  else if (r === 'denied') toast('الإشعارات محظورة — ' + blockedHelp(), true);
+  
   if (P === 'settings') draw();
 }
 function notifCard() {
   const st = nState();
   if (st === 'na') return `<div class="card"><div class="ch">إشعارات الطلبات</div><p class="hint">هذا المتصفح لا يدعم الإشعارات — جرّب Chrome.</p></div>`;
-  const sub = { on: PUSHON ? 'مفعّلة ✓ — تصلك الطلبات وتغيّر حالاتها فوراً حتى لو كانت اللوحة مغلقة' : 'مفعّلة ✓ — جارٍ تفعيل الاستقبال في الخلفية…', off: 'متوقفة — فعّلها من المربع', ask: 'غير مفعّلة — اضغط «سماح» ليظهر طلب الإذن', blocked: 'محظورة — ' + blockedHelp() }[st];
+  const sub = { on: PUSHON ? 'مفعّلة ✓ — تصلك الطلبات وتغيّر حالاتها فوراً حتى لو كانت اللوحة مغلقة' : 'مفعّلة ✓ — جارٍ تفعيل الاستقبال في الخلفية…', off: 'متوقفة — فعّلها من المربع', ask: 'غير مفعّلة — اضغط «سماح» ليظهر طلب الإذن', blocked: 'غير مفعّلة على هذا المتصفح' }[st];
   return `<div class="card"><div class="ch">إشعارات الطلبات <small>تظهر في لوحة إشعارات الهاتف</small></div><label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" data-a="toggle-notifs" ${st === 'on' ? 'checked' : ''} style="width:22px;height:22px"><span><b>تفعيل الإشعارات على هذا الجهاز</b><span class="hint" style="display:block">${sub}</span></span></label>${st === 'on' ? '<div class="row" style="margin-top:10px"><button class="btn sm g" type="button" data-a="test-notif">إرسال إشعار تجريبي</button></div>' : ''}</div>`;
 }
 document.addEventListener('click', () => { if (T && !clickAsked && !nOff() && nState() === 'ask') { clickAsked = true; askPerm(); } });
@@ -485,23 +486,39 @@ function cards() {
 }
 
 /* ---------------- الإعدادات ---------------- */
+const SECS = [['themes', 'الثيمات'], ['wa', 'قوالب رسائل واتساب'], ['prices', 'أسعار التوصيل للزبون'], ['fees', 'الرسوم'], ['receipts', 'الوصولات'], ['alerts', 'التنبيهات والدعم'], ['ocd', 'تصميم الوصولات'], ['reset', 'تصفير البيانات']];
+const saveBar = (label = 'حفظ') => `<div class="err" id="fe" role="alert"></div><button class="btn" style="min-height:44px">${label}</button>`;
 function settings() {
   if (!SET) return `<div class="card">جارٍ التحميل…</div>`;
+  if (!SECS.some((x) => x[0] === SSEC)) SSEC = 'prices';
   const f = (k, l) => `<div class="field"><label for="s-${k}">${l}</label><input class="in" id="s-${k}" inputmode="numeric" value="${esc(SET[k])}"></div>`;
-  return `<form data-f="settings">
-  <div class="card"><div class="ch">أسعار التوصيل للزبون <small>بالدينار العراقي</small></div><div class="frm">${f('bikeSame', 'دراجة · نفس المنطقة')}${f('bikeOther', 'دراجة · منطقة ثانية')}${f('carSame', 'سيارة · نفس المنطقة')}${f('carOther', 'سيارة · منطقة ثانية')}</div></div>
-  <div class="card"><div class="ch">رسوم التطبيق على السائق <small>تُخصم من محفظة السائق عند قبول كل طلب</small></div><div class="frm">${f('feeSame', 'نفس المنطقة')}${f('feeOther', 'منطقة ثانية')}</div></div>
-  ${notifCard()}
-  <div class="card"><div class="ch">الوصولات <small>تحكم بظهور زر «وصل» في كل مكان</small></div><label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="s-receipts" ${SET.receipts !== 0 ? 'checked' : ''} style="width:22px;height:22px"><span><b>تفعيل الوصولات</b><span class="hint" style="display:block">عند الإيقاف يختفي زر «وصل» من حسابات التجار والسائقين ومن لوحة التحكم أيضاً.</span></span></label></div>
-  <div class="card"><div class="ch">التنبيهات والدعم</div><div class="frm">${f('lateMin', 'مدة التأخير بالدقائق (لتنبيه الطلبات المتأخرة)')}
-  <div class="field"><label for="s-support">رقم الدعم (يظهر للتجار والسائقين)</label><input class="in" id="s-support" inputmode="tel" value="${esc(SET.support || '')}" placeholder="07XX XXX XXXX"></div></div></div>
-  <div class="card"><div class="ch">قوالب رسائل الواتساب <small>تتغير هنا وتصل كما تكتبها</small></div>
-  <p class="hint" style="margin:0 0 8px">اضغط على متغير لإدخاله في القالب الذي تكتب فيه. تُستبدل المتغيرات بتفاصيل الطلب تلقائياً.</p>
-  <div class="chips" style="margin-bottom:12px">${TPL_VARS.map(([v, l]) => `<button type="button" class="chip" data-a="tpl-var" data-v="{${v}}" title="${esc(l)}">{${v}} <small class="muted">${esc(l)}</small></button>`).join('')}</div>
-  ${TPL_DEFS.map(([k, l]) => `<div class="field" style="margin-bottom:12px"><label for="t-${k}">${l}</label><textarea class="in" id="t-${k}" rows="4" style="min-height:92px;font-family:inherit">${esc((SET.templates || {})[k] || '')}</textarea><div class="row" style="margin-top:4px"><button type="button" class="btn sm g" data-a="tpl-reset" data-k="${k}">استعادة الافتراضي</button></div></div>`).join('')}</div>
-  <div class="err" id="fe" role="alert"></div><button class="btn" style="min-height:44px">حفظ الإعدادات</button></form>
-  <div class="card" style="margin-top:16px"><div class="ch">المظهر <small>يُحفظ على هذا الجهاز</small></div>${RioTheme.picker('data-a')}</div>
-  <div class="card"><button class="btn d" data-a="logout" style="min-height:44px">${ico('out')} تسجيل الخروج</button></div>`;
+  const nav = `<div class="chips" role="tablist" aria-label="أقسام الإعدادات" style="margin-bottom:14px">${SECS.map(([k, l]) => `<button type="button" class="chip" role="tab" data-a="sec" data-k="${k}" aria-pressed="${SSEC === k}">${l}</button>`).join('')}</div>`;
+  const body = {
+    themes: () => `<div class="card"><div class="ch">الثيمات <small>يُحفظ تلقائياً على هذا الجهاز</small></div>${RioTheme.picker('data-a')}</div>`,
+    wa: () => `<form data-f="set-wa"><div class="card"><div class="ch">قوالب رسائل الواتساب <small>تتغير هنا وتصل كما تكتبها</small></div>
+      <p class="hint" style="margin:0 0 8px">اضغط على متغير لإدخاله في القالب الذي تكتب فيه. تُستبدل المتغيرات بتفاصيل الطلب تلقائياً.</p>
+      <div class="chips" style="margin-bottom:12px">${TPL_VARS.map(([v, l]) => `<button type="button" class="chip" data-a="tpl-var" data-v="{${v}}" title="${esc(l)}">{${v}} <small class="muted">${esc(l)}</small></button>`).join('')}</div>
+      ${TPL_DEFS.map(([k, l]) => `<div class="field" style="margin-bottom:12px"><label for="t-${k}">${l}</label><textarea class="in" id="t-${k}" rows="4" style="min-height:92px;font-family:inherit">${esc((SET.templates || {})[k] || '')}</textarea><div class="row" style="margin-top:4px"><button type="button" class="btn sm g" data-a="tpl-reset" data-k="${k}">استعادة الافتراضي</button></div></div>`).join('')}
+      ${saveBar('حفظ القوالب')}</div></form>`,
+    prices: () => `<form data-f="set-prices"><div class="card"><div class="ch">أسعار التوصيل للزبون <small>بالدينار العراقي</small></div><div class="frm">${f('bikeSame', 'دراجة · نفس المنطقة')}${f('bikeOther', 'دراجة · منطقة ثانية')}${f('carSame', 'سيارة · نفس المنطقة')}${f('carOther', 'سيارة · منطقة ثانية')}</div>${saveBar('حفظ الأسعار')}</div></form>`,
+    fees: () => `<form data-f="set-fees"><div class="card"><div class="ch">تعديل الرسوم <small>رسوم التطبيق على السائق، تُخصم من محفظته عند قبول كل طلب</small></div><div class="frm">${f('feeSame', 'نفس المنطقة')}${f('feeOther', 'منطقة ثانية')}</div>${saveBar('حفظ الرسوم')}</div></form>`,
+    receipts: () => `<form data-f="set-receipts"><div class="card"><div class="ch">الوصولات <small>تحكم بظهور زر «وصل» في كل مكان</small></div><label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="s-receipts" ${SET.receipts !== 0 ? 'checked' : ''} style="width:22px;height:22px"><span><b>تفعيل الوصولات</b><span class="hint" style="display:block">عند الإيقاف يختفي زر «وصل» من حسابات التجار والسائقين ومن لوحة التحكم أيضاً.</span></span></label>${saveBar('حفظ')}</div></form>`,
+    alerts: () => `${notifCard()}<form data-f="set-alerts"><div class="card"><div class="ch">التنبيهات والدعم</div><div class="frm">${f('lateMin', 'مدة التأخير بالدقائق (لتنبيه الطلبات المتأخرة)')}
+      <div class="field"><label for="s-support">رقم الدعم (يظهر للتجار والسائقين)</label><input class="in" id="s-support" inputmode="tel" value="${esc(SET.support || '')}" placeholder="07XX XXX XXXX"></div></div>${saveBar('حفظ')}</div></form>`,
+    ocd: () => {
+      const cur = SET.ocDesign || 'classic', sel = OCSEL || cur;
+      return `<form data-f="set-ocd"><div class="card"><div class="ch">تصميم الوصولات <small>يُطبَّق فوراً على حسابات كل التجار والسائقين والمدير</small></div>
+      <p class="hint" style="margin:0 0 12px">اختر شكل بطاقة الطلب ثم اضغط «حفظ وتطبيق». لا يملك التاجر أو السائق أي خيار لتغييره، والاختيار هنا فقط.</p>
+      <div class="ocg" role="radiogroup" aria-label="تصميم الوصولات">${RioOC.list.map(([k, n, sub]) => `<div class="oct" role="radio" tabindex="0" aria-checked="${sel === k}" data-a="ocd-pick" data-d="${k}"><iframe title="${esc(n)}" loading="lazy" tabindex="-1" srcdoc="${esc(RioOC.doc(k))}"></iframe><b>${n}${cur === k ? ' <span class="muted">(المطبّق حالياً)</span>' : ''}</b><small>${sub}</small></div>`).join('')}</div>
+      ${saveBar('حفظ وتطبيق على كل الحسابات')}</div></form>`;
+    },
+    reset: () => `<div class="card"><div class="ch">تصفير البيانات <small>حذف نهائي لا يمكن التراجع عنه</small></div>
+      <p class="hint" style="margin:0 0 12px">يُنفَّذ الحذف فوراً على الخادم ويتزامن مع كل الأجهزة. ابدأ بالنسخ الاحتياطي إن كانت عندك بيانات حقيقية.</p>
+      <label class="row" style="gap:10px;align-items:center;cursor:pointer;margin-bottom:10px"><input type="checkbox" id="rs-orders" checked style="width:22px;height:22px"><span><b>تصفير كل الطلبات</b><span class="hint" style="display:block">يحذف كل الطلبات ومحادثاتها وإشعاراتها (كل الحسابات).</span></span></label>
+      <label class="row" style="gap:10px;align-items:center;cursor:pointer;margin-bottom:14px"><input type="checkbox" id="rs-demo" checked style="width:22px;height:22px"><span><b>حذف الحسابات التجريبية</b><span class="hint" style="display:block">التجار 07700000201–203 والسائقان 07700000301–302 مع طلباتهم ومعاملاتهم.</span></span></label>
+      <button type="button" class="btn d" style="min-height:44px" data-a="reset-go">حذف الآن</button></div>`
+  }[SSEC]();
+  return `${nav}${body}<div class="card" style="margin-top:16px"><button class="btn d" data-a="logout" style="min-height:44px">${ico('out')} تسجيل الخروج</button></div>`;
 }
 const TPL_DEFS = [['cust_picking_up', 'رسالة للزبون: قيد الاستلام من التاجر'], ['cust_on_the_way', 'رسالة للزبون: في الطريق للزبون'], ['cust_delivered', 'رسالة للزبون: تم التسليم'], ['cust_rejected', 'رسالة للزبون: مرفوض من زبون'], ['cust_no_answer', 'رسالة للزبون: لا يرد'], ['cust_postponed', 'رسالة للزبون: تأجيل'], ['cust_default', 'رسالة للزبون: عامة (بقية الحالات)'], ['driver_support', 'من السائق إلى الدعم'], ['admin_driver', 'من الإدارة إلى السائق (بخصوص طلب)'], ['admin_merchant', 'من الإدارة إلى التاجر (بخصوص طلب)'], ['account', 'بيانات الحساب الجديد (للتاجر أو السائق)']];
 const TPL_VARS = [['order_no', 'رقم الطلب'], ['status', 'الحالة'], ['merchant', 'المتجر'], ['merchant_phone', 'هاتف المتجر'], ['merchant_area', 'عنوان المتجر'], ['customer_phone', 'هاتف الزبون'], ['customer_area', 'منطقة الزبون'], ['product', 'المنتج'], ['qty', 'العدد'], ['product_price', 'سعر المنتج'], ['delivery_price', 'سعر التوصيل'], ['total', 'المبلغ المطلوب'], ['driver', 'المندوب'], ['note', 'الملاحظة'], ['name', 'الاسم'], ['phone', 'الهاتف'], ['password', 'كلمة المرور'], ['login_url', 'رابط الدخول'], ['support', 'رقم الدعم'], ['app', 'اسم التطبيق'], ['date', 'التاريخ']];
@@ -738,6 +755,16 @@ const doPdf = (kind) => { const e = listExports(kind); printDoc(e.name, docA4({ 
 /* ---------------- الأحداث ---------------- */
 const clickActs = {
   menu() { MENU = !MENU; draw(); },
+  sec(el) { SSEC = el.dataset.k; ls.set('rio_ssec', SSEC); draw(); },
+  'ocd-pick'(el) { OCSEL = el.dataset.d; draw(); },
+  async 'reset-go'() {
+    const orders = $('#rs-orders').checked, demo = $('#rs-demo').checked;
+    if (!orders && !demo) { toast('اختر ما تريد حذفه', true); return; }
+    const what = [orders ? 'كل الطلبات' : '', demo ? 'الحسابات التجريبية' : ''].filter(Boolean).join(' و');
+    if (!confirm(`سيتم حذف ${what} نهائياً من النظام ولا يمكن التراجع. هل أنت متأكد؟`)) return;
+    const r = await act(() => api('POST', '/api/admin/reset', { confirm: true, orders, demo }));
+    if (r && r !== true) { toast(`تم الحذف: ${r.orders} طلب، ${r.accounts} حساب تجريبي`); await load(); }
+  },
   'menu-x'() { MENU = false; draw(); },
   page(el) { MENU = false; P = el.dataset.k; ls.set('rio_page', P); Q = ''; FS = 'all'; FM = 0; load(); },
   logout() { logout(); },
@@ -864,9 +891,16 @@ document.addEventListener('submit', async (e) => {
       const r = await api('POST', '/api/admin/cards', { amount: $('#g-amount').value, count: $('#g-count').value });
       BATCH = r.made; toast('تم توليد ' + r.made.length + ' كرت'); await load();
     }
-    else if (k === 'settings') {
-      const body = {}; ['bikeSame', 'bikeOther', 'carSame', 'carOther', 'feeSame', 'feeOther', 'lateMin'].forEach((x) => { body[x] = $('#s-' + x).value; }); body.support = $('#s-support').value; body.receipts = $('#s-receipts').checked; body.templates = {}; TPL_DEFS.forEach(([k]) => { body.templates[k] = $('#t-' + k).value; });
-      const r = await api('PUT', '/api/admin/settings', body); SET = r.settings; toast('تم حفظ الإعدادات'); draw();
+    else if (k.startsWith('set-')) {
+      const sec = k.slice(4), v = (id) => document.getElementById(id), body = {};
+      if (sec === 'prices') ['bikeSame', 'bikeOther', 'carSame', 'carOther'].forEach((x) => { body[x] = v('s-' + x).value; });
+      else if (sec === 'fees') ['feeSame', 'feeOther'].forEach((x) => { body[x] = v('s-' + x).value; });
+      else if (sec === 'alerts') { body.lateMin = v('s-lateMin').value; body.support = v('s-support').value; }
+      else if (sec === 'receipts') body.receipts = v('s-receipts').checked;
+      else if (sec === 'wa') { body.templates = {}; TPL_DEFS.forEach(([t]) => { body.templates[t] = v('t-' + t).value; }); }
+      else if (sec === 'ocd') body.ocDesign = OCSEL || SET.ocDesign || 'classic';
+      const r = await api('PUT', '/api/admin/settings', body); SET = r.settings; OCSEL = null;
+      toast(sec === 'ocd' ? 'تم تطبيق التصميم على كل الحسابات' : 'تم الحفظ'); draw();
     }
     else if (k === 'chat') {
       const inp = $('#chat-in'), t = inp.value.trim();

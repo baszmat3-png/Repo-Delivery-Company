@@ -34,7 +34,9 @@ const RETURNABLE = ['rejected', 'no_answer', 'postponed'];
 const TROUBLE = ['no_answer', 'postponed', 'problem', 'other'];
 const DONE = ['delivered', 'partial'];
 
-const DEF_SETTINGS = { bikeSame: 3000, bikeOther: 5000, carSame: 5000, carOther: 8000, feeSame: 500, feeOther: 1000, lateMin: 45, support: '', receipts: 1 };
+const DEF_SETTINGS = { bikeSame: 3000, bikeOther: 5000, carSame: 5000, carOther: 8000, feeSame: 500, feeOther: 1000, lateMin: 45, support: '', receipts: 1, ocDesign: 'classic' };
+/* تصاميم الوصولات (بطاقة الطلب): يختارها المدير وتُطبَّق فوراً على كل الحسابات */
+const OC_KEYS = ['classic', 'bold', 'green', 'ticket', 'sun', 'night'];
 
 /* قوالب رسائل الواتساب (تُعدَّل من لوحة التحكم). المتغيرات بين أقواس: {order_no} {product} ... */
 const DEF_TEMPLATES = {
@@ -809,10 +811,70 @@ route('PUT', '/api/admin/settings', ADM('settings', 'edit'), async (c) => {
     }
     next.templates = t;
   }
+  if (c.body.ocDesign !== undefined) {
+    if (!OC_KEYS.includes(c.body.ocDesign)) fail('تصميم وصل غير صحيح');
+    next.ocDesign = c.body.ocDesign;
+  }
   if (c.body.receipts !== undefined) next.receipts = [true, 1, '1', 'true'].includes(c.body.receipts) ? 1 : 0;
   if (c.body.support !== undefined) next.support = normPhone(c.body.support).slice(0, 15);
   await q(`INSERT INTO settings(key,value) VALUES('main',$1) ON CONFLICT(key) DO UPDATE SET value=excluded.value`, [JSON.stringify(next)]);
   return { settings: await getSettings() };
+});
+
+/* ---------- طلب واحد (يُفتح من الإشعار): كل دور يرى ما يخصه فقط ---------- */
+route('GET', '/api/orders/:id', { roles: ['merchant', 'driver', 'admin', 'staff'] }, async (c) => {
+  const id = Number(c.params.id);
+  if (!Number.isInteger(id)) fail('طلب غير صحيح');
+  const r = await q('SELECT * FROM orders WHERE id=$1', [id]);
+  const o = r.rows[0];
+  if (!o) fail('الطلب غير موجود أو تم حذفه', 404);
+  const u = c.user;
+  if (u.role === 'merchant' && o.merchant_id !== u.id) fail('غير مسموح', 403);
+  if (u.role === 'driver' && o.driver_id !== u.id && !(o.status === 'pending' && o.vehicle === (u.vehicle === 'car' ? 'car' : 'bike'))) fail('غير مسموح', 403);
+  if (u.role === 'staff') need(u, 'orders', 'view');
+  return { order: ord(o) };
+});
+
+/* ---------- تصفير الطلبات والحسابات التجريبية (المدير فقط) ---------- */
+const DEMO_PHONES = ['07700000201', '07700000202', '07700000203', '07700000301', '07700000302'];
+route('POST', '/api/admin/reset', ADMIN, async (c) => {
+  if (c.body.confirm !== true) fail('يجب تأكيد عملية الحذف');
+  const wantOrders = c.body.orders === true, wantDemo = c.body.demo === true;
+  if (!wantOrders && !wantDemo) fail('اختر ما تريد حذفه');
+  const cnt = async (sql, p = []) => Number((await q(sql, p)).rows[0].n) || 0;
+  const out = { orders: 0, accounts: 0 };
+  let demoIds = [];
+  if (wantDemo) {
+    const ph = DEMO_PHONES.map((_, i) => '$' + (i + 1)).join(',');
+    const r = await q(`SELECT id FROM users WHERE role IN ('merchant','driver') AND phone IN (${ph})`, DEMO_PHONES);
+    demoIds = r.rows.map((x) => Number(x.id)).filter(Number.isInteger);
+  }
+  const ids = demoIds.join(',');
+  if (wantOrders) {
+    out.orders = await cnt('SELECT COUNT(*) AS n FROM orders');
+    await q('DELETE FROM messages');
+    await q('DELETE FROM notifs WHERE order_id IS NOT NULL');
+    await q('DELETE FROM orders');
+  } else if (demoIds.length) {
+    const o = await q(`SELECT id FROM orders WHERE merchant_id IN (${ids}) OR driver_id IN (${ids})`);
+    const oids = o.rows.map((x) => Number(x.id)).filter(Number.isInteger);
+    out.orders = oids.length;
+    if (oids.length) {
+      await q(`DELETE FROM messages WHERE order_id IN (${oids.join(',')})`);
+      await q(`DELETE FROM notifs WHERE order_id IN (${oids.join(',')})`);
+      await q(`DELETE FROM orders WHERE id IN (${oids.join(',')})`);
+    }
+  }
+  if (demoIds.length) {
+    await q(`DELETE FROM txs WHERE driver_id IN (${ids})`);
+    await q(`DELETE FROM messages WHERE user_id IN (${ids})`);
+    await q(`DELETE FROM notifs WHERE user_id IN (${ids})`);
+    await q(`DELETE FROM push_subs WHERE user_id IN (${ids})`);
+    await q(`DELETE FROM users WHERE id IN (${ids})`);
+    out.accounts = demoIds.length;
+  }
+  if (wantDemo) await q(`INSERT INTO settings(key,value) VALUES('demo_cleared','1') ON CONFLICT(key) DO UPDATE SET value=excluded.value`);
+  return { ok: true, ...out };
 });
 
 route('GET', '/api/admin/stats', ADM(ANYPAGE), async (c) => {

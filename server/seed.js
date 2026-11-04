@@ -19,6 +19,8 @@ async function seedAdmin() {
 
 // بيانات تجريبية لتجربة النظام فقط (كلمة مرور الجميع 123456)
 async function seedDemo() {
+  const cl = await q(`SELECT value FROM settings WHERE key='demo_cleared'`);
+  if (cl.rows.length) return; // المدير حذف البيانات التجريبية: لا نعيد تحميلها
   const n = await q(`SELECT COUNT(*) AS n FROM users WHERE role<>'admin'`);
   if (n.rows[0].n > 0) return;
   const now = Date.now();

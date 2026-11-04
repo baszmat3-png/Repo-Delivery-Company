@@ -26,7 +26,27 @@ const OC_DESIGNS = [
   ['night', 'داكن', 'مسار التوصيل']
 ];
 const ocdValid = (k) => OC_DESIGNS.some((d) => d[0] === k);
+/* التصميم يحدده المدير من لوحة التحكم (يصل من الخادم)، وتُحفظ آخر قيمة هنا فقط لتفادي الوميض عند فتح التطبيق */
 let OCD = ocdValid(store.get('rio_ocd')) ? store.get('rio_ocd') : 'classic';
+function applyCfg(st) {
+  if (!st || !ocdValid(st.ocDesign) || st.ocDesign === OCD) return false;
+  OCD = st.ocDesign; store.set('rio_ocd', OCD); S.det = {};
+  return true;
+}
+/* مزامنة إعدادات الإدارة (تصميم الوصولات + تفعيل الوصولات) فور أي تغيير، على أي صفحة كان المستخدم */
+async function syncCfg() {
+  if (!S.user) return;
+  try {
+    const r = await api('GET', '/api/settings');
+    const st = r.settings || {};
+    let ch = applyCfg(st);
+    if (S.data && S.data.settings && String(S.data.settings.receipts) !== String(st.receipts)) { S.data.settings.receipts = st.receipts; ch = true; }
+    if (!ch) return;
+    const a = document.activeElement;
+    if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) { S.dirty = true; return; }
+    render();
+  } catch { /* ignore */ }
+}
 /* تشغيل/إيقاف الوصولات من الإدارة: يخفي زر «وصل» عن التاجر والسائق فقط */
 const receiptsOn = () => !S.user || S.user.role === 'admin' || !S.data || !S.data.settings || ![0, false, '0'].includes(S.data.settings.receipts);
 const rsizeSeg = () => `<div class="seg" role="group" aria-label="حجم الوصل" style="display:flex;justify-content:center;width:max-content;max-width:100%;margin:0 auto 10px">${Object.keys(RSIZES).map((k) => `<button type="button" data-act="rsize" data-k="${k}" aria-pressed="${RSIZE === k}">${RSIZES[k][0]}</button>`).join('')}</div>`;
@@ -170,10 +190,11 @@ async function refresh(manual) {
   try {
     const d = await fetchData();
     if (tab !== S.tab) return;
+    const cfgChanged = d && d.settings ? applyCfg(d.settings) : false;
     const sig = JSON.stringify(d);
     S.loading = false; S.error = '';
     if (tab === 'notifs' && d && d.unread !== undefined) S.unread = d.unread;
-    if (sig !== lastSig || manual) { lastSig = sig; S.data = d; render(); }
+    if (sig !== lastSig || manual || cfgChanged) { lastSig = sig; S.data = d; render(); }
   } catch (e) {
     if (!S.user) return;
     S.loading = false;
@@ -193,7 +214,7 @@ let es = null, liveT = null;
 function connectLive() {
   if (es || !S.token || typeof EventSource === 'undefined') return;
   es = new EventSource(API + '/api/stream?token=' + encodeURIComponent(S.token));
-  es.addEventListener('change', () => { clearTimeout(liveT); liveT = setTimeout(liveRefresh, 300); setTimeout(checkNotifs, 200); });
+  es.addEventListener('change', () => { clearTimeout(liveT); liveT = setTimeout(liveRefresh, 300); setTimeout(checkNotifs, 200); setTimeout(syncCfg, 250); });
 }
 function disconnectLive() { if (es) { es.close(); es = null; } }
 function liveRefresh() {
@@ -202,7 +223,7 @@ function liveRefresh() {
   if (S.sheet || S.menu || (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))) { S.dirty = true; return; }
   refresh();
 }
-function setUser(u) { S.user = u; connectLive(); setTimeout(checkNotifs, 600); if (u && u.role !== 'admin') setTimeout(promptOnEntry, 500); }
+function setUser(u) { S.user = u; connectLive(); setTimeout(syncCfg, 100); setTimeout(checkNotifs, 600); if (u && u.role !== 'admin') setTimeout(promptOnEntry, 500); }
 function logout() {
   S.token = null; S.user = null; S.data = null; S.sheet = null; S.menu = null; lastSig = ''; S.unread = 0; S.pushOn = false; entryAsked = false; S.nperm = '';
   store.del(TOKEN_KEY);
@@ -353,7 +374,7 @@ function ocPreview(d) {
   return html;
 }
 function ocDesignPicker() {
-  return `<h2 class="sec">تصميم الوصولات</h2><p class="hint" style="margin:-4px 4px 10px">اختر شكل بطاقة الطلب، ويتغيّر فوراً في الرئيسية والطلبات.</p>
+  return `<h2 class="sec">تصميم الوصولات</h2><p class="hint" style="margin:-4px 4px 10px">اختر شكل بطاقة الطلب، ويُطبَّق فوراً على حسابات كل التجار والسائقين والمدير.</p>
   <div class="odp" role="radiogroup" aria-label="تصميم الوصولات">${OC_DESIGNS.map(([k, n, sub]) => `<div class="odp-o" role="radio" tabindex="0" aria-checked="${OCD === k}" data-act="ocd" data-d="${k}"><div class="odp-box" aria-hidden="true"><div class="odp-in">${ocPreview(k)}</div></div><b>${n}</b><small>${sub}</small></div>`).join('')}</div>`;
 }
 
@@ -492,7 +513,6 @@ function accountLinks(settings) {
   const sp = settings.support;
   const msg = encodeURIComponent(`مرحباً، أحتاج مساعدة في تطبيق ريو\nالاسم: ${S.user.name}\nالهاتف: ${S.user.phone}`);
   return `<h2 class="sec">المظهر</h2>${RioTheme.picker('data-act')}
-  ${ocDesignPicker()}
   <h2 class="sec">الإشعارات</h2>${notifSetting()}${li('bell', 'كل الإشعارات', 'سجل كامل بالطلبات والمحفظة والمحادثات', 'notifs')}
   <h2 class="sec">الدعم والسياسات</h2>
   ${sp ? `<a class="list-item" href="https://wa.me/${waNumber(sp)}?text=${msg}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${ico('wa')}<span class="grow"><b>التواصل مع الدعم</b><small dir="ltr" style="text-align:right">${esc(fmtPhone(sp))} · واتساب</small></span><span class="chev">${ico('chev')}</span></a>
@@ -606,9 +626,22 @@ function fmtDT(t) {
   const d = new Date(t + OFF);
   return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())} ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
 }
+let ONE = null; // آخر طلب فُتح من إشعار
 function findOrder(id) {
   const d = S.data || {};
-  return (d.orders || []).find((x) => x.id === id) || (d.attention || []).find((x) => x.id === id) || (d.available || []).find((x) => x.id === id) || null;
+  return (d.orders || []).find((x) => x.id === id) || (d.attention || []).find((x) => x.id === id) || (d.available || []).find((x) => x.id === id) || (ONE && ONE.id === id ? ONE : null);
+}
+/* عند الدخول على إشعار طلب: يظهر الطلب المقصود فقط (وليس قائمة كل الطلبات) */
+async function openOrderOnly(id, no) {
+  id = Number(id); if (!id || !S.user) return;
+  openSheet({ type: 'order-one', id, no: no || id, o: null, loading: true, err: '' });
+  try {
+    const r = await api('GET', '/api/orders/' + id);
+    ONE = r.order;
+    if (S.sheet && S.sheet.type === 'order-one' && S.sheet.id === id) { S.sheet.o = r.order; S.sheet.loading = false; render(); }
+  } catch (e) {
+    if (S.sheet && S.sheet.type === 'order-one' && S.sheet.id === id) { S.sheet.loading = false; S.sheet.err = e.message || 'تعذّر فتح الطلب'; render(); }
+  }
 }
 function waNumber(phone) {
   const d = String(phone || '').replace(/\D/g, '');
@@ -980,8 +1013,9 @@ function handleNotifTap(d) {
   S.sheet = null;
   if (kind === 'chat' && id) return openChatFor(id, d.orderNo);
   const driver = S.user.role === 'driver';
-  if (kind === 'order_new') return go(driver ? 'home' : 'orders');
   if (kind.startsWith('wallet')) return go(driver ? 'wallet' : 'notifs');
+  if (kind.startsWith('order') && id) return openOrderOnly(id, d.orderNo);
+  if (kind === 'order_new') return go(driver ? 'home' : 'orders');
   if (kind.startsWith('order')) { if (driver) S.ordersTab = 'current'; return go('orders'); }
   return go('notifs');
 }
@@ -1186,7 +1220,7 @@ function resyncPush() {
   else if (granted) ensureWebPush();
 }
 setInterval(checkNotifs, 15000);
-document.addEventListener('visibilitychange', () => { if (!document.hidden) { checkNotifs(); refreshNativePerm().then(() => { updateNBanner(); resyncPush(); }); updateNBanner(); } });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { checkNotifs(); syncCfg(); refreshNativePerm().then(() => { updateNBanner(); resyncPush(); }); updateNBanner(); } });
 
 /* ============ النوافذ المنبثقة ============ */
 function sheetShell(title, body) {
@@ -1231,6 +1265,18 @@ const SHEETS = {
   note(s) {
     const o = findOrder(s.id);
     return [`ملاحظة طلب #${o ? o.no : ''}`, `<p>${o && o.note ? esc(o.note) : '<span class="muted">لا توجد ملاحظات من التاجر لهذا الطلب.</span>'}</p>`];
+  },
+  'order-one'(s) {
+    const t = `طلب #${s.no}`;
+    if (s.loading) return [t, '<p class="muted" style="text-align:center">جارٍ التحميل…</p>'];
+    const o = findOrder(s.id) || s.o;
+    if (!o) return [t, `<p class="muted" style="text-align:center">${esc(s.err || 'تعذّر العثور على الطلب.')}</p>`];
+    const role = S.user.role;
+    let card;
+    if (role === 'merchant') card = merchantOrderCard(o, true);
+    else if (role === 'driver') card = o.status === 'pending' && !o.driverId ? availOrderCard(o, (S.data && S.data.settings) || { feeSame: 0, feeOther: 0 }, true) : driverOrderCard(o);
+    else card = adminOrderCard(o);
+    return [`طلب #${o.no}`, `<div class="one-order">${card}</div>`];
   },
   receipt(s) {
     const o = findOrder(s.id);
@@ -1375,11 +1421,13 @@ const ACTIONS = {
   'tab-wallet': () => { S.walletTab = 'rep'; go('wallet'); },
   logout: () => doLogout(),
   theme: (el) => { RioTheme.set(el.dataset.t); render(); },
-  ocd: (el) => {
+  ocd: async (el) => {
     const k = el.dataset.d;
-    if (!ocdValid(k) || k === OCD) return;
-    OCD = k; store.set('rio_ocd', k); S.det = {}; render();
-    toast('تم تطبيق تصميم «' + OC_DESIGNS.find((x) => x[0] === k)[1] + '»');
+    if (!S.user || S.user.role !== 'admin' || !ocdValid(k) || k === OCD) return;
+    const r = await act(() => api('PUT', '/api/admin/settings', { ocDesign: k }));
+    if (!r) return;
+    applyCfg(r.settings); render();
+    toast('تم تطبيق تصميم «' + OC_DESIGNS.find((x) => x[0] === k)[1] + '» على كل الحسابات');
   },
   det: (el) => { const id = el.dataset.id; S.det[id] = !S.det[id]; render(); },
   retry: () => refresh(true),
