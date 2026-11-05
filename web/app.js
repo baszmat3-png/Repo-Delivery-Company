@@ -104,8 +104,8 @@ const IC = {
 };
 const ico = (n) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${IC[n] || ''}</svg>`;
 
-const RIO_MARK = '<svg class="rl" width="170" height="108" viewBox="0 0 300 190" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ريو للتوصيل أسرع" style="display:block;max-width:100%;margin:0 auto 8px"><rect width="300" height="190" rx="30" fill="#ffd21f"/><g fill="#171200"><rect x="216" y="52" width="64" height="13" rx="6"/><rect x="226" y="80" width="54" height="13" rx="6"/><rect x="216" y="108" width="64" height="13" rx="6"/></g><text x="112" y="112" text-anchor="middle" font-family="Cairo,Tahoma,sans-serif" font-weight="900" font-size="92" fill="#171200">ريوو</text><text x="112" y="168" text-anchor="middle" font-family="Cairo,Tahoma,sans-serif" font-weight="700" font-size="22" fill="#5c4d00">للتوصيل أسرع</text></svg>';
-const logo = (cls = '') => `<span class="logo ${cls}" aria-label="ريو للتوصيل أسرع"><span class="logo-lines"><i></i><i></i><i></i></span><span class="logo-col"><span class="logo-word">ريوو</span><span class="logo-sub">للتوصيل أسرع</span></span></span>`;
+const RIO_MARK = '<svg class="rl" width="170" height="108" viewBox="0 0 300 190" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ريو للتوصيل اسرع" style="display:block;max-width:100%;margin:0 auto 8px"><rect width="300" height="190" rx="30" fill="#ffd21f"/><g fill="#171200"><rect x="216" y="52" width="64" height="13" rx="6"/><rect x="226" y="80" width="54" height="13" rx="6"/><rect x="216" y="108" width="64" height="13" rx="6"/></g><text x="112" y="112" text-anchor="middle" font-family="Cairo,Tahoma,sans-serif" font-weight="900" font-size="92" fill="#171200">ريوو</text><text x="112" y="168" text-anchor="middle" font-family="Cairo,Tahoma,sans-serif" font-weight="700" font-size="22" fill="#5c4d00">للتوصيل أسرع</text></svg>';
+const logo = (cls = '') => `<img class="logo-img ${cls}" src="logo.png" alt="ريو للتوصيل اسرع">`;
 
 const ST = {
   pending: ['بانتظار سائق', 'amber'], picking_up: ['قيد الاستلام من التاجر', 'accent'], on_the_way: ['في الطريق للزبون', 'accent'],
@@ -279,7 +279,7 @@ function loginView() {
       <button class="btn block" type="submit" id="l-btn">دخول</button>
     </form></div></div>`;
   return `<div class="lg">
-  <div class="lg-hero"><img src="hero.jpg" alt="ريو للتوصيل أسرع — أسرع توصيل في بغداد"></div>
+  <div class="lg-hero"><img src="hero.jpg" alt="ريو للتوصيل اسرع — أسرع توصيل في بغداد"></div>
   <form class="lg-card" data-form="login" autocomplete="on">
     <h1>تسجيل الدخول</h1><p class="lg-sub">مرحباً بك في ريو</p>
     <div class="lg-in">${ico('phone')}<input id="l-phone" name="phone" inputmode="tel" autocomplete="username" placeholder="رقم الجوال" aria-label="رقم الجوال" required></div>
@@ -555,7 +555,7 @@ function tplText(key, vars) {
 }
 function ordVars(o) {
   const st = (S.data && S.data.settings) || {};
-  return { order_no: o.no, status: (ST[o.status] || [o.status])[0], merchant: o.merchantName, merchant_phone: o.merchantPhone, merchant_area: o.merchantArea, customer_phone: o.customerPhone, customer_area: o.customerArea, product: o.product, qty: o.qty, product_price: mny(o.productPrice), delivery_price: mny(o.deliveryPrice), total: mny(o.total), driver: o.driverName || '—', note: o.note || '', app: 'ريو للتوصيل أسرع', support: st.support || '', date: fmtDT(o.createdAt), name: (S.user && S.user.name) || '', phone: (S.user && S.user.phone) || '' };
+  return { order_no: o.no, status: (ST[o.status] || [o.status])[0], merchant: o.merchantName, merchant_phone: o.merchantPhone, merchant_area: o.merchantArea, customer_phone: o.customerPhone, customer_area: o.customerArea, product: o.product, qty: o.qty, product_price: mny(o.productPrice), delivery_price: mny(o.deliveryPrice), total: mny(o.total), driver: o.driverName || '—', note: o.note || '', app: 'ريو للتوصيل اسرع', support: st.support || '', date: fmtDT(o.createdAt), name: (S.user && S.user.name) || '', phone: (S.user && S.user.phone) || '' };
 }
 function supportLink(o) {
   const sp = (S.data && S.data.settings && S.data.settings.support) || '';
@@ -694,7 +694,7 @@ function modelHtml(m) {
     const nextIsBox = m.sections[i + 1] && m.sections[i + 1].box;
     return inner + (i < m.sections.length - 1 && !sec.box && !nextIsBox ? '<hr>' : '');
   }).join('');
-  return `<div class="rcpt sz${RSIZE}">${RIO_MARK}<h3>ريو للتوصيل أسرع</h3>${m.heading ? `<h3 class="rh">${esc(m.heading)}</h3>` : ''}<div class="ttl">${esc(m.title)}</div>${m.no ? `<div class="no">#${esc(m.no)}</div>` : '<div style="height:10px"></div>'}${body}</div>`;
+  return `<div class="rcpt sz${RSIZE}">${RIO_MARK}<h3>ريو للتوصيل اسرع</h3>${m.heading ? `<h3 class="rh">${esc(m.heading)}</h3>` : ''}<div class="ttl">${esc(m.title)}</div>${m.no ? `<div class="no">#${esc(m.no)}</div>` : '<div style="height:10px"></div>'}${body}</div>`;
 }
 const receiptCanvas = (o) => modelCanvas(receiptModel(o));
 async function modelCanvas(m) {
@@ -723,7 +723,7 @@ async function modelCanvas(m) {
     x.fillStyle = '#111';
   }
   y += lh0() + 24;
-  x.textAlign = 'center'; x.font = `800 30px ${FF}`; x.fillText('ريو للتوصيل أسرع', W / 2, y);
+  x.textAlign = 'center'; x.font = `800 30px ${FF}`; x.fillText('ريو للتوصيل اسرع', W / 2, y);
   y += m.heading ? 40 : 38;
   if (m.heading) { x.font = `800 26px ${FF}`; x.fillText(m.heading, W / 2, y, W - 2 * PAD); y += 44; }
   x.lineWidth = 3; x.strokeStyle = '#111'; rr(PAD - 6, y, W - 2 * PAD + 12, 56, 16); x.stroke();
@@ -908,7 +908,7 @@ function saveBlob(blob, name) {
 }
 async function exportReportXlsx(rep) {
   const RL = await loadLib();
-  const rows = [['ريو للتوصيل أسرع'], [`${rep.title} — ${rep.owner}`], ['الفترة', rep.period], [], rep.head, ...rep.rows, rep.foot, [], ['الملخص'], ...rep.kpis.map((k) => [k[0], k[1]]), [], [rep.note]];
+  const rows = [['ريو للتوصيل اسرع'], [`${rep.title} — ${rep.owner}`], ['الفترة', rep.period], [], rep.head, ...rep.rows, rep.foot, [], ['الملخص'], ...rep.kpis.map((k) => [k[0], k[1]]), [], [rep.note]];
   await RL.exportXlsx(stampName(rep), [{ name: 'التقرير', rows }]);
 }
 function reportWordHtml(rep) {
@@ -917,7 +917,7 @@ function reportWordHtml(rep) {
   return `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40" dir="rtl" lang="ar"><head><meta charset="utf-8"><title>${esc(rep.title)}</title>
 <!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->
 <style>@page{size:A4 landscape;margin:1.2cm}body{font-family:Cairo,Tahoma,Arial,sans-serif;direction:rtl;font-size:11pt}h1{font-size:20pt;margin:0}h2{font-size:13pt;border-right:6px solid #ffd21f;padding-right:8px}table{border-collapse:collapse;width:100%;margin-bottom:12px}th{background:#111;color:#fff;padding:5px 7px;text-align:right}td{border:1px solid #bbb;padding:4px 7px}.k td{font-weight:bold}.hi td{background:#ffd21f;font-weight:bold}.t td{background:#fff3b0;font-weight:bold}</style></head><body dir="rtl">
-<h1>ريو للتوصيل أسرع</h1><h2>${esc(rep.title)} — ${esc(rep.owner)}</h2><p>الفترة: ${esc(rep.period)} &nbsp;|&nbsp; تاريخ الإصدار: ${esc(fmtDT(Date.now()))}</p>
+<h1>ريو للتوصيل اسرع</h1><h2>${esc(rep.title)} — ${esc(rep.owner)}</h2><p>الفترة: ${esc(rep.period)} &nbsp;|&nbsp; تاريخ الإصدار: ${esc(fmtDT(Date.now()))}</p>
 <table><tbody>${rep.kpis.map((k, i) => `<tr class="${i === rep.kpis.length - 1 || /الصافي|المستحق/.test(k[0]) ? 'hi' : 'k'}"><td>${esc(k[0])}</td><td style="text-align:left;direction:ltr">${esc(kfmt(k))}</td></tr>`).join('')}</tbody></table>
 <h2>تفاصيل الطلبات</h2><table><thead><tr>${rep.head.map((h) => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rep.rows.map((r) => `<tr>${r.map((c, i) => td(c, numCol(i) || i === 0)).join('')}</tr>`).join('')}</tbody><tfoot><tr class="t">${rep.foot.map((c, i) => td(c, numCol(i))).join('')}</tr></tfoot></table>
 <p style="color:#555">${esc(rep.note)}</p></body></html>`;
@@ -1112,7 +1112,7 @@ async function ensureNativePush() {
         await PN.addListener('pushNotificationReceived', async (n) => {
           const d = n.data || {};
           beep();
-          try { await LN.schedule({ notifications: [{ id: (Number(d.id) || Date.now()) % 2147483000, title: n.title || d.title || 'ريو للتوصيل أسرع', body: n.body || d.body || '', channelId: 'rio_orders', extra: d }] }); } catch { /* ignore */ }
+          try { await LN.schedule({ notifications: [{ id: (Number(d.id) || Date.now()) % 2147483000, title: n.title || d.title || 'ريو للتوصيل اسرع', body: n.body || d.body || '', channelId: 'rio_orders', extra: d }] }); } catch { /* ignore */ }
         });
       } catch { /* ignore */ }
       try { await LN.addListener('localNotificationActionPerformed', (a) => { const d = (a.notification && a.notification.extra) || {}; handleNotifTap({ kind: d.kind, orderId: d.orderId, orderNo: d.orderNo, id: d.id }); }); } catch { /* ignore */ }

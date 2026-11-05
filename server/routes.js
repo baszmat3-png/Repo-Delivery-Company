@@ -849,6 +849,29 @@ route('GET', '/api/orders/:id', { roles: ['merchant', 'driver', 'admin', 'staff'
 
 /* ---------- تصفير الطلبات والحسابات التجريبية (المدير فقط) ---------- */
 const DEMO_PHONES = ['07700000201', '07700000202', '07700000203', '07700000301', '07700000302'];
+/* إعادة تعيين الإحصائيات: يحذف الطلبات والمحادثات والإشعارات والحركات والمصاريف والسندات (ويصفّر الأرصدة اختيارياً). الحسابات والإعدادات والكروت تبقى. */
+route('POST', '/api/admin/reset-stats', ADMIN, async (c) => {
+  if (c.body.confirm !== true) fail('يجب تأكيد عملية الحذف');
+  const cnt = async (t) => Number((await q(`SELECT COUNT(*) AS n FROM ${t}`)).rows[0].n) || 0;
+  const out = { orders: await cnt('orders'), expenses: await cnt('expenses'), vouchers: await cnt('vouchers'), txs: await cnt('txs') };
+  await q('DELETE FROM messages');
+  await q('DELETE FROM notifs');
+  await q('DELETE FROM orders');
+  await q('DELETE FROM txs');
+  await q('DELETE FROM expenses');
+  await q('DELETE FROM vouchers');
+  if (c.body.balances === true) await q(`UPDATE users SET balance=0 WHERE role IN ('driver','merchant')`);
+  return { ok: true, ...out };
+});
+
+/* تصفير الكروت: حذف كل كروت الشحن (المتاحة والمستخدمة) */
+route('POST', '/api/admin/reset-cards', ADMIN, async (c) => {
+  if (c.body.confirm !== true) fail('يجب تأكيد عملية الحذف');
+  const n = Number((await q('SELECT COUNT(*) AS n FROM cards')).rows[0].n) || 0;
+  await q('DELETE FROM cards');
+  return { ok: true, cards: n };
+});
+
 route('POST', '/api/admin/reset', ADMIN, async (c) => {
   if (c.body.confirm !== true) fail('يجب تأكيد عملية الحذف');
   const wantOrders = c.body.orders === true, wantDemo = c.body.demo === true;

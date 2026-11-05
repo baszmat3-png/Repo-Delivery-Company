@@ -1,6 +1,6 @@
 // خدمة: تخزّن ملفات الواجهة فقط (لا تخزّن API أبداً) + تستقبل إشعارات الدفع حتى والتطبيق مغلق.
-const CACHE = 'rio-v5';
-const FILES = ['./', 'style.css', 'app.js', 'theme.js', 'config.js', 'manifest.webmanifest', 'icons/icon-192.png', 'hero.jpg'];
+const CACHE = 'rio-v6';
+const FILES = ['./', 'style.css', 'app.js', 'theme.js', 'config.js', 'manifest.webmanifest', 'icons/icon-192.png', 'hero.jpg', 'logo.png'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).catch(() => {})); self.skipWaiting(); });
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
@@ -18,10 +18,10 @@ self.addEventListener('fetch', (e) => {
 /* ---- إشعارات الدفع ---- */
 self.addEventListener('push', (e) => {
   let d = {};
-  try { d = e.data ? e.data.json() : {}; } catch { d = { title: 'ريو للتوصيل أسرع', body: e.data ? e.data.text() : '' }; }
+  try { d = e.data ? e.data.json() : {}; } catch { d = { title: 'ريو للتوصيل اسرع', body: e.data ? e.data.text() : '' }; }
   e.waitUntil((async () => {
     // يجب أن يُعرض إشعار مع كل دفعة (شرط iOS وكروم) وإلا يُلغى الاشتراك؛ لذلك نجرّب بخيارات كاملة ثم بخيارات بسيطة
-    const title = d.title || 'ريو للتوصيل أسرع';
+    const title = d.title || 'ريو للتوصيل اسرع';
     try {
       await self.registration.showNotification(title, {
         body: d.body || '', icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', tag: d.tag || ('rio-' + (d.id || Date.now())),

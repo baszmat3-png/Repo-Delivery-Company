@@ -2,7 +2,7 @@
   "name": "rio-delivery",
   "version": "1.0.0",
   "private": true,
-  "description": "ريو للتوصيل أسرع: موقع + خادم + تطبيق أندرويد",
+  "description": "ريو للتوصيل اسرع: موقع + خادم + تطبيق أندرويد",
   "scripts": {
     "start": "cd server && node index.js",
     "test:api": "cd server && node smoke-test.js"
