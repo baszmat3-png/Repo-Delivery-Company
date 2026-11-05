@@ -396,7 +396,7 @@ function merchantList() {
   ${l.map((m, i) => `<tr><td>${rankB(i)}</td><td>${upImg(m, 30)}<b>${esc(m.name)}</b>${vbadge(m, 'merchant')} ${!m.active ? bdg('موقوف', 'red') : ''} ${top.includes(m.id) ? bdg('الأكثر طلباً', 'y') : ''}<div class="hint">${esc(m.area)} · <span class="num">${esc(m.phone)}</span></div></td>
   <td style="min-width:120px"><b>${nn(m.orders)}</b><div class="bar"><i style="width:${pct(m.orders, mx)}%"></i></div></td><td class="n">${nn(m.delivered)}</td><td class="n">${m.returned ? `<span class="neg">${nn(m.returned)}</span><div class="hint">${mm(m.returnedValue)}</div>` : '0'}</td>
   <td class="n">${mm(m.goods)}</td><td class="n">${mm(m.delivery)}</td><td>${m.mapUrl ? `<a class="btn sm g" target="_blank" rel="noopener" href="${esc(mapHref(m.mapUrl))}">خريطة</a>` : '<span class="muted">—</span>'}</td><td>${ago(m.lastAt)}</td>
-  <td class="act"><div class="row"><button class="btn sm" data-a="stmt" data-t="merchant" data-id="${m.id}">كشف / تصدير</button><button class="btn sm g" data-a="mloc" data-id="${m.id}">العنوان والموقع</button><button class="btn sm g" data-a="pw" data-id="${m.id}">كلمة سر</button><a class="btn sm w" target="_blank" rel="noopener" href="${wapw(m)}">واتساب</a><button class="btn sm ${m.verified ? 'g' : 'o'}" data-a="verify" data-id="${m.id}">${m.verified ? 'إلغاء التوثيق' : 'توثيق'}</button><button class="btn sm ${m.active ? 'g' : 'd'}" data-a="toggle" data-id="${m.id}">${m.active ? 'إيقاف' : 'تفعيل'}</button></div></td></tr>`).join('')}
+  <td class="act"><div class="row"><button class="btn sm" data-a="stmt" data-t="merchant" data-id="${m.id}">كشف / تصدير</button><button class="btn sm g" data-a="mloc" data-id="${m.id}">العنوان والموقع</button><button class="btn sm g" data-a="pw" data-id="${m.id}">كلمة سر</button><a class="btn sm w" target="_blank" rel="noopener" href="${wapw(m)}">واتساب</a><button class="btn sm ${m.verified ? 'g' : 'o'}" data-a="verify" data-id="${m.id}">${m.verified ? 'إلغاء التوثيق' : 'توثيق'}</button><button class="btn sm ${m.active ? 'g' : 'd'}" data-a="toggle" data-id="${m.id}">${m.active ? 'إيقاف' : 'تفعيل'}</button><button class="btn sm d" data-a="del-user" data-id="${m.id}">حذف</button></div></td></tr>`).join('')}
   </tbody>${l.length ? `<tfoot><tr><td colspan="2">${l.length} متجر</td><td>${nn(t('orders'))}</td><td class="n">${nn(t('delivered'))}</td><td class="n">${nn(t('returned'))}</td><td class="n">${mm(t('goods'))}</td><td class="n">${mm(t('delivery'))}</td><td colspan="3"></td></tr></tfoot>` : ''}</table></div>${l.length ? '' : empty('لا توجد متاجر', 'أضف أول متجر من الزر أعلاه.')}`;
 }
 function merchants() {
@@ -414,7 +414,7 @@ function driverList() {
   ${l.map((m, i) => `<tr><td>${rankB(i)}</td><td>${upImg(m, 30)}<b>${esc(m.name)}</b>${vbadge(m, 'driver')} ${!m.active ? bdg('موقوف', 'red') : m.receiving ? bdg('يستقبل', 'green') : bdg('متوقف الاستقبال', 'gray')}<div class="hint">${m.vehicle === 'car' ? 'سيارة' : 'دراجة'} · <span class="num">${esc(m.phone)}</span></div></td>
   <td class="n"><b>${nn(m.delivered)}</b></td><td class="n">${nn(m.live)}</td><td class="n">${m.late ? `<b class="neg">${nn(m.late)}</b>` : '0'}</td><td class="n">${nn(m.returned)}</td><td class="n">${nn(m.problems)}</td>
   <td class="n"><b class="${m.balance < (D.settingsFee || 1000) ? 'neg' : ''}">${mm(m.balance)}</b></td><td class="n">${mm(m.collected)}</td><td class="n">${mm(m.fees)}</td><td>${ago(m.lastAt)}</td>
-  <td class="act"><div class="row"><button class="btn sm" data-a="stmt" data-t="driver" data-id="${m.id}">كشف / تصدير</button><button class="btn sm g" data-a="adjust" data-id="${m.id}">رصيد</button><button class="btn sm g" data-a="pw" data-id="${m.id}">كلمة سر</button><a class="btn sm w" target="_blank" rel="noopener" href="${wapw(m)}">واتساب</a><button class="btn sm ${m.verified ? 'g' : 'o'}" data-a="verify" data-id="${m.id}">${m.verified ? 'إلغاء التوثيق' : 'توثيق'}</button><button class="btn sm ${m.active ? 'g' : 'd'}" data-a="toggle" data-id="${m.id}">${m.active ? 'إيقاف' : 'تفعيل'}</button></div></td></tr>`).join('')}
+  <td class="act"><div class="row"><button class="btn sm" data-a="stmt" data-t="driver" data-id="${m.id}">كشف / تصدير</button><button class="btn sm g" data-a="adjust" data-id="${m.id}">رصيد</button><button class="btn sm g" data-a="pw" data-id="${m.id}">كلمة سر</button><a class="btn sm w" target="_blank" rel="noopener" href="${wapw(m)}">واتساب</a><button class="btn sm ${m.verified ? 'g' : 'o'}" data-a="verify" data-id="${m.id}">${m.verified ? 'إلغاء التوثيق' : 'توثيق'}</button><button class="btn sm ${m.active ? 'g' : 'd'}" data-a="toggle" data-id="${m.id}">${m.active ? 'إيقاف' : 'تفعيل'}</button><button class="btn sm d" data-a="del-user" data-id="${m.id}">حذف</button></div></td></tr>`).join('')}
   </tbody></table></div>${l.length ? '' : empty('لا يوجد مندوبون')}`;
 }
 function drivers() {
@@ -845,6 +845,13 @@ const clickActs = {
   'exp-merchants'() { doExcel('merchants'); }, 'pdf-merchants'() { doPdf('merchants'); },
   'exp-drivers'() { doExcel('drivers'); }, 'pdf-drivers'() { doPdf('drivers'); },
   'exp-customers'() { doExcel('customers'); }, 'exp-expenses'() { doExcel('expenses'); }, 'exp-vouchers'() { doExcel('vouchers'); },
+  async 'del-user'(el) {
+    const u = findU(Number(el.dataset.id)); if (!u) return;
+    const isD = u.role === 'driver' || D.drivers.includes(u);
+    const bal = isD && u.balance ? `\nرصيده الحالي ${nn(u.balance)} د.ع سيُفقد.` : '';
+    if (!confirm(`حذف ${isD ? 'المندوب' : 'المتجر'} «${u.name}» نهائياً؟${bal}\nتبقى طلباته القديمة في السجل، ولا يمكنه الدخول بعد ذلك.`)) return;
+    if (await act(() => api('DELETE', '/api/admin/users/' + u.id), 'تم حذف الحساب')) load();
+  },
   async verify(el) {
     const u = findU(Number(el.dataset.id)); if (!u) return;
     const prev = !!u.verified; u.verified = !prev; draw();

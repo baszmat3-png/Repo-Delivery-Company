@@ -719,6 +719,30 @@ route('PUT', '/api/admin/users/:id', ADM(['merchants', 'drivers'], 'edit'), asyn
   return { user: pub(saved) };
 });
 
+/* حذف مندوب أو متجر: بدون طلبات يُحذف نهائياً، ومعه طلبات يُجهَّل الحساب (يبقى سجل الطلبات والحسابات المالية) ويختفي من القوائم */
+route('DELETE', '/api/admin/users/:id', ADM(['merchants', 'drivers'], 'edit'), async (c) => {
+  const r = await q(`SELECT * FROM users WHERE id=$1 AND role IN ('driver','merchant')`, [Number(c.params.id)]);
+  const u = r.rows[0];
+  if (!u) fail('المستخدم غير موجود', 404);
+  need(c.user, u.role === 'merchant' ? 'merchants' : 'drivers', 'edit');
+  const live = Number((await q(`SELECT COUNT(*) AS n FROM orders WHERE (merchant_id=$1 OR driver_id=$1) AND status IN ('pending','picking_up','on_the_way','return_sent')`, [u.id])).rows[0].n);
+  if (live) fail('لا يمكن الحذف: لدى الحساب ' + live + ' طلب جارٍ. أنهِ الطلبات أو انقلها لسائق آخر أولاً', 409);
+  const total = Number((await q(`SELECT COUNT(*) AS n FROM orders WHERE merchant_id=$1 OR driver_id=$1`, [u.id])).rows[0].n);
+  await q('DELETE FROM push_subs WHERE user_id=$1', [u.id]);
+  await q('DELETE FROM notifs WHERE user_id=$1', [u.id]);
+  if (!total) {
+    await q('DELETE FROM txs WHERE driver_id=$1', [u.id]);
+    await q('DELETE FROM users WHERE id=$1', [u.id]);
+    return { ok: true, removed: true };
+  }
+  await db.update('users', 'id', u.id, {
+    name: 'حساب محذوف', phone: 'deleted-' + u.id, active: 0, receiving: 0, area: '', avatar: '', verified: 0,
+    pass_hash: await hashPassword(crypto.randomBytes(16).toString('hex'))
+  });
+  await q('UPDATE messages SET text=$1 WHERE user_id=$2', ['(محذوفة)', u.id]);
+  return { ok: true, removed: false };
+});
+
 route('POST', '/api/admin/users/:id/adjust', ADM('drivers', 'edit'), async (c) => {
   const amount = int(c.body.amount);
   if (!Number.isFinite(amount) || amount === 0 || Math.abs(amount) > 100000000) fail('اكتب مبلغاً صحيحاً');

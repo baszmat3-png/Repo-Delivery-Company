@@ -1,0 +1,90 @@
+name: بناء تطبيق iOS (آبل)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-14
+    env:
+      BUILD_NUMBER: ${{ github.run_number }}
+      TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      ASC_KEY: ${{ secrets.APPSTORE_KEY_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: ضبط عنوان الخادم
+        run: |
+          API_URL="${{ vars.RIO_API_URL }}"
+          if [ -z "$API_URL" ]; then API_URL="https://repo-delivery-company2.onrender.com"; fi
+          echo "window.RIO_API = \"$API_URL\";" > web/config.js
+      - run: npm install
+      - run: npx cap add ios
+      - name: Firebase للإشعارات (اختياري)
+        env:
+          PLIST: ${{ secrets.IOS_GOOGLE_SERVICE_INFO_BASE64 }}
+        run: |
+          if [ -n "$PLIST" ]; then echo "$PLIST" | base64 -d > GoogleService-Info.plist; echo "HAS_FIREBASE=1" >> $GITHUB_ENV; else echo "::warning::IOS_GOOGLE_SERVICE_INFO_BASE64 غير مضبوط: لن تصل إشعارات الدفع على آيفون وهو مغلق"; fi
+      - name: تجهيز المشروع (خصوصية، صلاحيات، Info.plist)
+        run: ruby tools/ios-prepare.rb
+      - name: أيقونات التطبيق
+        run: npx capacitor-assets generate --ios
+      - run: npx cap sync ios
+      - name: بناء غير موقّع (للتحقق من سلامة المشروع)
+        if: ${{ env.TEAM_ID == '' }}
+        run: |
+          xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath build/App.xcarchive archive \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO | tail -25
+          cd build && zip -qr App-unsigned.xcarchive.zip App.xcarchive
+      - name: بناء موقّع وتصدير IPA لـ App Store
+        if: ${{ env.TEAM_ID != '' }}
+        env:
+          CERT_P12: ${{ secrets.IOS_CERT_P12_BASE64 }}
+          CERT_PASS: ${{ secrets.IOS_CERT_PASSWORD }}
+          PROFILE: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
+        run: |
+          KC=$RUNNER_TEMP/build.keychain-db; KP=$(uuidgen)
+          security create-keychain -p "$KP" $KC; security set-keychain-settings -lut 21600 $KC
+          security unlock-keychain -p "$KP" $KC
+          echo "$CERT_P12" | base64 -d > $RUNNER_TEMP/cert.p12
+          security import $RUNNER_TEMP/cert.p12 -P "$CERT_PASS" -A -t cert -f pkcs12 -k $KC
+          security set-key-partition-list -S apple-tool:,apple: -k "$KP" $KC
+          security list-keychain -d user -s $KC
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          echo "$PROFILE" | base64 -d > $RUNNER_TEMP/p.mobileprovision
+          UUID=$(/usr/libexec/PlistBuddy -c 'Print UUID' /dev/stdin <<< "$(security cms -D -i $RUNNER_TEMP/p.mobileprovision)")
+          PNAME=$(/usr/libexec/PlistBuddy -c 'Print Name' /dev/stdin <<< "$(security cms -D -i $RUNNER_TEMP/p.mobileprovision)")
+          cp $RUNNER_TEMP/p.mobileprovision "$HOME/Library/MobileDevice/Provisioning Profiles/$UUID.mobileprovision"
+          xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath build/App.xcarchive archive \
+            CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=$TEAM_ID PROVISIONING_PROFILE_SPECIFIER="$PNAME" CODE_SIGN_IDENTITY="Apple Distribution" | tail -25
+          cat > build/ExportOptions.plist <<PL
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>provisioningProfiles</key><dict><key>com.rio.delivery</key><string>$PNAME</string></dict>
+          </dict></plist>
+          PL
+          xcodebuild -exportArchive -archivePath build/App.xcarchive -exportOptionsPlist build/ExportOptions.plist -exportPath build/ipa | tail -10
+      - name: رفع إلى TestFlight (اختياري)
+        if: ${{ env.TEAM_ID != '' && env.ASC_KEY != '' }}
+        env:
+          KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          ISSUER: ${{ secrets.APPSTORE_ISSUER_ID }}
+          KEY_P8: ${{ secrets.APPSTORE_KEY_P8_BASE64 }}
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "$KEY_P8" | base64 -d > ~/.appstoreconnect/private_keys/AuthKey_$KEY_ID.p8
+          xcrun altool --upload-app -f build/ipa/App.ipa -t ios --apiKey "$KEY_ID" --apiIssuer "$ISSUER"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rio-ios
+          path: |
+            build/App-unsigned.xcarchive.zip
+            build/ipa/*.ipa
+          if-no-files-found: warn

@@ -571,7 +571,7 @@ const userTable = (role) => {
   ${users.length ? `<div class="tblwrap"><table><thead><tr><th>الاسم</th><th>الهاتف</th><th>${isD ? 'المركبة' : 'المنطقة'}</th>${isD ? '<th>الرصيد</th>' : ''}<th>الحالة</th><th></th></tr></thead><tbody>
   ${users.map((u) => `<tr><td>${upImg(u, 28)} <b>${esc(u.name)}</b>${vbadge(u)}</td><td>${telLink(u.phone)}</td><td>${isD ? vehName(u.vehicle) : esc(u.area)}</td>${isD ? `<td>${money(u.balance)}</td>` : ''}
   <td><button class="pill ${u.active ? 'green' : 'red'}" data-act="toggle-user" data-id="${u.id}">${u.active ? 'فعّال' : 'موقوف'}</button></td>
-  <td><div class="row">${isD ? `<button class="btn sm soft" data-act="adjust" data-id="${u.id}">شحن / خصم</button>` : ''}<button class="btn sm ${u.verified ? 'ghost' : 'soft'}" data-act="verify-user" data-id="${u.id}">${u.verified ? 'إلغاء التوثيق' : 'توثيق'}</button><button class="btn sm ghost" data-act="edit-user" data-id="${u.id}">تعديل</button></div></td></tr>`).join('')}
+  <td><div class="row">${isD ? `<button class="btn sm soft" data-act="adjust" data-id="${u.id}">شحن / خصم</button>` : ''}<button class="btn sm ${u.verified ? 'ghost' : 'soft'}" data-act="verify-user" data-id="${u.id}">${u.verified ? 'إلغاء التوثيق' : 'توثيق'}</button><button class="btn sm ghost" data-act="edit-user" data-id="${u.id}">تعديل</button><button class="btn sm danger" data-act="del-user" data-id="${u.id}">حذف</button></div></td></tr>`).join('')}
   </tbody></table></div>` : emptyBox('لا توجد حسابات بعد', 'اضغط الزر أعلاه لإضافة أول حساب.')}`;
 };
 
@@ -1538,6 +1538,11 @@ const ACTIONS = {
     if (await act(() => api('PUT', '/api/driver/receiving', { receiving: next }), next ? 'تم تفعيل استقبال الطلبات' : 'تم إيقاف استقبال الطلبات')) refresh(true);
   },
   async 'rm-avatar'() { if (await act(() => api('PUT', '/api/me/profile', { avatar: '' }).then((r) => setUser(r.user)), 'تم حذف الصورة')) render(); },
+  async 'del-user'(el) {
+    const u = S.data.users.find((x) => x.id === Number(el.dataset.id)); if (!u) return;
+    if (!confirm(`حذف «${u.name}» نهائياً؟ تبقى طلباته القديمة في السجل ولا يمكنه الدخول بعد ذلك.`)) return;
+    if (await act(() => api('DELETE', `/api/admin/users/${u.id}`), 'تم حذف الحساب')) refresh(true);
+  },
   async 'verify-user'(el) {
     const u = S.data.users.find((x) => x.id === Number(el.dataset.id)); if (!u) return;
     const prev = !!u.verified; u.verified = !prev; render();
