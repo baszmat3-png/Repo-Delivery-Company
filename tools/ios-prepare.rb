@@ -47,7 +47,7 @@ target.build_configurations.each do |c|
   s['CODE_SIGN_ENTITLEMENTS'] = 'App/App.entitlements'
   s['TARGETED_DEVICE_FAMILY'] = '1' # آيفون فقط (لا حاجة للقطات آيباد)
   s['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
-  s['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.rioiraq.delivery'
+  s['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.rioiraq.express'
   s['MARKETING_VERSION'] = ENV['MARKETING_VERSION'] || '1.0.0'
   s['CURRENT_PROJECT_VERSION'] = ENV['BUILD_NUMBER'] || '1'
   s['DEVELOPMENT_TEAM'] = ENV['TEAM_ID'] if ENV['TEAM_ID'] && !ENV['TEAM_ID'].empty?

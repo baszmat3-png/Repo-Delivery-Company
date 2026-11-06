@@ -67,7 +67,7 @@ jobs:
             <key>method</key><string>app-store</string>
             <key>teamID</key><string>$TEAM_ID</string>
             <key>signingStyle</key><string>manual</string>
-            <key>provisioningProfiles</key><dict><key>com.rioiraq.delivery</key><string>$PNAME</string></dict>
+            <key>provisioningProfiles</key><dict><key>com.rioiraq.express</key><string>$PNAME</string></dict>
           </dict></plist>
           PL
           xcodebuild -exportArchive -archivePath build/App.xcarchive -exportOptionsPlist build/ExportOptions.plist -exportPath build/ipa | tail -10
