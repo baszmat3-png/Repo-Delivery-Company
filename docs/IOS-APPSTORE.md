@@ -8,13 +8,13 @@
 |---|---|
 | حساب Apple Developer | https://developer.apple.com/programs — **99$ سنوياً**. التسجيل كفرد أو كشركة (الشركة تحتاج رقم D-U-N-S). المراجعة تأخذ من يوم إلى أسبوعين |
 | جهاز Mac (اختياري) | غير ضروري: البناء يتم على GitHub. تحتاج Mac فقط إن أردت التجربة على جهازك عبر Xcode |
-| معرّف الحزمة (Bundle ID) | `com.rio.delivery` — أنشئه في Certificates, Identifiers & Profiles، وفعّل عليه **Push Notifications** |
+| معرّف الحزمة (Bundle ID) | `com.rioiraq.delivery` — أنشئه في Certificates, Identifiers & Profiles، وفعّل عليه **Push Notifications** |
 | سجل التطبيق في App Store Connect | https://appstoreconnect.apple.com ← Apps ← New App ← الاسم: ريو للتوصيل اسرع ← اللغة: العربية ← Bundle ID ← SKU: `rio-delivery-1` |
 | شهادة التوزيع | Apple Distribution (ملف `.p12` + كلمة سره) |
 | ملف التوفير | Provisioning Profile نوع **App Store** للمعرّف أعلاه (ملف `.mobileprovision`) |
 | مفتاح API (اختياري لرفع تلقائي) | App Store Connect ← Users and Access ← Integrations ← مفتاح بصلاحية App Manager (`.p8` + Key ID + Issuer ID) |
 | مفتاح APNs للإشعارات | Certificates, Identifiers & Profiles ← Keys ← مفتاح **Apple Push Notifications service** (`.p8`) ثم ارفعه في Firebase ← Project settings ← Cloud Messaging ← Apple app configuration |
-| ملف Firebase لآيفون | Firebase Console ← أضف تطبيق **iOS** بالمعرّف `com.rio.delivery` ← نزّل `GoogleService-Info.plist` |
+| ملف Firebase لآيفون | Firebase Console ← أضف تطبيق **iOS** بالمعرّف `com.rioiraq.delivery` ← نزّل `GoogleService-Info.plist` |
 
 ## 2) أسرار GitHub المطلوبة
 Settings ← Secrets and variables ← Actions ← New repository secret:
@@ -33,7 +33,7 @@ Settings ← Secrets and variables ← Actions ← New repository secret:
 بدون مفتاح API: ارفع الـ IPA يدوياً بتطبيق **Transporter** (مجاني من Mac App Store).
 
 ## 3) ما جُهّز تلقائياً داخل المشروع
-- معرّف الحزمة `com.rio.delivery`، آيفون فقط، الحد الأدنى iOS 14، اتجاه عمودي.
+- معرّف الحزمة `com.rioiraq.delivery`، آيفون فقط، الحد الأدنى iOS 14، اتجاه عمودي.
 - **PrivacyInfo.xcprivacy** (بيان الخصوصية الإلزامي): لا تتبّع، ويصرّح بالبيانات: الاسم، رقم الهاتف، الصورة، المعرّف، معرّف الجهاز، محتوى المستخدم.
 - `ITSAppUsesNonExemptEncryption = false` (تشفير HTTPS القياسي فقط) فلا يُسأل عن Export Compliance.
 - أوصاف الصلاحيات: الكاميرا ومكتبة الصور (للصورة الشخصية) بالعربية.
