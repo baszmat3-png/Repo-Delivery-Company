@@ -33,7 +33,7 @@ Settings ← Secrets and variables ← Actions ← New repository secret:
 بدون مفتاح API: ارفع الـ IPA يدوياً بتطبيق **Transporter** (مجاني من Mac App Store).
 
 ## 3) ما جُهّز تلقائياً داخل المشروع
-- معرّف الحزمة `com.rioiraq.delivery`، آيفون فقط، الحد الأدنى iOS 14، اتجاه عمودي.
+- معرّف الحزمة `com.rioiraq.delivery`، آيفون فقط، الحد الأدنى iOS 15، اتجاه عمودي.
 - **PrivacyInfo.xcprivacy** (بيان الخصوصية الإلزامي): لا تتبّع، ويصرّح بالبيانات: الاسم، رقم الهاتف، الصورة، المعرّف، معرّف الجهاز، محتوى المستخدم.
 - `ITSAppUsesNonExemptEncryption = false` (تشفير HTTPS القياسي فقط) فلا يُسأل عن Export Compliance.
 - أوصاف الصلاحيات: الكاميرا ومكتبة الصور (للصورة الشخصية) بالعربية.
