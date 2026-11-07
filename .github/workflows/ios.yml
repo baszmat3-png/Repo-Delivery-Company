@@ -20,7 +20,7 @@ jobs:
           if [ -z "$API_URL" ]; then API_URL="https://repo-delivery-company2.onrender.com"; fi
           echo "window.RIO_API = \"$API_URL\";" > web/config.js
       - run: npm install
-      - run: npx cap add ios
+      - run: npx cap add ios --packagemanager CocoaPods
       - name: Firebase للإشعارات (اختياري)
         env:
           PLIST: ${{ secrets.IOS_GOOGLE_SERVICE_INFO_BASE64 }}
