@@ -78,7 +78,7 @@ Settings ← Pages ← Source: GitHub Actions، ثم Settings ← Variables ← 
 **متطلبات Play Console:**
 - رابط سياسة الخصوصية: `https://رابط-render/privacy.html`
 - رابط حذف الحساب: `https://رابط-render/delete-account.html`
-- معرّف التطبيق: `com.rioiraq.express` (غيّره في `capacitor.config.json` قبل أول رفع إن أردت اسماً آخر، فلا يمكن تغييره بعد النشر).
+- معرّف التطبيق: `com.rioiraq.delivery` (غيّره في `capacitor.config.json` قبل أول رفع إن أردت اسماً آخر، فلا يمكن تغييره بعد النشر).
 - بيانات سلامة البيانات: الاسم، رقم الهاتف، كلمة المرور، سجل الطلبات والمعاملات. لا موقع ولا إعلانات.
 - الحسابات الجديدة لا تُنشأ داخل التطبيق، فجهّز حساب تاجر وحساب سائق تجريبيين وضعهما في «تعليمات الوصول للتطبيق» لفريق المراجعة.
 
@@ -92,7 +92,7 @@ Settings ← Pages ← Source: GitHub Actions، ثم Settings ← Variables ← 
 
 - **المتصفح / PWA:** Web Push جاهز بلا إعداد (مفاتيح VAPID تُولَّد وتُحفظ تلقائياً). يظهر طلب الإذن عند أول نقرة بعد الدخول.
 - **تطبيق أندرويد:** يحتاج Firebase مرة واحدة:
-  1. أنشئ مشروعاً في Firebase وأضف تطبيق أندرويد بمعرّف `com.rioiraq.express`، ونزّل `google-services.json`.
+  1. أنشئ مشروعاً في Firebase وأضف تطبيق أندرويد بمعرّف `com.rioiraq.delivery`، ونزّل `google-services.json`.
   2. أضفه كسرّ في GitHub باسم `GOOGLE_SERVICES_JSON_BASE64` (`base64 -w0 google-services.json`).
   3. من إعدادات المشروع ← Service accounts ← Generate new private key، والصق محتوى JSON في متغير Render باسم `FIREBASE_SERVICE_ACCOUNT`.
   4. أعد بناء التطبيق.
