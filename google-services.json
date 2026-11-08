@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "280958771832",
+    "project_id": "rio-delivery-b96e5",
+    "storage_bucket": "rio-delivery-b96e5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:280958771832:android:adaafc1a9bc30133d6c38d",
+        "android_client_info": {
+          "package_name": "com.rio.delivery"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBAlKj1d2fo8vCU-UOiil7a7MeiDOjMoq4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:280958771832:android:fcb4530b8bf9eb2ed6c38d",
+        "android_client_info": {
+          "package_name": "com.rioiraq.delivery"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBAlKj1d2fo8vCU-UOiil7a7MeiDOjMoq4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
