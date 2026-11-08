@@ -29,6 +29,7 @@ jobs:
         run: |
           if [ -n "$GSJ" ]; then echo "$GSJ" | base64 -d > android/app/google-services.json; elif [ -f google-services.json ]; then cp google-services.json android/app/google-services.json; else echo "::warning::GOOGLE_SERVICES_JSON_BASE64 غير مضبوط: لن تصل إشعارات الدفع للتطبيق وهو مغلق"; fi
           if [ -f android/app/google-services.json ] && ! grep -q '"package_name": *"com.rioiraq.delivery"' android/app/google-services.json; then rm android/app/google-services.json; echo "::warning::google-services.json لا يطابق com.rioiraq.delivery فتم تجاهله. أنشئ تطبيق Android جديداً في Firebase بهذا الاسم وحدّث الملف"; fi
+          if [ -f android/app/google-services.json ]; then echo "window.RIO_FCM = true;" >> web/config.js; else echo "window.RIO_FCM = false;" >> web/config.js; fi
           M=android/app/src/main/AndroidManifest.xml
           grep -q POST_NOTIFICATIONS $M || sed -i 's#<application#<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <application#' $M
           grep -q rio_orders $M || sed -i 's#</application>#    <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="rio_orders" />\n    </application>#' $M

@@ -1118,6 +1118,8 @@ async function ensureNativePush() {
       try { await LN.addListener('localNotificationActionPerformed', (a) => { const d = (a.notification && a.notification.extra) || {}; handleNotifTap({ kind: d.kind, orderId: d.orderId, orderNo: d.orderNo, id: d.id }); }); } catch { /* ignore */ }
     }
     try { await LN.requestPermissions(); } catch { /* ignore */ }
+    // بدون google-services.json المطابق يتعطل أندرويد عند register() فلا نستدعيه
+    if (window.RIO_FCM === false) { S.nerr = 'إشعارات التطبيق المغلق غير مفعّلة (ملف Firebase غير مضاف)'; updateNBanner(); return false; }
     await PN.register();
     return true;
   } catch (e) {
