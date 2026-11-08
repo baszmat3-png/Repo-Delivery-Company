@@ -2,7 +2,7 @@ name: بناء تطبيق iOS (آبل)
 on:
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   build:
     runs-on: macos-latest
@@ -31,6 +31,13 @@ jobs:
       - name: أيقونات التطبيق
         run: npx capacitor-assets generate --ios
       - run: npx cap sync ios
+      - name: نشر مجلد ios الجاهز (zip) على فرع ios-project
+        run: |
+          mkdir pub && zip -qr pub/ios-project.zip ios -x "ios/App/Pods/*" "ios/App/build/*" "ios/DerivedData/*"
+          cd pub && git init -q -b ios-project
+          git config user.name "github-actions" && git config user.email "actions@github.com"
+          git add . && git commit -q -m "ios project ${{ github.run_number }}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" ios-project
       - name: بناء غير موقّع (للتحقق من سلامة المشروع)
         if: ${{ env.TEAM_ID == '' }}
         run: |
