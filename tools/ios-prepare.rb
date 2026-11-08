@@ -62,7 +62,7 @@ def pbset(pb, plist, key, type, val)
   system(pb, '-c', "Delete :#{key}", plist, err: File::NULL, out: File::NULL)
   system(pb, '-c', "Add :#{key} #{type} #{val}", plist) or abort "PlistBuddy فشل: #{key}"
 end
-pbset(pb, plist, 'CFBundleDisplayName', 'string', 'ريو للتوصيل اسرع')
+pbset(pb, plist, 'CFBundleDisplayName', 'string', 'ريوو للتوصيل اسرع')
 pbset(pb, plist, 'ITSAppUsesNonExemptEncryption', 'bool', 'false')
 pbset(pb, plist, 'NSPhotoLibraryUsageDescription', 'string', 'لاختيار صورتك الشخصية لحسابك في التطبيق.')
 pbset(pb, plist, 'NSCameraUsageDescription', 'string', 'لالتقاط صورتك الشخصية لحسابك في التطبيق.')

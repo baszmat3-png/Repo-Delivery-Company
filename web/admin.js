@@ -6,7 +6,7 @@ const API = String(window.RIO_API || '').replace(/\/$/, ''), KEY = 'rio_admin_to
 const $ = (s, r = document) => r.querySelector(s);
 const ls = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch { /* */ } }, del(k) { try { localStorage.removeItem(k); } catch { /* */ } } };
 let RS = ls.get('rio_rsize'); if (!['58', '80', 'a5', 'a4'].includes(RS)) RS = '80';
-const APP = 'ريو للتوصيل اسرع';
+const APP = 'ريوو للتوصيل اسرع';
 const tpl = (k) => (SET && SET.templates && SET.templates[k]) || '';
 const ordVars = (o) => ({ order_no: o.no, status: ST[o.status] || o.status, merchant: o.merchantName, merchant_phone: o.merchantPhone, merchant_area: o.merchantArea, customer_phone: o.customerPhone, customer_area: o.customerArea, product: o.product, qty: o.qty, product_price: mny(o.productPrice), delivery_price: mny(o.deliveryPrice), total: mny(o.total), driver: o.driverName || '—', note: o.note || '', app: APP, support: (SET && SET.support) || '', date: fdt(o.createdAt) });
 const custMsg = (o) => fillTpl(tpl('cust_' + o.status) || tpl('cust_default'), ordVars(o));
@@ -263,7 +263,7 @@ function draw() {
   if (!PAGES.length) { r.innerHTML = `<div class="login-wrap"><div class="login">${LOGO}<h2>لا توجد صلاحيات</h2><p class="s">لم تُمنح أي صلاحية بعد. تواصل مع المدير.</p><button class="btn" data-a="logout" style="width:100%;min-height:44px">تسجيل الخروج</button></div></div>`; return; }
   const title = (PAGES.find((x) => x[0] === P) || PAGES[0])[1];
   const rng = ['today', 'week', 'month', 'year', 'all', 'custom'].map((k) => `<option value="${k}" ${R === k ? 'selected' : ''}>${RN[k]}</option>`).join('');
-  r.innerHTML = `<div class="app${MENU ? ' open' : ''}"><div class="mbar"><button class="mb" data-a="menu" aria-label="القائمة" aria-expanded="${MENU}"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><b>${title}</b>${LOGO}</div><div class="ov" data-a="menu-x"></div><aside class="side"><div class="brand">${LOGO}<div><b>لوحة الإدارة</b><small>ريو للتوصيل اسرع</small></div></div>
+  r.innerHTML = `<div class="app${MENU ? ' open' : ''}"><div class="mbar"><button class="mb" data-a="menu" aria-label="القائمة" aria-expanded="${MENU}"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><b>${title}</b>${LOGO}</div><div class="ov" data-a="menu-x"></div><aside class="side"><div class="brand">${LOGO}<div><b>لوحة الإدارة</b><small>ريوو للتوصيل اسرع</small></div></div>
   <nav class="nav" aria-label="التنقل">${PAGES.map(([k, l, i]) => `<button data-a="page" data-k="${k}" class="${P === k ? 'on' : ''}" ${P === k ? 'aria-current="page"' : ''}>${ico(i)}<span>${l}</span>${badge(k)}</button>`).join('')}</nav>
   <div class="foot"><div class="live ${LIVE ? 'on' : ''}"><i></i><span>${LIVE ? 'مزامنة فورية' : 'غير متصل — تحديث دوري'}</span></div>${PAGES.some((x) => x[0] === 'settings') ? '' : '<br><button data-a="logout">تسجيل الخروج</button>'}</div></aside>
   <main class="main"><div class="top"><div><h2>${title}</h2><div class="sub">${esc(rangeLabel())}</div></div>
@@ -382,7 +382,7 @@ function orders() {
 /* ---------------- المتاجر ---------------- */
 const SORTS = { orders: ['الأكثر طلباً', (a, b) => b.orders - a.orders], active: ['الأكثر نشاطاً', (a, b) => b.lastAt - a.lastAt], goods: ['الأعلى مبيعاً', (a, b) => b.goods - a.goods] };
 const mapHref = (u) => (/^https?:/i.test(u) ? u : 'https://www.google.com/maps?q=' + encodeURIComponent(u));
-const wapw = (u) => wa(u.phone, `مرحباً ${u.name}، ريو للتوصيل اسرع`);
+const wapw = (u) => wa(u.phone, `مرحباً ${u.name}، ريوو للتوصيل اسرع`);
 const VSEAL = `<svg class="vb-s" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.8l2.4 1.7 2.9-.2 1 2.8 2.5 1.5-.6 2.9 1.2 2.7-2 2.2-.2 2.9-2.9.9L14 21.6 12 23l-2-1.4-2.4-1.5-2.9-.9-.2-2.9-2-2.2 1.2-2.7-.6-2.9 2.5-1.5 1-2.8 2.9.2z" fill="currentColor"/><path d="M8 12.3l2.7 2.7L16.3 9.4" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const vbadge = (u, role) => (u && u.verified ? `<span class="vb ${role}" title="حساب موثّق">${VSEAL}</span>` : '');
 const upImg = (u, px) => (u && u.avatar ? `<img class="pimg" src="${esc(u.avatar)}" alt="" style="width:${px}px;height:${px}px"> ` : '');
@@ -429,7 +429,7 @@ function customerList() {
   const l = D.customers.filter((c) => !q || norm(c.phone + ' ' + c.area).includes(q));
   return `<div class="tw"><table><thead><tr><th>#</th><th>رقم العميل</th><th>المنطقة</th><th class="n">الطلبات</th><th class="n">المسلّمة</th><th class="n">الراجع</th><th class="n">إجمالي المدفوع</th><th>آخر طلب</th><th></th></tr></thead><tbody>
   ${l.slice(0, 300).map((c, i) => `<tr><td>${rankB(i)}</td><td class="num"><b>${esc(c.phone)}</b></td><td>${esc(c.area)}</td><td class="n"><b>${nn(c.orders)}</b></td><td class="n">${nn(c.delivered)}</td><td class="n">${c.returned ? `<span class="neg">${nn(c.returned)}</span>` : '0'}</td><td class="n">${mm(c.total)}</td><td>${ago(c.lastAt)}</td>
-  <td class="act"><div class="row"><button class="btn sm" data-a="stmt" data-t="customer" data-phone="${esc(c.phone)}">كشف / تصدير</button><a class="btn sm w" target="_blank" rel="noopener" href="${wa(c.phone, 'مرحباً، ريو للتوصيل اسرع')}">واتساب</a></div></td></tr>`).join('')}</tbody></table></div>${l.length ? '' : empty('لا يوجد عملاء ضمن الفترة')}`;
+  <td class="act"><div class="row"><button class="btn sm" data-a="stmt" data-t="customer" data-phone="${esc(c.phone)}">كشف / تصدير</button><a class="btn sm w" target="_blank" rel="noopener" href="${wa(c.phone, 'مرحباً، ريوو للتوصيل اسرع')}">واتساب</a></div></td></tr>`).join('')}</tbody></table></div>${l.length ? '' : empty('لا يوجد عملاء ضمن الفترة')}`;
 }
 function customers() {
   const c = D.customers;
@@ -590,9 +590,9 @@ function stmtBody(m) {
 }
 function stmtText(st) {
   const s = st.summary;
-  if (st.type === 'merchant') return `${stTitle(st)} — ${st.party.name}\nالفترة: ${rangeLabel()}\nالطلبات: ${s.orders} · المسلّمة: ${s.delivered} · الراجعة: ${s.returned}\nقيمة البضائع المسلّمة: ${mny(s.goods)}\nأجور التوصيل: ${mny(s.delivery)}\nالمدفوع لكم: ${mny(s.paid)}\nريو للتوصيل اسرع`;
-  if (st.type === 'driver') return `${stTitle(st)} — ${st.party.name}\nالفترة: ${rangeLabel()}\nالمنجزة: ${s.delivered} · الراجعة: ${s.returned}\nرسوم التطبيق المخصومة: ${mny(s.fees)}\nرصيد محفظتك: ${mny(s.balance)}\nريو للتوصيل اسرع`;
-  return `طلباتك لدى ريو للتوصيل اسرع: ${s.orders}\nريو للتوصيل اسرع`;
+  if (st.type === 'merchant') return `${stTitle(st)} — ${st.party.name}\nالفترة: ${rangeLabel()}\nالطلبات: ${s.orders} · المسلّمة: ${s.delivered} · الراجعة: ${s.returned}\nقيمة البضائع المسلّمة: ${mny(s.goods)}\nأجور التوصيل: ${mny(s.delivery)}\nالمدفوع لكم: ${mny(s.paid)}\nريوو للتوصيل اسرع`;
+  if (st.type === 'driver') return `${stTitle(st)} — ${st.party.name}\nالفترة: ${rangeLabel()}\nالمنجزة: ${s.delivered} · الراجعة: ${s.returned}\nرسوم التطبيق المخصومة: ${mny(s.fees)}\nرصيد محفظتك: ${mny(s.balance)}\nريوو للتوصيل اسرع`;
+  return `طلباتك لدى ريوو للتوصيل اسرع: ${s.orders}\nريوو للتوصيل اسرع`;
 }
 function stmtA4(m) {
   const st = m.st, l = scoped(m), isM = st.type === 'merchant';
@@ -634,7 +634,7 @@ function modalHtml() {
     <div class="row" style="margin-top:10px;justify-content:center">${docBtns()}<a class="btn w" target="_blank" rel="noopener" href="${wa(o.customerPhone, custMsg(o))}">واتساب الزبون</a></div>`];
   }
   if (m.type === 'vprint') return [`${m.v.kind === 'in' ? 'سند قبض' : 'سند صرف'} #${m.v.no}`, `${sizeSeg()}<iframe title="معاينة السند" srcdoc="${esc(docPage('سند', thermal() ? voucherDoc80(m.v) : voucherDoc(m.v), thermal() ? rcls() : 'sz' + RS))}" style="width:100%;height:48vh;border:1px solid var(--line);border-radius:12px;background:#fff"></iframe>
-    <div class="row" style="margin-top:12px;justify-content:center">${docBtns()}${vPhone(m.v) ? `<a class="btn w" target="_blank" rel="noopener" href="${wa(vPhone(m.v), `${m.v.kind === 'in' ? 'سند قبض' : 'سند صرف'} رقم #${m.v.no}\nالمبلغ: ${mny(m.v.amount)}\nالتاريخ: ${fd(m.v.at)}\nالتفاصيل: ${m.v.note || '—'}\nريو للتوصيل اسرع`)}">واتساب</a>` : ''}</div>`, 1];
+    <div class="row" style="margin-top:12px;justify-content:center">${docBtns()}${vPhone(m.v) ? `<a class="btn w" target="_blank" rel="noopener" href="${wa(vPhone(m.v), `${m.v.kind === 'in' ? 'سند قبض' : 'سند صرف'} رقم #${m.v.no}\nالمبلغ: ${mny(m.v.amount)}\nالتاريخ: ${fd(m.v.at)}\nالتفاصيل: ${m.v.note || '—'}\nريوو للتوصيل اسرع`)}">واتساب</a>` : ''}</div>`, 1];
   if (m.type === 'add-user') {
     const d = m.role === 'driver';
     return [d ? 'إضافة مندوب' : 'إضافة متجر', `<form data-f="add-user">${field('u-name', d ? 'اسم المندوب' : 'اسم المتجر', '<input class="in" id="u-name" required>')}${field('u-phone', 'رقم الهاتف', '<input class="in" id="u-phone" inputmode="tel" placeholder="07XXXXXXXXX" required>')}
@@ -683,7 +683,7 @@ function modalHtml() {
   if (m.type === 'pw') {
     const u = findU(m.id);
     if (m.done) return [`تم تعيين كلمة السر`, `<div class="card" style="background:var(--ac-soft);box-shadow:none"><p style="margin:0 0 6px">${esc(u.name)} — <span class="num">${esc(u.phone)}</span></p><div class="big" style="font-size:28px;font-weight:800;direction:ltr;text-align:center;letter-spacing:.06em">${esc(m.done)}</div></div>${sizeSeg()}
-      <div class="row" style="justify-content:center"><button class="btn g" data-a="copy" data-t="${esc(m.done)}">نسخ</button>${docBtns()}<a class="btn w" target="_blank" rel="noopener" href="${wa(u.phone, `مرحباً ${u.name}\nبيانات الدخول إلى ريو للتوصيل اسرع:\nرقم الهاتف: ${u.phone}\nكلمة المرور: ${m.done}\nيُفضّل تغييرها بعد أول دخول.`)}">إرسال بالواتساب</a></div>`];
+      <div class="row" style="justify-content:center"><button class="btn g" data-a="copy" data-t="${esc(m.done)}">نسخ</button>${docBtns()}<a class="btn w" target="_blank" rel="noopener" href="${wa(u.phone, `مرحباً ${u.name}\nبيانات الدخول إلى ريوو للتوصيل اسرع:\nرقم الهاتف: ${u.phone}\nكلمة المرور: ${m.done}\nيُفضّل تغييرها بعد أول دخول.`)}">إرسال بالواتساب</a></div>`];
     return [`كلمة سر جديدة — ${esc(u.name)}`, `<form data-f="pw">${field('w-p', 'كلمة المرور الجديدة', '<div class="row"><input class="in grow" id="w-p" minlength="6" required autocomplete="off"><button type="button" class="btn g" data-a="gen" data-t="w-p">توليد</button></div>', '6 أحرف أو أكثر. تُسجَّل خروج الجلسات القديمة عند أول انتهاء.')}<div class="err" id="fe" role="alert"></div><button class="btn" style="width:100%">تعيين</button></form>`];
   }
   if (m.type === 'adjust') {

@@ -18,10 +18,10 @@ self.addEventListener('fetch', (e) => {
 /* ---- إشعارات الدفع ---- */
 self.addEventListener('push', (e) => {
   let d = {};
-  try { d = e.data ? e.data.json() : {}; } catch { d = { title: 'ريو للتوصيل اسرع', body: e.data ? e.data.text() : '' }; }
+  try { d = e.data ? e.data.json() : {}; } catch { d = { title: 'ريوو للتوصيل اسرع', body: e.data ? e.data.text() : '' }; }
   e.waitUntil((async () => {
     // يجب أن يُعرض إشعار مع كل دفعة (شرط iOS وكروم) وإلا يُلغى الاشتراك؛ لذلك نجرّب بخيارات كاملة ثم بخيارات بسيطة
-    const title = d.title || 'ريو للتوصيل اسرع';
+    const title = d.title || 'ريوو للتوصيل اسرع';
     try {
       await self.registration.showNotification(title, {
         body: d.body || '', icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', tag: d.tag || ('rio-' + (d.id || Date.now())),

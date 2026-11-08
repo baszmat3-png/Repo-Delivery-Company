@@ -7,7 +7,7 @@ const html = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>ريو للتوصيل أسرع - نسخة تجريبية</title>
+<title>ريوو للتوصيل اسرع - نسخة تجريبية</title>
 <meta name="theme-color" content="#0b1119">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
 <style>${css}</style>
