@@ -34,7 +34,7 @@ const RETURNABLE = ['picking_up', 'on_the_way', 'rejected', 'no_answer', 'postpo
 const TROUBLE = ['no_answer', 'postponed', 'problem', 'other'];
 const DONE = ['delivered', 'partial'];
 
-const DEF_SETTINGS = { bikeSame: 3000, bikeOther: 5000, carSame: 5000, carOther: 8000, feeSame: 500, feeOther: 1000, lateMin: 45, support: '', receipts: 1, ocDesign: 'classic' };
+const DEF_SETTINGS = { bikeSame: 3000, bikeOther: 5000, carSame: 5000, carOther: 8000, feeSame: 500, feeOther: 1000, lateMin: 45, support: '', receipts: 1, ocDesign: 'green' };
 /* تصاميم الوصولات (بطاقة الطلب): يختارها المدير وتُطبَّق فوراً على كل الحسابات */
 const OC_KEYS = ['classic', 'bold', 'green', 'ticket', 'sun', 'night'];
 

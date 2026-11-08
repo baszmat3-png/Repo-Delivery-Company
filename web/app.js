@@ -27,7 +27,7 @@ const OC_DESIGNS = [
 ];
 const ocdValid = (k) => OC_DESIGNS.some((d) => d[0] === k);
 /* التصميم يحدده المدير من لوحة التحكم (يصل من الخادم)، وتُحفظ آخر قيمة هنا فقط لتفادي الوميض عند فتح التطبيق */
-let OCD = ocdValid(store.get('rio_ocd')) ? store.get('rio_ocd') : 'classic';
+let OCD = ocdValid(store.get('rio_ocd')) ? store.get('rio_ocd') : 'green';
 function applyCfg(st) {
   if (!st || !ocdValid(st.ocDesign) || st.ocDesign === OCD) return false;
   OCD = st.ocDesign; store.set('rio_ocd', OCD); S.det = {};
