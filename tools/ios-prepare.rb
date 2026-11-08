@@ -80,7 +80,8 @@ system(pb, '-c', 'Delete :UISupportedInterfaceOrientations~ipad', plist, err: Fi
 if ENV['HAS_FIREBASE'] == '1'
   pod = File.join(app_dir, 'Podfile')
   txt = File.read(pod)
-  txt.sub!("def capacitor_pods\n", "def capacitor_pods\n  pod 'FirebaseMessaging'\n") unless txt.include?('FirebaseMessaging')
+  # يوضع داخل target (وليس capacitor_pods) لأن cap sync يعيد كتابة capacitor_pods
+  txt.sub!("  capacitor_pods\n", "  capacitor_pods\n  pod 'FirebaseMessaging'\n") unless txt.include?('FirebaseMessaging')
   File.write(pod, txt)
   ad = File.join(app_dir, 'App', 'AppDelegate.swift')
   s = File.read(ad)
