@@ -26,7 +26,7 @@ jobs:
         env:
           PLIST: ${{ secrets.IOS_GOOGLE_SERVICE_INFO_BASE64 }}
         run: |
-          if [ -n "$PLIST" ]; then echo "$PLIST" | base64 -d > GoogleService-Info.plist; echo "HAS_FIREBASE=1" >> $GITHUB_ENV; else echo "::warning::IOS_GOOGLE_SERVICE_INFO_BASE64 غير مضبوط: لن تصل إشعارات الدفع على آيفون وهو مغلق"; fi
+          if [ -n "$PLIST" ]; then echo "$PLIST" | base64 -d > GoogleService-Info.plist; echo "HAS_FIREBASE=1" >> $GITHUB_ENV; elif [ -f GoogleService-Info.plist ]; then echo "HAS_FIREBASE=1" >> $GITHUB_ENV; else echo "::warning::IOS_GOOGLE_SERVICE_INFO_BASE64 غير مضبوط: لن تصل إشعارات الدفع على آيفون وهو مغلق"; fi
       - name: تجهيز المشروع (خصوصية، صلاحيات، Info.plist)
         run: ruby tools/ios-prepare.rb
       - name: أيقونات التطبيق
