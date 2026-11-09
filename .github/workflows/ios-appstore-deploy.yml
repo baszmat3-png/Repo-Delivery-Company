@@ -1,0 +1,199 @@
+name: iOS App Store Deploy (ios-tool)
+
+on:
+  workflow_dispatch:
+    inputs:
+      bundle_id:
+        description: 'iOS Bundle Identifier'
+        required: false
+        default: 'com.rioiraq.delivery'
+      app_version:
+        description: 'App Version (CFBundleShortVersionString)'
+        required: false
+        default: '1.0.0'
+      build_number:
+        description: 'Build Number (CFBundleVersion)'
+        required: false
+        default: '2'
+
+jobs:
+  build-and-upload-ios:
+    name: Build & Upload IPA to App Store Connect
+    runs-on: macos-latest
+    env:
+      BUNDLE_ID: ${{ github.event.inputs.bundle_id || 'com.rioiraq.delivery' }}
+      APP_VERSION: ${{ github.event.inputs.app_version || '1.0.0' }}
+      BUILD_NUMBER: ${{ github.event.inputs.build_number || '2' }}
+      SCHEME_NAME: 'App'
+      APP_STORE_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_KEY_B64: ${{ secrets.APP_STORE_CONNECT_API_KEY_B64 }}
+      CERT_P12_B64: ${{ secrets.IOS_CERT_P12_B64 }}
+      CERT_PASSWORD: ${{ secrets.IOS_CERT_PASSWORD }}
+      PROVISION_B64: ${{ secrets.IOS_PROVISION_PROFILE_B64 }}
+
+    steps:
+      - name: Checkout Repository (main)
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies & Build Capacitor Web Assets
+        run: |
+          npm install --legacy-peer-deps
+          if grep -q '"build"' package.json; then
+            npm run build
+          fi
+          if [ ! -d "ios" ]; then
+            npx cap add ios
+          fi
+          npx cap sync ios
+
+      - name: Install CocoaPods for Capacitor iOS
+        working-directory: ios/App
+        run: |
+          if [ -f "Podfile" ]; then
+            pod install --repo-update
+          elif [ -f "../Podfile" ]; then
+            cd .. && pod install --repo-update
+          fi
+
+      - name: Cloud Code Signing via Apple API Key (.p8)
+        run: |
+          set -e
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "$APP_STORE_KEY_B64" | base64 --decode > ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_KEY_ID}.p8
+
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          KEYCHAIN_PASS="temp_keychain_pass_123"
+          security create-keychain -p "$KEYCHAIN_PASS" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASS" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain
+
+          if [ -n "$CERT_P12_B64" ] && [ -n "$PROVISION_B64" ]; then
+            echo "⚡ Installing cloud-generated .p12 certificate and .mobileprovision..."
+            echo "$CERT_P12_B64" | base64 --decode > $RUNNER_TEMP/dist.p12
+            security import $RUNNER_TEMP/dist.p12 -P "$CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+            security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASS" "$KEYCHAIN_PATH"
+            echo "$PROVISION_B64" | base64 --decode > $RUNNER_TEMP/profile.mobileprovision
+          else
+            echo "⚡ Auto-generating Certificate & Provisioning Profile via Fastlane & .p8 API Key..."
+            cat <<EOF > $RUNNER_TEMP/api_key.json
+          {
+            "key_id": "$APP_STORE_KEY_ID",
+            "issuer_id": "$APP_STORE_ISSUER_ID",
+            "key": "$(cat ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_KEY_ID}.p8 | awk '{printf "%s\\n", $0}')",
+            "in_house": false
+          }
+          EOF
+            fastlane cert --api_key_path "$RUNNER_TEMP/api_key.json" --keychain_path "$KEYCHAIN_PATH" --keychain_password "$KEYCHAIN_PASS" --output_path "$RUNNER_TEMP"
+            fastlane sigh --api_key_path "$RUNNER_TEMP/api_key.json" --app_identifier "$BUNDLE_ID" --output_path "$RUNNER_TEMP" --filename "profile.mobileprovision"
+          fi
+
+          security cms -D -i "$RUNNER_TEMP/profile.mobileprovision" > "$RUNNER_TEMP/profile.plist"
+          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" "$RUNNER_TEMP/profile.plist")
+          PROFILE_NAME=$(/usr/libexec/PlistBuddy -c "Print Name" "$RUNNER_TEMP/profile.plist")
+          TEAM_ID=$(/usr/libexec/PlistBuddy -c "Print TeamIdentifier:0" "$RUNNER_TEMP/profile.plist")
+
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp "$RUNNER_TEMP/profile.mobileprovision" ~/Library/MobileDevice/Provisioning\ Profiles/${PROFILE_UUID}.mobileprovision
+
+          echo "PROFILE_UUID=$PROFILE_UUID" >> $GITHUB_ENV
+          echo "PROFILE_NAME=$PROFILE_NAME" >> $GITHUB_ENV
+          echo "TEAM_ID=$TEAM_ID" >> $GITHUB_ENV
+          echo "✅ Provisioning Profile Active: $PROFILE_NAME ($PROFILE_UUID) | Team: $TEAM_ID"
+
+      - name: Archive & Sign IPA (v${{ env.APP_VERSION }} +${{ env.BUILD_NUMBER }})
+        run: |
+          set -e
+          IOS_DIR="ios"
+          if [ -d "ios/App" ] && [ -n "$(ls -A ios/App/*.xc* 2>/dev/null)" ]; then
+            IOS_DIR="ios/App"
+          elif [ ! -d "$IOS_DIR" ] || [ -z "$(ls -A $IOS_DIR/*.xc* 2>/dev/null)" ]; then
+            if [ -d "ios" ]; then IOS_DIR="ios"; else IOS_DIR="."; fi
+          fi
+          cd "$IOS_DIR"
+
+          # Ensure Info.plist has updated Version, Build Number, and Export Compliance flag
+          for PLIST in $(find . -maxdepth 3 -name "Info.plist"); do
+            /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_VERSION" "$PLIST" 2>/dev/null || true
+            /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$PLIST" 2>/dev/null || true
+            /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :ITSAppUsesNonExemptEncryption false" "$PLIST" 2>/dev/null || true
+          done
+
+          WORKSPACE=$(ls -d *.xcworkspace 2>/dev/null | head -n 1 || true)
+          PROJECT=$(ls -d *.xcodeproj 2>/dev/null | head -n 1 || true)
+
+          cat <<EOF > $RUNNER_TEMP/ExportOptions.plist
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>teamID</key>
+            <string>${TEAM_ID}</string>
+            <key>uploadBitcode</key>
+            <false/>
+            <key>uploadSymbols</key>
+            <true/>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>${BUNDLE_ID}</key>
+              <string>${PROFILE_UUID}</string>
+            </dict>
+          </dict>
+          </plist>
+          EOF
+
+          if [ -n "$WORKSPACE" ]; then
+            TARGET_ARG="-workspace $WORKSPACE"
+            DETECTED_SCHEME=$(xcodebuild -workspace "$WORKSPACE" -list -json | python3 -c "import sys, json; schemes=json.load(sys.stdin).get('workspace',{}).get('schemes',[]); print(schemes[0] if schemes else 'Runner')")
+          else
+            TARGET_ARG="-project $PROJECT"
+            DETECTED_SCHEME=$(xcodebuild -project "$PROJECT" -list -json | python3 -c "import sys, json; schemes=json.load(sys.stdin).get('project',{}).get('schemes',[]); print(schemes[0] if schemes else 'Runner')")
+          fi
+
+          FINAL_SCHEME="${SCHEME_NAME:-$DETECTED_SCHEME}"
+          echo "🚀 Building Scheme: $FINAL_SCHEME | Version: $APP_VERSION ($BUILD_NUMBER)..."
+
+          xcodebuild archive \
+            $TARGET_ARG \
+            -scheme "$FINAL_SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            MARKETING_VERSION="$APP_VERSION" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_UUID" \
+            CODE_SIGN_IDENTITY="iPhone Distribution"
+
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/ipa_out"
+
+      - name: Upload IPA to App Store Connect (TestFlight)
+        run: |
+          set -e
+          IPA_FILE=$(find "$RUNNER_TEMP/ipa_out" -name "*.ipa" | head -n 1)
+          if [ -z "$IPA_FILE" ]; then
+            echo "❌ Error: No IPA file generated!"
+            exit 1
+          fi
+          echo "📦 Uploading $IPA_FILE (v$APP_VERSION+$BUILD_NUMBER) to App Store Connect..."
+          xcrun altool --upload-app \
+            --type ios \
+            --file "$IPA_FILE" \
+            --apiKey "$APP_STORE_KEY_ID" \
+            --apiIssuer "$APP_STORE_ISSUER_ID"
+          echo "🎉 Successfully uploaded IPA to App Store Connect / TestFlight!"
