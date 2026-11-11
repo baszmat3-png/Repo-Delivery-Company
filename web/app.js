@@ -474,7 +474,6 @@ const VIEWS = {
       ${tile('تم الإرجاع', '', countBy(o, ['returned', 'partial']), 'var(--blue)')}
     </div>
     <button class="btn ghost block" style="margin-top:14px" data-act="tab" data-tab="orders">عرض كل الطلبات (${o.length})</button>
-    ${exportCard('تصدير الحساب', 'الجدول يشمل كل طلب بحالته وتفاصيله ومجموع حسابه، ويُخصم الراجع من الإجمالي الكلي. الوصل المختصر يعرض عدد الطلبات والصافي ناقص كلف التوصيل.')}
     <h2 class="sec">طلبات مسجلة (${pend.length})</h2>
     <div class="stack">${pend.length ? pend.map((x) => merchantOrderCard(x, true)).join('') : emptyBox('لا توجد طلبات بانتظار سائق', 'اضغط «إنشاء طلب» لإرسال طلب جديد للسائقين.')}</div>`;
   },
