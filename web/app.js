@@ -410,7 +410,7 @@ function driverOrderCard(o) {
   return orderCard(o, {
     corner: chatBtn(o), noteBtn: !!o.note,
     status: st, rows: customerRows(o) + ocRow('phone', 'هاتف المتجر', telLink(o.merchantPhone)),
-    after: o.status === 'picking_up' ? `<div class="notice">ادفع للتاجر ${money(o.productPrice)} عند الاستلام، وبعدها غيّر الحالة إلى «في الطريق للزبون».</div>` : '',
+    after: o.status === 'picking_up' ? `<div class="notice">ادفع للتاجر ${money(o.productPrice)} عند الاستلام، وبعدها اضغط على الحالة واختر «تم الاستلام من التاجر».</div>` : '',
     actions: `${receiptsOn() ? `<button class="btn ghost sm" data-act="receipt" data-id="${o.id}">وصل</button>` : ''}<a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a><a class="btn ghost sm" href="${supportLink(o)}" target="_blank" rel="noopener">واتساب الدعم</a>${wazeLinks(o)}`
   });
 }
@@ -1362,8 +1362,13 @@ const SHEETS = {
   status(s) {
     const o = findOrder(s.id);
     if (!o) return ['حالة الطلب', '<p class="muted">تعذّر العثور على الطلب.</p>'];
-    const btns = DRIVER_ST.map((k) => `<button type="button" class="st-opt ${o.status === k ? 'on' : ''}" data-act="set-status" data-id="${o.id}" data-s="${k}"><span class="ck">${o.status === k ? ico('check') : ''}</span>${ST[k][0]}</button>`).join('');
-    const ret = !["delivered","return_sent","returned"].includes(o.status) ? `<button type="button" class="st-opt" data-act="ask-return" data-id="${o.id}"><span class="ck"></span><b>إرجاع للمتجر — بانتظار تأكيد التاجر</b></button>` : '';
+    const opt = (k, label) => `<button type="button" class="st-opt ${o.status === k ? 'on' : ''}" data-act="set-status" data-id="${o.id}" data-s="${k}"><span class="ck">${o.status === k ? ico('check') : ''}</span>${label}</button>`;
+    /* بعد القبول: خيار واحد فقط. وبعد الاستلام تظهر باقي الخيارات */
+    if (o.status === 'picking_up') return [`حالة الطلب #${o.no}`, `<div class="st-list" role="menu">${opt('on_the_way', 'تم الاستلام من التاجر')}</div><p class="hint" style="text-align:center;margin-top:10px">بعد الضغط تتحدث الحالة تلقائياً إلى «في الطريق للزبون».</p>`];
+    const keys = (o.status === 'on_the_way' ? [] : ['on_the_way']).concat(['no_answer', 'postponed', 'rejected', 'delivered']);
+    const LBL = { on_the_way: 'في الطريق للزبون', no_answer: 'لا يرد', postponed: 'مؤجل', rejected: 'مرفوض', delivered: 'تم التسليم' };
+    const btns = keys.map((k) => opt(k, LBL[k])).join('');
+    const ret = !['delivered', 'return_sent', 'returned'].includes(o.status) ? `<button type="button" class="st-opt" data-act="ask-return" data-id="${o.id}"><span class="ck"></span><b>إرجاع للتاجر</b></button>` : '';
     return [`حالة الطلب #${o.no}`, `<div class="st-list" role="menu">${btns}${ret}</div>`];
   },
   confirm(s) {

@@ -515,6 +515,7 @@ route('POST', '/api/driver/orders/:id/status', DRIVER, async (c) => {
   if (!o) fail('الطلب غير موجود', 404);
   if (o.status === 'delivered') fail('تم تسليم هذا الطلب ولا يمكن تغيير حالته', 409);
   if (o.status === 'return_sent' || o.status === 'returned') fail('تم إرجاع هذا الطلب للتاجر ولا يمكن تغيير حالته', 409);
+  if (o.status === 'picking_up' && status !== 'on_the_way') fail('أكّد أولاً «تم الاستلام من التاجر»', 409);
   if (status === 'return_sent' && !RETURNABLE.includes(o.status)) fail('يمكن الإرجاع للتاجر قبل التسليم فقط', 409);
   const now = Date.now();
   const u = await db.update('orders', 'id', o.id, {
