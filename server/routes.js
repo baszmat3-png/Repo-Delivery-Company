@@ -860,6 +860,12 @@ route('PUT', '/api/admin/settings', ADM('settings', 'edit'), async (c) => {
 
 /* ---------- إعلانات التاجر والسائق (صور يضيفها المدير من لوحة التحكم) ---------- */
 const AD_MAX = 10;
+const { resolveLL } = require('./geo');
+route('GET', '/api/geo', { roles: ['driver', 'merchant', 'admin', 'staff'] }, async (c) => {
+  const ll = await resolveLL(c.query.url);
+  return { ll };
+});
+
 const audOf = (v) => (v === 'driver' ? 'driver' : 'merchant');
 const adsVer = async (aud) => {
   const r = await q(`SELECT id, sort, active, link, LENGTH(image) AS n FROM ads WHERE aud=$1 ORDER BY id`, [audOf(aud)]);

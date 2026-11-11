@@ -312,11 +312,27 @@ const ocRow = (i, l, v, cls = '') => `<div class="oc-r ${cls}"><span class="oc-i
 const noteBtn = (o) => `<button class="oc-cb r" data-act="note" data-id="${o.id}"><span>ملاحظة</span><span class="oc-ex">!</span></button>`;
 const chatBtn = (o) => `<button class="oc-cb g" data-act="chat" data-id="${o.id}"><span>محادثة</span>${ico('chat')}</button>`;
 function wazeLinks(o) {
-  const url = o.merchantMap || '';
-  if (!url && !o.merchantArea) return '';
-  const c = mapCoords(url);
-  const wz = c ? `https://waze.com/ul?ll=${c[0]},${c[1]}&navigate=yes` : `https://waze.com/ul?q=${encodeURIComponent((o.merchantName || '') + ' ' + (o.merchantArea || ''))}&navigate=yes`;
-  return `<a class="btn soft sm" href="${esc(wz)}" target="_blank" rel="noopener">${ico('pin')} Waze · موقع المتجر</a>${url ? `<a class="btn ghost sm" href="${esc(url)}" target="_blank" rel="noopener">الخريطة</a>` : ''}`;
+  if (!o.merchantMap && !o.merchantArea) return '';
+  return `<button type="button" class="btn soft sm" data-act="navmap" data-id="${o.id}">${ico('pin')} موقع المتجر</button>`;
+}
+function navLinks(o, ll) {
+  const name = (o.merchantName || 'المتجر');
+  const isIos = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isAnd = /Android/i.test(navigator.userAgent);
+  const out = [];
+  if (ll) {
+    const d = ll[0] + ',' + ll[1];
+    out.push(['Google Maps', `https://www.google.com/maps/dir/?api=1&destination=${d}&travelmode=driving`]);
+    out.push(['Waze', `https://waze.com/ul?ll=${d}&navigate=yes&zoom=17`]);
+    if (isIos) out.push(['خرائط Apple', `https://maps.apple.com/?daddr=${d}&dirflg=d`]);
+    if (isAnd) out.push(['تطبيق خرائط آخر', `geo:${d}?q=${d}(${encodeURIComponent(name)})`]);
+  } else {
+    const q = encodeURIComponent(name + ' ' + (o.merchantArea || ''));
+    out.push(['Google Maps', `https://www.google.com/maps/dir/?api=1&destination=${q}&travelmode=driving`]);
+    out.push(['Waze', `https://waze.com/ul?q=${q}&navigate=yes`]);
+  }
+  if (o.merchantMap) out.push(['فتح رابط التاجر الأصلي', o.merchantMap]);
+  return out;
 }
 /* opt: corner (أزرار الزاوية العلوية)، status (الحالة)، rows (تفاصيل إضافية)، after (تنبيهات)، actions (الأزرار السفلية) */
 function orderCard(o, opt = {}) { return OCD === 'classic' ? ocClassic(o, opt) : odCard(o, opt, OCD); }
@@ -1371,6 +1387,13 @@ const SHEETS = {
     const ret = !['delivered', 'return_sent', 'returned'].includes(o.status) ? `<button type="button" class="st-opt" data-act="ask-return" data-id="${o.id}"><span class="ck"></span><b>إرجاع للتاجر</b></button>` : '';
     return [`حالة الطلب #${o.no}`, `<div class="st-list" role="menu">${btns}${ret}</div>`];
   },
+  navmap(s) {
+    const o = findOrder(s.id);
+    if (!o) return ['موقع المتجر', '<p class="muted">تعذّر العثور على الطلب.</p>'];
+    const links = navLinks(o, s.ll);
+    const note = s.loading ? '<p class="hint" style="text-align:center">جارٍ تحديد موقع المتجر بدقة…</p>' : (s.ll ? '<p class="hint" style="text-align:center">اختر التطبيق وسيرسم لك المسار من موقعك إلى المتجر.</p>' : '<p class="hint" style="text-align:center">لم نجد إحداثيات دقيقة، سيتم البحث باسم المتجر والمنطقة.</p>');
+    return [`موقع المتجر · ${esc(o.merchantName)}`, `${note}<div class="st-list">${links.map(([l, u]) => `<a class="st-opt" href="${esc(u)}" target="_blank" rel="noopener"><span class="ck">${ico('pin')}</span>${l}</a>`).join('')}</div>`];
+  },
   confirm(s) {
     return [s.title, `<p style="text-align:center;font-size:17px;margin:8px 0 18px">${esc(s.text)}</p><div class="row"><button class="btn danger grow" data-act="${s.yes}" data-id="${s.id}">نعم</button><button class="btn ghost grow" data-act="close-sheet">لا</button></div>`];
   },
@@ -1496,6 +1519,15 @@ const ACTIONS = {
   otab: (el) => { S.ordersTab = el.dataset.t; S.menu = null; render(); },
   wtab: (el) => { S.walletTab = el.dataset.t; render(); },
   'new-order': () => openSheet({ type: 'new-order', form: newOrderForm() }),
+  navmap: (el) => {
+    const id = Number(el.dataset.id); const o = findOrder(id); if (!o) return;
+    const direct = mapCoords(o.merchantMap);
+    if (direct) return openSheet({ type: 'navmap', id, ll: direct });
+    if (!o.merchantMap) return openSheet({ type: 'navmap', id, ll: null });
+    const sh = { type: 'navmap', id, ll: null, loading: true };
+    openSheet(sh);
+    api('GET', '/api/geo?url=' + encodeURIComponent(o.merchantMap)).then((r) => { sh.ll = r.ll || null; }).catch(() => {}).finally(() => { sh.loading = false; if (S.sheet === sh) render(); });
+  },
   receipt: (el) => receiptsOn() && openSheet({ type: 'receipt', id: Number(el.dataset.id) }),
   rsize: (el) => { RSIZE = el.dataset.k; store.set('rio_rsize', RSIZE); renderSheet(); },
   'print-receipt': (el) => { const o = findOrder(Number(el.dataset.id)); if (o) printReceipt(o); },
