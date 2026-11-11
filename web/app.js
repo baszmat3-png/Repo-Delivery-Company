@@ -464,7 +464,7 @@ const VIEWS = {
   'merchant:stats'() {
     const o = S.data.orders;
     const pend = o.filter((x) => x.status === 'pending');
-    return `${head('الإحصائيات', esc(S.user.name))}
+    return `${head('الإحصائيات')}
     ${adsSlider()}
     <div class="tiles">
       ${tile('طلبات مسجلة', 'بانتظار سائق', pend.length, 'var(--amber)')}
