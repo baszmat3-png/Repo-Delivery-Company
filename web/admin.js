@@ -49,7 +49,7 @@ const ico = (n) => `<svg viewBox="0 0 24 24" aria-hidden="true">${IC[n] || ''}</
 /* ---------------- الحالة ---------------- */
 let T = ls.get(KEY) || '', P = ls.get('rio_page') || 'home', R = ls.get('rio_range') || 'month', CF = ls.get('rio_cf') || '', CT = ls.get('rio_ct') || '';
 let BASIS = ls.get('rio_basis') || 'fees', SORT = ls.get('rio_sort') || 'orders', FP = 'month', VK = 'in', Q = '', FS = 'all', FM = 0;
-let ADSL = null, MENU = false, D = null, O = [], FN = null, V = [], CARDS = [], SET = null, BATCH = null, E = '', M = null, LIVE = false, DIRTY = false, loading = false;
+let ADSL = null, ADSA = 'merchant', MENU = false, D = null, O = [], FN = null, V = [], CARDS = [], SET = null, BATCH = null, E = '', M = null, LIVE = false, DIRTY = false, loading = false;
 applyPerms();
 let SSEC = ls.get('rio_ssec') || 'prices', OCSEL = null;
 if (!['orders', 'active', 'goods'].includes(SORT)) SORT = 'orders';
@@ -489,7 +489,7 @@ function cards() {
 }
 
 /* ---------------- الإعدادات ---------------- */
-const SECS = [['themes', 'الثيمات'], ['wa', 'قوالب رسائل واتساب'], ['prices', 'أسعار التوصيل للزبون'], ['fees', 'الرسوم'], ['receipts', 'الوصولات'], ['alerts', 'التنبيهات والدعم'], ['ocd', 'تصميم الوصولات'], ['ads', 'إعلانات التاجر'], ['stats', 'إعادة تعيين الإحصائيات'], ['rcards', 'تصفير الكروت'], ['reset', 'تصفير البيانات']];
+const SECS = [['themes', 'الثيمات'], ['wa', 'قوالب رسائل واتساب'], ['prices', 'أسعار التوصيل للزبون'], ['fees', 'الرسوم'], ['receipts', 'الوصولات'], ['alerts', 'التنبيهات والدعم'], ['ocd', 'تصميم الوصولات'], ['ads', 'إعلانات التاجر'], ['adsd', 'إعلانات السائق'], ['stats', 'إعادة تعيين الإحصائيات'], ['rcards', 'تصفير الكروت'], ['reset', 'تصفير البيانات']];
 const saveBar = (label = 'حفظ') => `<div class="err" id="fe" role="alert"></div><button class="btn" style="min-height:44px">${label}</button>`;
 function settings() {
   if (!SET) return `<div class="card">جارٍ التحميل…</div>`;
@@ -515,23 +515,8 @@ function settings() {
       <div class="ocg" role="radiogroup" aria-label="تصميم الوصولات">${RioOC.list.map(([k, n, sub]) => `<div class="oct" role="radio" tabindex="0" aria-checked="${sel === k}" data-a="ocd-pick" data-d="${k}"><iframe title="${esc(n)}" loading="lazy" tabindex="-1" srcdoc="${esc(RioOC.doc(k))}"></iframe><b>${n}${cur === k ? ' <span class="muted">(المطبّق حالياً)</span>' : ''}</b><small>${sub}</small></div>`).join('')}</div>
       ${saveBar('حفظ وتطبيق على كل الحسابات')}</div></form>`;
     },
-    ads: () => {
-      if (ADSL === null) { loadAds(); return `<div class="card">جارٍ التحميل…</div>`; }
-      const list = ADSL.map((a, i) => `<div class="card" style="padding:12px;margin-bottom:12px${a.active ? '' : ';opacity:.6'}">
-        <img src="${a.image}" alt="إعلان ${i + 1}" style="width:100%;aspect-ratio:1.7/1;object-fit:cover;border-radius:12px;display:block;background:#eef">
-        <div class="field" style="margin:10px 0 0"><label for="al-${a.id}">رابط عند الضغط (اختياري، يبدأ بـ <bdi dir="ltr">https://</bdi>)</label><input class="in" id="al-${a.id}" dir="ltr" value="${esc(a.link)}" placeholder="https://"></div>
-        <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap">
-          <button type="button" class="btn sm" data-a="ad-link" data-id="${a.id}">حفظ الرابط</button>
-          <button type="button" class="btn sm g" data-a="ad-toggle" data-id="${a.id}">${a.active ? 'إخفاء' : 'إظهار'}</button>
-          <button type="button" class="btn sm g" data-a="ad-up" data-id="${a.id}" ${i === 0 ? 'disabled' : ''} aria-label="تقديم">▲</button>
-          <button type="button" class="btn sm g" data-a="ad-down" data-id="${a.id}" ${i === ADSL.length - 1 ? 'disabled' : ''} aria-label="تأخير">▼</button>
-          <button type="button" class="btn sm d" data-a="ad-del" data-id="${a.id}">حذف</button>
-        </div></div>`).join('');
-      return `<div class="card"><div class="ch">إعلانات التاجر <small>تظهر كشريط صور متحرك أعلى صفحة التاجر في التطبيق</small></div>
-        <p class="hint" style="margin:0 0 12px">اختر صورة من جهازك وتُضغط تلقائياً. الأفضل مقاس عرضي (نسبة 1.7 : 1 مثل 1200×700). الحد الأقصى ${10} إعلانات. تظهر للتجار فوراً بعد الإضافة.</p>
-        <label class="btn" style="min-height:44px;display:inline-flex;align-items:center;cursor:pointer">+ إضافة إعلان (صورة)<input type="file" accept="image/*" data-c="adfile" hidden></label>
-        <div class="err" id="ad-err" role="alert"></div></div>${list || '<div class="card muted">لا توجد إعلانات بعد.</div>'}`;
-    },
+    ads: () => adsBody('merchant'),
+    adsd: () => adsBody('driver'),
     stats: () => `<div class="card"><div class="ch">إعادة تعيين الإحصائيات <small>حذف نهائي لا يمكن التراجع عنه</small></div>
       <p class="hint" style="margin:0 0 12px">يحذف كل الطلبات والمحادثات والإشعارات وحركات المحفظة والمصاريف والسندات، فتصبح كل الإحصائيات والأرقام صفراً. الحسابات والإعدادات وكروت الشحن تبقى كما هي.</p>
       <label class="row" style="gap:10px;align-items:center;cursor:pointer;margin-bottom:14px"><input type="checkbox" id="rs-bal" checked style="width:22px;height:22px"><span><b>تصفير أرصدة السائقين</b><span class="hint" style="display:block">يجعل رصيد كل سائق صفراً. ألغِ التحديد إن أردت إبقاء الأرصدة.</span></span></label>
@@ -780,8 +765,26 @@ const doExcel = (kind) => { const e = listExports(kind); return exportXlsx(`ري
 const doPdf = (kind) => { const e = listExports(kind); printDoc(e.name, docA4({ title: e.name, sub: rangeLabel(), sections: [{ head: e.pdf.head, rows: e.pdf.rows }] })); };
 
 
-/* ---------------- إعلانات التاجر ---------------- */
-async function loadAds() { try { ADSL = (await api('GET', '/api/admin/ads')).ads; } catch (e) { ADSL = []; toast(e.message, true); } draw(); }
+/* ---------------- إعلانات التاجر والسائق ---------------- */
+function adsBody(aud) {
+      if (ADSL === null || ADSA !== aud) { ADSA = aud; ADSL = null; loadAds(); return `<div class="card">جارٍ التحميل…</div>`; }
+      const list = ADSL.map((a, i) => `<div class="card" style="padding:12px;margin-bottom:12px${a.active ? '' : ';opacity:.6'}">
+        <img src="${a.image}" alt="إعلان ${i + 1}" style="width:100%;aspect-ratio:1.7/1;object-fit:cover;border-radius:12px;display:block;background:#eef">
+        <div class="field" style="margin:10px 0 0"><label for="al-${a.id}">رابط عند الضغط (اختياري، يبدأ بـ <bdi dir="ltr">https://</bdi>)</label><input class="in" id="al-${a.id}" dir="ltr" value="${esc(a.link)}" placeholder="https://"></div>
+        <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap">
+          <button type="button" class="btn sm" data-a="ad-link" data-id="${a.id}">حفظ الرابط</button>
+          <button type="button" class="btn sm g" data-a="ad-toggle" data-id="${a.id}">${a.active ? 'إخفاء' : 'إظهار'}</button>
+          <button type="button" class="btn sm g" data-a="ad-up" data-id="${a.id}" ${i === 0 ? 'disabled' : ''} aria-label="تقديم">▲</button>
+          <button type="button" class="btn sm g" data-a="ad-down" data-id="${a.id}" ${i === ADSL.length - 1 ? 'disabled' : ''} aria-label="تأخير">▼</button>
+          <button type="button" class="btn sm d" data-a="ad-del" data-id="${a.id}">حذف</button>
+        </div></div>`).join('');
+      return `<div class="card"><div class="ch">${aud === 'driver' ? 'إعلانات السائق' : 'إعلانات التاجر'} <small>تظهر كشريط صور متحرك أعلى صفحة ${aud === 'driver' ? 'السائق' : 'التاجر'} في التطبيق</small></div>
+        <p class="hint" style="margin:0 0 12px">اختر صورة من جهازك وتُضغط تلقائياً. الأفضل مقاس عرضي (نسبة 1.7 : 1 مثل 1200×700). الحد الأقصى ${10} إعلانات. تظهر ${aud === 'driver' ? 'للسائقين' : 'للتجار'} فوراً بعد الإضافة.</p>
+        <label class="btn" style="min-height:44px;display:inline-flex;align-items:center;cursor:pointer">+ إضافة إعلان (صورة)<input type="file" accept="image/*" data-c="adfile" hidden></label>
+        <div class="err" id="ad-err" role="alert"></div></div>${list || '<div class="card muted">لا توجد إعلانات بعد.</div>'}`;
+    }
+
+async function loadAds() { try { ADSL = (await api('GET', '/api/admin/ads?aud=' + ADSA)).ads; } catch (e) { ADSL = []; toast(e.message, true); } draw(); }
 function shrinkImage(file, maxW = 1200, maxBytes = 600 * 1024) {
   return new Promise((resolve, reject) => {
     const u = URL.createObjectURL(file), im = new Image();
@@ -933,7 +936,7 @@ document.addEventListener('change', async (e) => {
   if (c === 'adfile') {
     const file = t.files && t.files[0]; t.value = ''; if (!file) return;
     const er = $('#ad-err'); if (er) er.textContent = 'جارٍ رفع الصورة…';
-    try { const img = await shrinkImage(file); const r = await api('POST', '/api/admin/ads', { image: img }); ADSL = r.ads; toast('تمت إضافة الإعلان'); draw(); }
+    try { const img = await shrinkImage(file); const r = await api('POST', '/api/admin/ads', { image: img, aud: ADSA }); ADSL = r.ads; toast('تمت إضافة الإعلان'); draw(); }
     catch (x) { const e2 = $('#ad-err'); if (e2) e2.textContent = x.message; toast(x.message, true); }
     return;
   }

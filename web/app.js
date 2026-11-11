@@ -190,7 +190,7 @@ async function refresh(manual) {
   try {
     const d = await fetchData();
     if (tab !== S.tab) return;
-    if (S.user && S.user.role === 'merchant' && d && d.adsVer !== undefined && d.adsVer !== S.adsVer) {
+    if (S.user && (S.user.role === 'merchant' || S.user.role === 'driver') && d && d.adsVer !== undefined && d.adsVer !== S.adsVer) {
       try { const a = await api('GET', '/api/ads'); S.ads = a.ads; S.adsVer = d.adsVer; lastSig = ''; } catch { /* ignore */ }
     }
     const cfgChanged = d && d.settings ? applyCfg(d.settings) : false;
@@ -495,6 +495,7 @@ const VIEWS = {
     const d = S.data;
     const s = d.settings;
     return `${head('الطلبات المتاحة', d.me.receiving ? 'تُحدَّث القائمة تلقائياً' : '')}
+    ${adsSlider()}
     ${!d.me.receiving ? `<div class="notice red" style="margin-bottom:12px">استقبال الطلبات متوقف. فعّله من «الملف الشخصي» لتتمكن من قبول الطلبات.</div>` : ''}
     <div class="stack">${d.available.length ? d.available.map((o) => availOrderCard(o, s, d.me.receiving)).join('') : emptyBox('لا توجد طلبات متاحة الآن', 'ستظهر الطلبات الجديدة هنا فور رفعها من التجار.')}</div>`;
   },

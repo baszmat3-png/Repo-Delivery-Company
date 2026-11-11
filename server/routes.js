@@ -354,7 +354,7 @@ const MERCHANT = { roles: ['merchant'] };
 
 route('GET', '/api/merchant/home', MERCHANT, async (c) => {
   const r = await q('SELECT * FROM orders WHERE merchant_id=$1 ORDER BY created_at DESC LIMIT 300', [c.user.id]);
-  return { me: pub(c.user), settings: await getSettings(), orders: r.rows.map(ord), adsVer: await adsVer() };
+  return { me: pub(c.user), settings: await getSettings(), orders: r.rows.map(ord), adsVer: await adsVer('merchant') };
 });
 
 // تقرير التاجر لفترة محددة (للتصدير): كل طلبات الفترة بدون حد الـ 300
@@ -463,7 +463,7 @@ route('GET', '/api/driver/home', DRIVER, async (c) => {
   const avail = await q(`SELECT * FROM orders WHERE status='pending' AND vehicle=$1 ORDER BY created_at DESC LIMIT 50`, [c.user.vehicle === 'car' ? 'car' : 'bike']);
   const mine = await q('SELECT * FROM orders WHERE driver_id=$1 ORDER BY updated_at DESC LIMIT 150', [c.user.id]);
   return {
-    me: pub(c.user), settings: await getSettings(), available: avail.rows.map(ord), orders: mine.rows.map(ord), wallet: await walletFor(c.user)
+    me: pub(c.user), settings: await getSettings(), available: avail.rows.map(ord), orders: mine.rows.map(ord), wallet: await walletFor(c.user), adsVer: await adsVer('driver')
   };
 });
 
@@ -857,32 +857,31 @@ route('PUT', '/api/admin/settings', ADM('settings', 'edit'), async (c) => {
   return { settings: await getSettings() };
 });
 
-/* ---------- إعلانات التاجر (صور يضيفها المدير من لوحة التحكم) ---------- */
+/* ---------- إعلانات التاجر والسائق (صور يضيفها المدير من لوحة التحكم) ---------- */
 const AD_MAX = 10;
-const adsVer = async () => {
-  const r = await q(`SELECT id, sort, active, link, LENGTH(image) AS n FROM ads ORDER BY id`);
+const audOf = (v) => (v === 'driver' ? 'driver' : 'merchant');
+const adsVer = async (aud) => {
+  const r = await q(`SELECT id, sort, active, link, LENGTH(image) AS n FROM ads WHERE aud=$1 ORDER BY id`, [audOf(aud)]);
   return crypto.createHash('md5').update(JSON.stringify(r.rows)).digest('hex').slice(0, 10);
 };
-const adOut = (a) => ({ id: a.id, image: a.image, link: a.link || '', sort: a.sort, active: !!a.active });
+const adOut = (a) => ({ id: a.id, image: a.image, link: a.link || '', sort: a.sort, active: !!a.active, aud: a.aud });
+const adList = async (aud) => ({ ads: (await q(`SELECT * FROM ads WHERE aud=$1 ORDER BY sort, id`, [audOf(aud)])).rows.map(adOut) });
 const adLink = (v) => { const s = String(v ?? '').trim().slice(0, 500); if (!s) return ''; if (!/^https:\/\/\S+$/i.test(s)) fail('رابط الإعلان يجب أن يبدأ بـ https://'); return s; };
-route('GET', '/api/ads', { roles: ['merchant', 'admin', 'staff'] }, async () => {
-  const r = await q(`SELECT * FROM ads WHERE active=1 ORDER BY sort, id`);
-  return { ads: r.rows.map(adOut), ver: await adsVer() };
+route('GET', '/api/ads', { roles: ['merchant', 'driver', 'admin', 'staff'] }, async (c) => {
+  const aud = c.user.role === 'driver' ? 'driver' : c.user.role === 'merchant' ? 'merchant' : audOf(c.query.aud);
+  const r = await q(`SELECT * FROM ads WHERE active=1 AND aud=$1 ORDER BY sort, id`, [aud]);
+  return { ads: r.rows.map(adOut), ver: await adsVer(aud) };
 });
-route('GET', '/api/admin/ads', ADM('settings', 'view'), async () => {
-  const r = await q(`SELECT * FROM ads ORDER BY sort, id`);
-  return { ads: r.rows.map(adOut) };
-});
+route('GET', '/api/admin/ads', ADM('settings', 'view'), async (c) => adList(c.query.aud));
 route('POST', '/api/admin/ads', ADM('settings', 'edit'), async (c) => {
-  const img = String(c.body.image || '');
+  const img = String(c.body.image || ''), aud = audOf(c.body.aud);
   if (!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(img)) fail('صورة غير صحيحة (JPG أو PNG أو WebP)');
   if (img.length > 900 * 1024) fail('حجم الصورة كبير، اختر صورة أصغر');
-  const n = Number((await q('SELECT COUNT(*) AS n FROM ads')).rows[0].n) || 0;
+  const n = Number((await q('SELECT COUNT(*) AS n FROM ads WHERE aud=$1', [aud])).rows[0].n) || 0;
   if (n >= AD_MAX) fail(`الحد الأقصى ${AD_MAX} إعلانات، احذف إعلاناً قديماً أولاً`);
-  const mx = Number((await q('SELECT COALESCE(MAX(sort),0) AS m FROM ads')).rows[0].m) || 0;
-  await q('INSERT INTO ads(image, link, sort, active, created_at) VALUES($1,$2,$3,1,$4)', [img, adLink(c.body.link), mx + 1, Date.now()]);
-  const r = await q(`SELECT * FROM ads ORDER BY sort, id`);
-  return { ads: r.rows.map(adOut) };
+  const mx = Number((await q('SELECT COALESCE(MAX(sort),0) AS m FROM ads WHERE aud=$1', [aud])).rows[0].m) || 0;
+  await q('INSERT INTO ads(image, link, sort, active, created_at, aud) VALUES($1,$2,$3,1,$4,$5)', [img, adLink(c.body.link), mx + 1, Date.now(), aud]);
+  return adList(aud);
 });
 route('PUT', '/api/admin/ads/:id', ADM('settings', 'edit'), async (c) => {
   const id = Number(c.params.id);
@@ -892,13 +891,13 @@ route('PUT', '/api/admin/ads/:id', ADM('settings', 'edit'), async (c) => {
   const active = c.body.active !== undefined ? ([true, 1, '1', 'true'].includes(c.body.active) ? 1 : 0) : cur.active;
   const sort = c.body.sort !== undefined && Number.isFinite(Number(c.body.sort)) ? Math.round(Number(c.body.sort)) : cur.sort;
   await q('UPDATE ads SET link=$1, active=$2, sort=$3 WHERE id=$4', [link, active, sort, id]);
-  const r = await q(`SELECT * FROM ads ORDER BY sort, id`);
-  return { ads: r.rows.map(adOut) };
+  return adList(cur.aud);
 });
 route('DELETE', '/api/admin/ads/:id', ADM('settings', 'edit'), async (c) => {
-  await q('DELETE FROM ads WHERE id=$1', [Number(c.params.id)]);
-  const r = await q(`SELECT * FROM ads ORDER BY sort, id`);
-  return { ads: r.rows.map(adOut) };
+  const id = Number(c.params.id);
+  const cur = (await q('SELECT aud FROM ads WHERE id=$1', [id])).rows[0];
+  await q('DELETE FROM ads WHERE id=$1', [id]);
+  return adList(cur ? cur.aud : 'merchant');
 });
 
 /* ---------- طلب واحد (يُفتح من الإشعار): كل دور يرى ما يخصه فقط ---------- */
