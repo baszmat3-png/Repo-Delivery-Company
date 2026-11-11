@@ -1583,7 +1583,7 @@ const ACTIONS = {
   async 'rm-avatar'() { if (await act(() => api('PUT', '/api/me/profile', { avatar: '' }).then((r) => setUser(r.user)), 'تم حذف الصورة')) render(); },
   async 'del-user'(el) {
     const u = S.data.users.find((x) => x.id === Number(el.dataset.id)); if (!u) return;
-    if (!confirm(`حذف «${u.name}» نهائياً؟ تبقى طلباته القديمة في السجل ولا يمكنه الدخول بعد ذلك.`)) return;
+    if (!(await RioDialog.confirm(`حذف «${u.name}» نهائياً؟ تبقى طلباته القديمة في السجل ولا يمكنه الدخول بعد ذلك.`))) return;
     if (await act(() => api('DELETE', `/api/admin/users/${u.id}`), 'تم حذف الحساب')) refresh(true);
   },
   async 'verify-user'(el) {

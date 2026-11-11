@@ -816,17 +816,17 @@ const clickActs = {
   'ad-toggle'(el) { const a = ADSL.find((x) => x.id === Number(el.dataset.id)); adsCall('PUT', '/api/admin/ads/' + el.dataset.id, { active: !a.active }); },
   'ad-up'(el) { adMove(Number(el.dataset.id), -1); },
   'ad-down'(el) { adMove(Number(el.dataset.id), 1); },
-  'ad-del'(el) { if (confirm('حذف هذا الإعلان؟')) adsCall('DELETE', '/api/admin/ads/' + el.dataset.id, undefined, 'تم الحذف'); },
+  async 'ad-del'(el) { if (await RioDialog.confirm('حذف هذا الإعلان؟')) adsCall('DELETE', '/api/admin/ads/' + el.dataset.id, undefined, 'تم الحذف'); },
   async 'reset-stats'() {
     const balances = $('#rs-bal') ? $('#rs-bal').checked : false;
-    if (!confirm('سيتم حذف كل الطلبات والإحصائيات والمصاريف والسندات وحركات المحفظة' + (balances ? ' وتصفير أرصدة السائقين' : '') + ' نهائياً. هل أنت متأكد؟')) return;
-    if (prompt('للتأكيد اكتب كلمة: حذف') !== 'حذف') { toast('لم يتم الحذف: الكلمة غير مطابقة', true); return; }
+    if (!await RioDialog.confirm('سيتم حذف كل الطلبات والإحصائيات والمصاريف والسندات وحركات المحفظة' + (balances ? ' وتصفير أرصدة السائقين' : '') + ' نهائياً. هل أنت متأكد؟')) return;
+    if (!(await RioDialog.typed('هذا الإجراء نهائي ولا يمكن التراجع عنه.\nاكتب كلمة «حذف» للتأكيد.', 'حذف', { title: 'تأكيد أخير' }))) return;
     const r = await act(() => api('POST', '/api/admin/reset-stats', { confirm: true, balances }));
     if (r && r !== true) { toast(`تمت إعادة التعيين: ${r.orders} طلب، ${r.vouchers} سند، ${r.expenses} مصروف`); await load(); }
   },
   async 'reset-cards'() {
-    if (!confirm('سيتم حذف كل كروت الشحن (المتاحة والمستخدمة) نهائياً. هل أنت متأكد؟')) return;
-    if (prompt('للتأكيد اكتب كلمة: حذف') !== 'حذف') { toast('لم يتم الحذف: الكلمة غير مطابقة', true); return; }
+    if (!await RioDialog.confirm('سيتم حذف كل كروت الشحن (المتاحة والمستخدمة) نهائياً. هل أنت متأكد؟')) return;
+    if (!(await RioDialog.typed('هذا الإجراء نهائي ولا يمكن التراجع عنه.\nاكتب كلمة «حذف» للتأكيد.', 'حذف', { title: 'تأكيد أخير' }))) return;
     const r = await act(() => api('POST', '/api/admin/reset-cards', { confirm: true }));
     if (r && r !== true) { toast(`تم حذف ${r.cards} كرت`); await load(); }
   },
@@ -834,7 +834,7 @@ const clickActs = {
     const orders = $('#rs-orders').checked, demo = $('#rs-demo').checked;
     if (!orders && !demo) { toast('اختر ما تريد حذفه', true); return; }
     const what = [orders ? 'كل الطلبات' : '', demo ? 'الحسابات التجريبية' : ''].filter(Boolean).join(' و');
-    if (!confirm(`سيتم حذف ${what} نهائياً من النظام ولا يمكن التراجع. هل أنت متأكد؟`)) return;
+    if (!await RioDialog.confirm(`سيتم حذف ${what} نهائياً من النظام ولا يمكن التراجع. هل أنت متأكد؟`)) return;
     const r = await act(() => api('POST', '/api/admin/reset', { confirm: true, orders, demo }));
     if (r && r !== true) { toast(`تم الحذف: ${r.orders} طلب، ${r.accounts} حساب تجريبي`); await load(); }
   },
@@ -843,7 +843,7 @@ const clickActs = {
   logout() { logout(); },
   theme(el) { RioTheme.set(el.dataset.t); draw(); },
   'batch-x'() { BATCH = null; draw(); },
-  async 'del-card'(el) { if (confirm('حذف هذا الكرت؟') && await act(() => api('DELETE', '/api/admin/cards/' + el.dataset.n), 'تم الحذف')) load(); },
+  async 'del-card'(el) { if (await RioDialog.confirm('حذف هذا الكرت؟') && await act(() => api('DELETE', '/api/admin/cards/' + el.dataset.n), 'تم الحذف')) load(); },
   reload() { load(); },
   basis(el) { BASIS = el.dataset.k; ls.set('rio_basis', BASIS); draw(); },
   sort(el) { SORT = el.dataset.k; ls.set('rio_sort', SORT); draw(); },
@@ -868,7 +868,7 @@ const clickActs = {
     const prev = u.active; u.active = !prev; draw();
     try { await api('PUT', '/api/admin/staff/' + u.id, { active: !prev }); toast(prev ? 'تم إيقاف الموظف' : 'تم تفعيل الموظف'); load(); } catch (e) { u.active = prev; draw(); toast(e.message, true); }
   },
-  async 'staff-del'(el) { const u = STAFF.find((x) => x.id === Number(el.dataset.id)); if (u && confirm('حذف حساب ' + u.name + ' نهائياً؟') && await act(() => api('DELETE', '/api/admin/staff/' + u.id), 'تم الحذف')) load(); },
+  async 'staff-del'(el) { const u = STAFF.find((x) => x.id === Number(el.dataset.id)); if (u && await RioDialog.confirm('حذف حساب ' + u.name + ' نهائياً؟') && await act(() => api('DELETE', '/api/admin/staff/' + u.id), 'تم الحذف')) load(); },
   mloc(el) { M = { type: 'mloc', id: Number(el.dataset.id) }; drawModal(); },
   assign(el) { const o = O.find((x) => x.id === Number(el.dataset.id)); if (o) { M = { type: 'assign', o }; drawModal(); } },
   pw(el) { M = { type: 'pw', id: Number(el.dataset.id) }; drawModal(); },
@@ -899,7 +899,7 @@ const clickActs = {
     const u = findU(Number(el.dataset.id)); if (!u) return;
     const isD = u.role === 'driver' || D.drivers.includes(u);
     const bal = isD && u.balance ? `\nرصيده الحالي ${nn(u.balance)} د.ع سيُفقد.` : '';
-    if (!confirm(`حذف ${isD ? 'المندوب' : 'المتجر'} «${u.name}» نهائياً؟${bal}\nتبقى طلباته القديمة في السجل، ولا يمكنه الدخول بعد ذلك.`)) return;
+    if (!await RioDialog.confirm(`حذف ${isD ? 'المندوب' : 'المتجر'} «${u.name}» نهائياً؟${bal}\nتبقى طلباته القديمة في السجل، ولا يمكنه الدخول بعد ذلك.`)) return;
     if (await act(() => api('DELETE', '/api/admin/users/' + u.id), 'تم حذف الحساب')) load();
   },
   async verify(el) {
@@ -914,9 +914,9 @@ const clickActs = {
     try { await api('PUT', '/api/admin/users/' + u.id, { active: !prev }); toast(prev ? 'تم إيقاف الحساب' : 'تم تفعيل الحساب'); load(); }
     catch (e) { u.active = prev; draw(); toast(e.message, true); }
   },
-  async requeue(el) { if (confirm('إعادة الطلب للسائقين وإرجاع رسوم التطبيق للسائق؟') && await act(() => api('POST', `/api/admin/orders/${el.dataset.id}/requeue`), 'أُعيد الطلب للسائقين')) load(); },
-  async 'del-exp'(el) { if (confirm('حذف هذا المصروف؟') && await act(() => api('DELETE', '/api/admin/expenses/' + el.dataset.id), 'تم الحذف')) load(); },
-  async vdel(el) { if (confirm('حذف هذا السند نهائياً؟ سيتغيّر رصيد الطرف المرتبط به.') && await act(() => api('DELETE', '/api/admin/vouchers/' + el.dataset.id), 'تم الحذف')) load(); }
+  async requeue(el) { if (await RioDialog.confirm('إعادة الطلب للسائقين وإرجاع رسوم التطبيق للسائق؟', { title: 'إعادة الطلب', ok: 'إعادة', danger: false }) && await act(() => api('POST', `/api/admin/orders/${el.dataset.id}/requeue`), 'أُعيد الطلب للسائقين')) load(); },
+  async 'del-exp'(el) { if (await RioDialog.confirm('حذف هذا المصروف؟') && await act(() => api('DELETE', '/api/admin/expenses/' + el.dataset.id), 'تم الحذف')) load(); },
+  async vdel(el) { if (await RioDialog.confirm('حذف هذا السند نهائياً؟ سيتغيّر رصيد الطرف المرتبط به.') && await act(() => api('DELETE', '/api/admin/vouchers/' + el.dataset.id), 'تم الحذف')) load(); }
 };
 document.addEventListener('click', (e) => {
   const el = e.target.closest('[data-a]'); if (!el || el.tagName === 'SELECT') return;
