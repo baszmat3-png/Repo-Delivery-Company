@@ -193,6 +193,7 @@ async function refresh(manual) {
     if (S.user && (S.user.role === 'merchant' || S.user.role === 'driver') && d && d.adsVer !== undefined && d.adsVer !== S.adsVer) {
       try { const a = await api('GET', '/api/ads'); S.ads = a.ads; S.adsVer = d.adsVer; lastSig = ''; } catch { /* ignore */ }
     }
+    if (d && d.me && S.user && d.me.id === S.user.id && d.me.name !== S.user.name) S.user = { ...S.user, ...d.me };
     const cfgChanged = d && d.settings ? applyCfg(d.settings) : false;
     const sig = JSON.stringify(d);
     S.loading = false; S.error = '';
@@ -464,7 +465,7 @@ const VIEWS = {
   'merchant:stats'() {
     const o = S.data.orders;
     const pend = o.filter((x) => x.status === 'pending');
-    return `${head('الإحصائيات')}
+    return `${head('الإحصائيات', esc(S.user.name))}
     ${adsSlider()}
     <div class="tiles">
       ${tile('طلبات مسجلة', 'بانتظار سائق', pend.length, 'var(--amber)')}
@@ -493,7 +494,7 @@ const VIEWS = {
   'driver:home'() {
     const d = S.data;
     const s = d.settings;
-    return `${head('الطلبات المتاحة', d.me.receiving ? 'تُحدَّث القائمة تلقائياً' : '')}
+    return `${head('الطلبات المتاحة', esc(S.user.name))}
     ${adsSlider()}
     ${!d.me.receiving ? `<div class="notice red" style="margin-bottom:12px">استقبال الطلبات متوقف. فعّله من «الملف الشخصي» لتتمكن من قبول الطلبات.</div>` : ''}
     <div class="stack">${d.available.length ? d.available.map((o) => availOrderCard(o, s, d.me.receiving)).join('') : emptyBox('لا توجد طلبات متاحة الآن', 'ستظهر الطلبات الجديدة هنا فور رفعها من التجار.')}</div>`;
@@ -512,20 +513,13 @@ const VIEWS = {
     const w = S.data.wallet;
     const s = S.data.settings;
     const per = (l, p) => `<div><small>${l}</small><b>${p.n}</b><small>طلب موصّل</small><hr><b style="font-size:20px">${nf.format(p.net)}</b><small>ربحك (د.ع)</small></div>`;
-    let body;
-    if (S.walletTab === 'log') {
-      body = w.txs.length ? `<div class="card">${w.txs.map((t) => `<div class="tx"><div><div>${esc(t.label || (t.kind === 'fee' ? 'رسوم التطبيق' : 'عملية'))}${t.orderNo ? ` (طلب #${t.orderNo})` : ''}</div><small class="muted">${ago(t.at)}</small></div><span class="${t.amount < 0 ? 'neg' : 'pos'}">${t.amount < 0 ? '−' : '+'}${money(Math.abs(t.amount))}</span></div>`).join('')}</div>` : emptyBox('لا توجد عمليات بعد');
-    } else {
-      const max = Math.max(1, ...w.days.map((d) => d.net));
-      body = exportCard('تصدير الإحصائيات', 'يشمل الطلبات المسلّمة وعمولة التطبيق وربحك الصافي والمبلغ المستحق للشركة.') + `<div class="card"><div class="lbl">صافي ربحك آخر 7 أيام</div><div class="bars">${w.days.map((d) => `<div><em>${d.net ? nf.format(d.net) : ''}</em><div class="b" style="height:${Math.max(3, Math.round(d.net / max * 110))}px"></div><span>${DAYS[new Date(d.t + OFF).getUTCDay()]}</span></div>`).join('')}</div></div>`;
-    }
+    const body = w.txs.length ? `<div class="card">${w.txs.map((t) => `<div class="tx"><div><div>${esc(t.label || (t.kind === 'fee' ? 'رسوم التطبيق' : 'عملية'))}${t.orderNo ? ` (طلب #${t.orderNo})` : ''}</div><small class="muted">${ago(t.at)}</small></div><span class="${t.amount < 0 ? 'neg' : 'pos'}">${t.amount < 0 ? '−' : '+'}${money(Math.abs(t.amount))}</span></div>`).join('')}</div>` : emptyBox('لا توجد عمليات بعد');
     return `${head('المحفظة')}
     <div class="stack">
       <div class="balance"><div><small class="muted">رصيدك الحالي</small><strong>${money(w.balance)}</strong></div><span class="ico">${ico('wallet')}</span></div>
       <div class="period">${per('اليوم', w.today)}${per('هذا الأسبوع', w.week)}${per('هذا الشهر', w.month)}</div>
       <p class="hint">كل طلب تقبله يُخصم منه رسوم تطبيق: ${money(s.feeSame)} لتوصيل نفس المنطقة، و${money(s.feeOther)} للمنطقة الثانية.</p>
       <button class="btn" data-act="charge">${ico('card')} شحن الرصيد ببطاقة</button>
-      <div class="tabs"><button data-act="wtab" data-t="log" aria-pressed="${S.walletTab === 'log'}">سجل العمليات المالية</button><button data-act="wtab" data-t="rep" aria-pressed="${S.walletTab === 'rep'}">التقارير</button></div>
       ${body}</div>`;
   },
   'driver:me'() {
@@ -1479,7 +1473,7 @@ function stopChat() { if (chatTimer) { clearInterval(chatTimer); chatTimer = nul
 /* ============ الأحداث ============ */
 const ACTIONS = {
   tab: (el) => go(el.dataset.tab),
-  'tab-wallet': () => { S.walletTab = 'rep'; go('wallet'); },
+  'tab-wallet': () => { go('wallet'); },
   logout: () => doLogout(),
   theme: (el) => { RioTheme.set(el.dataset.t); render(); },
   ocd: async (el) => {
