@@ -345,8 +345,56 @@ const ovSeg = () => `<div class="seg" role="group" aria-label="طريقة الع
 function otable(l) {
   return `<div class="tw"><table class="ot"><thead><tr><th>الطلب</th><th>المتجر</th><th>الزبون</th><th class="n">المطلوب</th><th>الحالة</th><th>السائق</th><th></th></tr></thead><tbody>${l.map((o) => `<tr><td><b>#${o.no}</b><div class="hint">${ago(o.createdAt)}</div></td><td>${esc(o.merchantName)}<div class="hint">${esc(o.merchantArea || '')}</div></td><td>${esc(o.customerArea)}<div class="hint num">${esc(o.customerPhone)}</div></td><td class="n"><b>${nf(o.total)}</b><div class="hint">توصيل ${nf(o.deliveryPrice)}</div></td><td><select class="in" data-c="status" data-id="${o.id}" aria-label="حالة الطلب ${o.no}">${stKeys(o.status).map((k) => `<option value="${k}" ${o.status === k ? 'selected' : ''}>${ST[k]}</option>`).join('')}</select></td><td>${esc(o.driverName || '—')}</td><td class="act"><div class="row">${rOn() ? `<button class="btn sm" data-a="receipt" data-id="${o.id}">وصل</button>` : ''}<a class="btn sm w" target="_blank" rel="noopener" href="${wa(o.customerPhone, custMsg(o))}">واتساب</a>${ASSIGNABLE.includes(o.status) ? `<button class="btn sm" data-a="assign" data-id="${o.id}">${o.driverId ? 'تحويل' : 'تعيين'}</button>` : ''}</div></td></tr>`).join('')}</tbody></table></div>`;
 }
+const ocDesign = () => ((SET && SET.ocDesign) || 'green');
+function ocRowsHtml(o) {
+  return `${ocRow('orders', 'الحالة', `<select class="in" data-c="status" data-id="${o.id}" aria-label="حالة الطلب ${o.no}">${stKeys(o.status).map((k) => `<option value="${k}" ${o.status === k ? 'selected' : ''}>${ST[k]}</option>`).join('')}</select>`)}
+${ocRow('phone', 'رقم الزبون', `<span class="num">${esc(o.customerPhone)}</span>`)}
+${ocRow('wallet', 'المطلوب من الزبون', `<b>${dinar(o.total)}</b>`)}
+${ocRow('orders', 'المنتج', `${esc(o.product)} × ${o.qty} · ${o.vehicle === 'car' ? 'سيارة' : 'دراجة'}`)}
+${ocRow('user', 'السائق', esc(o.driverName || '—'))}
+${o.note ? `<div class="oc-note">ملاحظة: ${esc(o.note)}</div>` : ''}`;
+}
+function ocActsHtml(o, drv) {
+  return `${rOn() ? `<button class="btn sm" data-a="receipt" data-id="${o.id}">وصل</button>` : ''}<a class="btn sm w" target="_blank" rel="noopener" href="${wa(o.customerPhone, custMsg(o))}">واتساب الزبون</a>${o.driverId && driverPhone(o) ? `<a class="btn sm w" target="_blank" rel="noopener" href="${wa(driverPhone(o), drvMsg(o, drv))}">واتساب السائق</a>` : ''}<a class="btn sm g" target="_blank" rel="noopener" href="${esc(wazeHref(o))}">${ico('pin')} Waze · موقع المتجر</a>${ASSIGNABLE.includes(o.status) ? `<button class="btn sm" data-a="assign" data-id="${o.id}">${o.driverId ? 'تحويل لسائق' : 'تعيين سائق'}</button>` : ''}${o.driverId && o.status !== 'pending' ? `<button class="btn sm g" data-a="requeue" data-id="${o.id}">إعادة</button>` : ''}`;
+}
+const OD_STEPS = ['قبول', 'استلام', 'تسليم'];
+const OD_DONE = { picking_up: 1, on_the_way: 2, delivered: 3, rejected: 2, no_answer: 2, postponed: 2, return_sent: 2, returned: 2, partial: 2 };
+function odSteps(st) {
+  const n = OD_DONE[st] || 0;
+  return `<div class="od-steps">${OD_STEPS.map((t, i) => `${i ? `<span class="od-ln ${i < n ? 'on' : ''}"></span>` : ''}<span class="od-s ${i < n ? 'on' : ''}"><i>${i < n ? ico('check') : ''}</i><small>${t}</small></span>`).join('')}</div>`;
+}
+/* نفس تصاميم بطاقة الطلب في التطبيق (تصميم الوصولات المختار من الإعدادات) */
+function odA(o, d, drv) {
+  const open = OCOPEN.has(o.id);
+  const initial = esc((o.merchantName || '؟').trim().charAt(0));
+  const num = (n) => `<span class="num">${Number(n || 0).toLocaleString('en-US')}</span>`;
+  const main = o.driverId ? `<button class="oc-cb g" data-a="chat" data-id="${o.id}"><span>محادثة</span>${ico('chat')}</button>` : '';
+  const delivery = `<span class="od-dl">+ توصيل ${num(o.deliveryPrice)}</span>`;
+  const head = `<div class="od-hd"><div class="od-no"><span class="od-nol">رقم الطلب</span><bdi>#${o.no}</bdi></div><span class="od-ago">${ago(o.createdAt)}</span></div>`;
+  const stat = `<div class="od-st"><span class="od-sv"><span class="pill">${esc(ST[o.status] || o.status)}</span></span><span class="od-sl">الحالة</span></div>`;
+  const store = `<div class="od-store"><span class="od-av">${initial}</span><span class="od-sn"><small>اسم المتجر</small><b>${esc(o.merchantName)}</b></span></div>`;
+  const price = d === 'sun'
+    ? `<div class="od-pr"><div class="od-pb"><small>سعر الطلب</small><div><b class="od-big">${num(o.productPrice)}</b> <em>دينار</em></div></div><div class="od-db"><small>التوصيل</small><div><b>${num(o.deliveryPrice)}</b> <em>دينار</em></div></div></div>`
+    : d === 'night'
+      ? `<div class="od-pr"><div class="od-pm"><small class="od-pl">سعر الطلب</small><b class="od-big">${num(o.productPrice)}</b><em>دينار</em></div>${delivery}</div>`
+      : `<div class="od-pr"><small class="od-pl">سعر الطلب</small><div class="od-pm"><span class="od-pv"><b class="od-big">${num(o.productPrice)}</b><em>دينار</em></span></div>${d === 'green' ? '' : delivery}${d === 'green' ? delivery : ''}</div>`;
+  const addr = `<div class="od-ad"><div class="od-ab"><small>عنوان المتجر</small><b>${esc(o.merchantArea || '—')}</b></div><span class="od-arrow" aria-hidden="true"></span><div class="od-ab"><small>عنوان الزبون</small><b>${esc(o.customerArea)}</b></div></div>`;
+  const toggle = `<button type="button" class="od-tg" data-a="oc-toggle" data-id="${o.id}" aria-expanded="${open}"><span>${open ? 'إخفاء التفاصيل' : 'عرض التفاصيل'}</span></button>`;
+  const det = `<div class="od-more" ${open ? '' : 'hidden'}><div class="od-det">${ocRowsHtml(o)}</div><div class="od-act">${ocActsHtml(o, drv)}</div></div>`;
+  const btns = main ? `<div class="od-main">${main}</div>` : '';
+  const tail = `${toggle}${det}${btns}`;
+  let inner;
+  if (d === 'green') inner = `<div class="od-top">${head}${store}${price}</div><div class="od-body">${stat}${odSteps(o.status)}${addr}${tail}</div>`;
+  else if (d === 'ticket') inner = `<div class="od-half od-top">${head}${stat}${store}</div><div class="od-half od-bot">${price}${addr}${tail}</div>`;
+  else if (d === 'sun') inner = `<div class="od-top">${head}</div><div class="od-body">${stat}${store}${price}${addr}${tail}</div>`;
+  else if (d === 'night') inner = `<div class="od-body">${head}${stat}${store}${price}${addr}${tail}</div>`;
+  else inner = `<div class="od-top">${head}</div>${stat}<div class="od-body">${store}${price}${addr}${tail}</div>`;
+  return `<article class="od od-${d}" data-st="${esc(o.status || '')}">${inner}</article>`;
+}
 function ocard(o) {
   const drv = o.driverId ? D.drivers.find((x) => x.id === o.driverId) : null;
+  const dz = ocDesign();
+  if (dz !== 'classic') return odA(o, dz, drv);
   return `<article class="oc">
     <div class="oc-top"><div class="oc-no">رقم الطلب : <bdi>#${o.no}</bdi><small>${ago(o.createdAt)} · ${fdt(o.createdAt)}</small></div>${o.driverId ? `<div class="oc-corner"><button class="oc-cb g" data-a="chat" data-id="${o.id}"><span>محادثة</span>${ico('chat')}</button></div>` : ''}</div>
     ${ocRow('store', 'اسم المتجر', esc(o.merchantName))}
@@ -355,13 +403,8 @@ function ocard(o) {
     ${ocRow('pin', 'عنوان الزبون', `<span class="oc-chip">${esc(o.customerArea)}</span>`)}
     <button type="button" class="oc-tg" data-a="oc-toggle" data-id="${o.id}" aria-expanded="${OCOPEN.has(o.id)}"><span>${OCOPEN.has(o.id) ? 'إخفاء التفاصيل' : 'عرض التفاصيل'}</span>${ico('chev')}</button>
     <div class="oc-more" ${OCOPEN.has(o.id) ? '' : 'hidden'}>
-    ${ocRow('orders', 'الحالة', `<select class="in" data-c="status" data-id="${o.id}" aria-label="حالة الطلب ${o.no}">${stKeys(o.status).map((k) => `<option value="${k}" ${o.status === k ? 'selected' : ''}>${ST[k]}</option>`).join('')}</select>`)}
-    ${ocRow('phone', 'رقم الزبون', `<span class="num">${esc(o.customerPhone)}</span>`)}
-    ${ocRow('wallet', 'المطلوب من الزبون', `<b>${dinar(o.total)}</b>`)}
-    ${ocRow('orders', 'المنتج', `${esc(o.product)} × ${o.qty} · ${o.vehicle === 'car' ? 'سيارة' : 'دراجة'}`)}
-    ${ocRow('user', 'السائق', esc(o.driverName || '—'))}
-    ${o.note ? `<div class="oc-note">ملاحظة: ${esc(o.note)}</div>` : ''}
-    <div class="oc-act">${rOn() ? `<button class="btn sm" data-a="receipt" data-id="${o.id}">وصل</button>` : ''}<a class="btn sm w" target="_blank" rel="noopener" href="${wa(o.customerPhone, custMsg(o))}">واتساب الزبون</a>${o.driverId && driverPhone(o) ? `<a class="btn sm w" target="_blank" rel="noopener" href="${wa(driverPhone(o), drvMsg(o, drv))}">واتساب السائق</a>` : ''}<a class="btn sm g" target="_blank" rel="noopener" href="${esc(wazeHref(o))}">${ico('pin')} Waze · موقع المتجر</a>${ASSIGNABLE.includes(o.status) ? `<button class="btn sm" data-a="assign" data-id="${o.id}">${o.driverId ? 'تحويل لسائق' : 'تعيين سائق'}</button>` : ''}${o.driverId && o.status !== 'pending' ? `<button class="btn sm g" data-a="requeue" data-id="${o.id}">إعادة</button>` : ''}</div>
+    ${ocRowsHtml(o)}
+    <div class="oc-act">${ocActsHtml(o, drv)}</div>
     </div>
   </article>`;
 }
