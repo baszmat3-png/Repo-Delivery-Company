@@ -49,7 +49,7 @@ const ico = (n) => `<svg viewBox="0 0 24 24" aria-hidden="true">${IC[n] || ''}</
 /* ---------------- الحالة ---------------- */
 let T = ls.get(KEY) || '', P = ls.get('rio_page') || 'home', R = ls.get('rio_range') || 'month', CF = ls.get('rio_cf') || '', CT = ls.get('rio_ct') || '';
 let BASIS = ls.get('rio_basis') || 'fees', SORT = ls.get('rio_sort') || 'orders', FP = 'month', VK = 'in', Q = '', FS = 'all', FM = 0;
-let MENU = false, D = null, O = [], FN = null, V = [], CARDS = [], SET = null, BATCH = null, E = '', M = null, LIVE = false, DIRTY = false, loading = false;
+let ADSL = null, MENU = false, D = null, O = [], FN = null, V = [], CARDS = [], SET = null, BATCH = null, E = '', M = null, LIVE = false, DIRTY = false, loading = false;
 applyPerms();
 let SSEC = ls.get('rio_ssec') || 'prices', OCSEL = null;
 if (!['orders', 'active', 'goods'].includes(SORT)) SORT = 'orders';
@@ -489,7 +489,7 @@ function cards() {
 }
 
 /* ---------------- الإعدادات ---------------- */
-const SECS = [['themes', 'الثيمات'], ['wa', 'قوالب رسائل واتساب'], ['prices', 'أسعار التوصيل للزبون'], ['fees', 'الرسوم'], ['receipts', 'الوصولات'], ['alerts', 'التنبيهات والدعم'], ['ocd', 'تصميم الوصولات'], ['stats', 'إعادة تعيين الإحصائيات'], ['rcards', 'تصفير الكروت'], ['reset', 'تصفير البيانات']];
+const SECS = [['themes', 'الثيمات'], ['wa', 'قوالب رسائل واتساب'], ['prices', 'أسعار التوصيل للزبون'], ['fees', 'الرسوم'], ['receipts', 'الوصولات'], ['alerts', 'التنبيهات والدعم'], ['ocd', 'تصميم الوصولات'], ['ads', 'إعلانات التاجر'], ['stats', 'إعادة تعيين الإحصائيات'], ['rcards', 'تصفير الكروت'], ['reset', 'تصفير البيانات']];
 const saveBar = (label = 'حفظ') => `<div class="err" id="fe" role="alert"></div><button class="btn" style="min-height:44px">${label}</button>`;
 function settings() {
   if (!SET) return `<div class="card">جارٍ التحميل…</div>`;
@@ -514,6 +514,23 @@ function settings() {
       <p class="hint" style="margin:0 0 12px">اختر شكل بطاقة الطلب ثم اضغط «حفظ وتطبيق». لا يملك التاجر أو السائق أي خيار لتغييره، والاختيار هنا فقط.</p>
       <div class="ocg" role="radiogroup" aria-label="تصميم الوصولات">${RioOC.list.map(([k, n, sub]) => `<div class="oct" role="radio" tabindex="0" aria-checked="${sel === k}" data-a="ocd-pick" data-d="${k}"><iframe title="${esc(n)}" loading="lazy" tabindex="-1" srcdoc="${esc(RioOC.doc(k))}"></iframe><b>${n}${cur === k ? ' <span class="muted">(المطبّق حالياً)</span>' : ''}</b><small>${sub}</small></div>`).join('')}</div>
       ${saveBar('حفظ وتطبيق على كل الحسابات')}</div></form>`;
+    },
+    ads: () => {
+      if (ADSL === null) { loadAds(); return `<div class="card">جارٍ التحميل…</div>`; }
+      const list = ADSL.map((a, i) => `<div class="card" style="padding:12px;margin-bottom:12px${a.active ? '' : ';opacity:.6'}">
+        <img src="${a.image}" alt="إعلان ${i + 1}" style="width:100%;aspect-ratio:1.7/1;object-fit:cover;border-radius:12px;display:block;background:#eef">
+        <div class="field" style="margin:10px 0 0"><label for="al-${a.id}">رابط عند الضغط (اختياري، يبدأ بـ <bdi dir="ltr">https://</bdi>)</label><input class="in" id="al-${a.id}" dir="ltr" value="${esc(a.link)}" placeholder="https://"></div>
+        <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap">
+          <button type="button" class="btn sm" data-a="ad-link" data-id="${a.id}">حفظ الرابط</button>
+          <button type="button" class="btn sm g" data-a="ad-toggle" data-id="${a.id}">${a.active ? 'إخفاء' : 'إظهار'}</button>
+          <button type="button" class="btn sm g" data-a="ad-up" data-id="${a.id}" ${i === 0 ? 'disabled' : ''} aria-label="تقديم">▲</button>
+          <button type="button" class="btn sm g" data-a="ad-down" data-id="${a.id}" ${i === ADSL.length - 1 ? 'disabled' : ''} aria-label="تأخير">▼</button>
+          <button type="button" class="btn sm d" data-a="ad-del" data-id="${a.id}">حذف</button>
+        </div></div>`).join('');
+      return `<div class="card"><div class="ch">إعلانات التاجر <small>تظهر كشريط صور متحرك أعلى صفحة التاجر في التطبيق</small></div>
+        <p class="hint" style="margin:0 0 12px">اختر صورة من جهازك وتُضغط تلقائياً. الأفضل مقاس عرضي (نسبة 1.7 : 1 مثل 1200×700). الحد الأقصى ${10} إعلانات. تظهر للتجار فوراً بعد الإضافة.</p>
+        <label class="btn" style="min-height:44px;display:inline-flex;align-items:center;cursor:pointer">+ إضافة إعلان (صورة)<input type="file" accept="image/*" data-c="adfile" hidden></label>
+        <div class="err" id="ad-err" role="alert"></div></div>${list || '<div class="card muted">لا توجد إعلانات بعد.</div>'}`;
     },
     stats: () => `<div class="card"><div class="ch">إعادة تعيين الإحصائيات <small>حذف نهائي لا يمكن التراجع عنه</small></div>
       <p class="hint" style="margin:0 0 12px">يحذف كل الطلبات والمحادثات والإشعارات وحركات المحفظة والمصاريف والسندات، فتصبح كل الإحصائيات والأرقام صفراً. الحسابات والإعدادات وكروت الشحن تبقى كما هي.</p>
@@ -762,11 +779,44 @@ function listExports(kind) {
 const doExcel = (kind) => { const e = listExports(kind); return exportXlsx(`ريو-${e.name}-${stamp()}`, [{ name: e.name, rows: [e.head, ...e.rows] }]); };
 const doPdf = (kind) => { const e = listExports(kind); printDoc(e.name, docA4({ title: e.name, sub: rangeLabel(), sections: [{ head: e.pdf.head, rows: e.pdf.rows }] })); };
 
+
+/* ---------------- إعلانات التاجر ---------------- */
+async function loadAds() { try { ADSL = (await api('GET', '/api/admin/ads')).ads; } catch (e) { ADSL = []; toast(e.message, true); } draw(); }
+function shrinkImage(file, maxW = 1200, maxBytes = 600 * 1024) {
+  return new Promise((resolve, reject) => {
+    const u = URL.createObjectURL(file), im = new Image();
+    im.onload = () => {
+      URL.revokeObjectURL(u);
+      const k = Math.min(1, maxW / im.width), w = Math.round(im.width * k), h = Math.round(im.height * k);
+      const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+      const cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, w, h); cx.drawImage(im, 0, 0, w, h);
+      let qy = 0.85, out = cv.toDataURL('image/jpeg', qy);
+      while (out.length > maxBytes && qy > 0.4) { qy -= 0.1; out = cv.toDataURL('image/jpeg', qy); }
+      out.length > maxBytes ? reject(Error('الصورة كبيرة جداً، اختر صورة أصغر')) : resolve(out);
+    };
+    im.onerror = () => { URL.revokeObjectURL(u); reject(Error('تعذّر قراءة الصورة')); };
+    im.src = u;
+  });
+}
+async function adsCall(m, p, b, ok) { const r = await act(() => api(m, p, b), ok); if (r && r.ads) { ADSL = r.ads; draw(); } }
+async function adMove(id, d) {
+  const i = ADSL.findIndex((a) => a.id === id), j = i + d; if (i < 0 || j < 0 || j >= ADSL.length) return;
+  const a = ADSL[i], b = ADSL[j];
+  await act(() => api('PUT', '/api/admin/ads/' + a.id, { sort: j }));
+  const r = await act(() => api('PUT', '/api/admin/ads/' + b.id, { sort: i }));
+  if (r && r.ads) { ADSL = r.ads; draw(); } else loadAds();
+}
+
 /* ---------------- الأحداث ---------------- */
 const clickActs = {
   menu() { MENU = !MENU; draw(); },
   sec(el) { SSEC = el.dataset.k; ls.set('rio_ssec', SSEC); draw(); },
   'ocd-pick'(el) { OCSEL = el.dataset.d; draw(); },
+  'ad-link'(el) { adsCall('PUT', '/api/admin/ads/' + el.dataset.id, { link: document.getElementById('al-' + el.dataset.id).value }, 'تم حفظ الرابط'); },
+  'ad-toggle'(el) { const a = ADSL.find((x) => x.id === Number(el.dataset.id)); adsCall('PUT', '/api/admin/ads/' + el.dataset.id, { active: !a.active }); },
+  'ad-up'(el) { adMove(Number(el.dataset.id), -1); },
+  'ad-down'(el) { adMove(Number(el.dataset.id), 1); },
+  'ad-del'(el) { if (confirm('حذف هذا الإعلان؟')) adsCall('DELETE', '/api/admin/ads/' + el.dataset.id, undefined, 'تم الحذف'); },
   async 'reset-stats'() {
     const balances = $('#rs-bal') ? $('#rs-bal').checked : false;
     if (!confirm('سيتم حذف كل الطلبات والإحصائيات والمصاريف والسندات وحركات المحفظة' + (balances ? ' وتصفير أرصدة السائقين' : '') + ' نهائياً. هل أنت متأكد؟')) return;
@@ -880,6 +930,13 @@ document.addEventListener('input', (e) => {
 });
 document.addEventListener('change', async (e) => {
   const t = e.target, c = t.dataset.c; if (!c) return;
+  if (c === 'adfile') {
+    const file = t.files && t.files[0]; t.value = ''; if (!file) return;
+    const er = $('#ad-err'); if (er) er.textContent = 'جارٍ رفع الصورة…';
+    try { const img = await shrinkImage(file); const r = await api('POST', '/api/admin/ads', { image: img }); ADSL = r.ads; toast('تمت إضافة الإعلان'); draw(); }
+    catch (x) { const e2 = $('#ad-err'); if (e2) e2.textContent = x.message; toast(x.message, true); }
+    return;
+  }
   if (c === 'range') { R = t.value; ls.set('rio_range', R); if (R === 'custom' && !CF) { CF = fd(Date.now() - 30 * DAY); CT = fd(Date.now()); ls.set('rio_cf', CF); ls.set('rio_ct', CT); } load(); }
   else if (c === 'cf' || c === 'ct') { if (c === 'cf') { CF = t.value; ls.set('rio_cf', CF); } else { CT = t.value; ls.set('rio_ct', CT); } load(); }
   else if (c === 'status') { if (await act(() => api('POST', `/api/admin/orders/${t.dataset.id}/status`, { status: t.value }), 'تم تغيير الحالة')) load(); else load(); }

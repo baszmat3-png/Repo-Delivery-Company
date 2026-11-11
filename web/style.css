@@ -786,3 +786,15 @@ a.btn{text-decoration:none}
 .logo-img{display:block;height:44px;width:auto;border-radius:10px;flex:none}
 .logo-img.big{height:auto;width:min(78vw,340px);margin-inline:auto;border-radius:16px}
 .card-viz .logo-img{height:30px}
+
+/* منع التكبير ومنع تكبير النقر المزدوج */
+html,body{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%}
+/* إعلانات التاجر */
+.ads{position:relative;margin:0 0 14px}
+.ad-track{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;border-radius:16px;-webkit-overflow-scrolling:touch}
+.ad-track::-webkit-scrollbar{display:none}
+.ad-s{flex:0 0 100%;scroll-snap-align:center;display:block;aspect-ratio:1.7/1;border-radius:16px;overflow:hidden;background:var(--soft,#eef)}
+.ad-s img{width:100%;height:100%;object-fit:cover;display:block;-webkit-user-drag:none;user-select:none}
+.ad-dots{position:absolute;inset-inline:0;bottom:8px;display:flex;justify-content:center;gap:5px;pointer-events:none}
+.ad-dots i{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.55);transition:.2s}
+.ad-dots i.on{width:16px;border-radius:4px;background:#fff}

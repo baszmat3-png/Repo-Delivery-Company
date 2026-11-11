@@ -62,7 +62,10 @@ function ddl() {
     `CREATE TABLE IF NOT EXISTS push_subs(
       id ${pk}, user_id INTEGER NOT NULL, type TEXT NOT NULL, endpoint TEXT NOT NULL UNIQUE,
       data TEXT NOT NULL DEFAULT '', created_at BIGINT NOT NULL)`,
-    `CREATE INDEX IF NOT EXISTS push_subs_user_idx ON push_subs(user_id)`
+    `CREATE INDEX IF NOT EXISTS push_subs_user_idx ON push_subs(user_id)`,
+    `CREATE TABLE IF NOT EXISTS ads(
+      id ${pk}, image TEXT NOT NULL, link TEXT NOT NULL DEFAULT '', sort INTEGER NOT NULL DEFAULT 0,
+      active INTEGER NOT NULL DEFAULT 1, created_at BIGINT NOT NULL)`
   ];
 }
 

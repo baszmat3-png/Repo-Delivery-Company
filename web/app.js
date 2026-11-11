@@ -190,6 +190,9 @@ async function refresh(manual) {
   try {
     const d = await fetchData();
     if (tab !== S.tab) return;
+    if (S.user && S.user.role === 'merchant' && d && d.adsVer !== undefined && d.adsVer !== S.adsVer) {
+      try { const a = await api('GET', '/api/ads'); S.ads = a.ads; S.adsVer = d.adsVer; lastSig = ''; } catch { /* ignore */ }
+    }
     const cfgChanged = d && d.settings ? applyCfg(d.settings) : false;
     const sig = JSON.stringify(d);
     S.loading = false; S.error = '';
@@ -420,11 +423,49 @@ function adminOrderCard(o) {
   });
 }
 
+/* ---------- إعلانات التاجر: شريط صور متحرك تديره لوحة التحكم ---------- */
+function adsSlider() {
+  const a = S.ads || [];
+  if (!a.length) return '';
+  const slides = a.map((x, i) => {
+    const img = `<img src="${x.image}" alt="إعلان ${i + 1}" draggable="false">`;
+    return x.link ? `<a class="ad-s" href="${esc(x.link)}" target="_blank" rel="noopener">${img}</a>` : `<div class="ad-s">${img}</div>`;
+  }).join('');
+  const dots = a.length > 1 ? `<div class="ad-dots" aria-hidden="true">${a.map((_, i) => `<i${i === 0 ? ' class="on"' : ''}></i>`).join('')}</div>` : '';
+  return `<div class="ads" role="region" aria-label="إعلانات"><div class="ad-track">${slides}</div>${dots}</div>`;
+}
+let adTimer = null;
+function adTick() {
+  const t = document.querySelector('.ad-track');
+  if (!t || document.hidden) return;
+  const sl = [...t.children];
+  if (sl.length < 2) return;
+  const tr = t.getBoundingClientRect(), mid = tr.left + tr.width / 2;
+  let cur = 0, best = 1e9;
+  sl.forEach((c, i) => { const r = c.getBoundingClientRect(), d = Math.abs(r.left + r.width / 2 - mid); if (d < best) { best = d; cur = i; } });
+  sl[(cur + 1) % sl.length].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+}
+function adDots() {
+  const t = document.querySelector('.ad-track'), d = document.querySelectorAll('.ad-dots i');
+  if (!t || !d.length) return;
+  const tr = t.getBoundingClientRect(), mid = tr.left + tr.width / 2;
+  let cur = 0, best = 1e9;
+  [...t.children].forEach((c, i) => { const r = c.getBoundingClientRect(), x = Math.abs(r.left + r.width / 2 - mid); if (x < best) { best = x; cur = i; } });
+  d.forEach((e, i) => e.classList.toggle('on', i === cur));
+}
+document.addEventListener('scroll', (e) => { if (e.target && e.target.classList && e.target.classList.contains('ad-track')) adDots(); }, true);
+if (!adTimer) adTimer = setInterval(adTick, 4500);
+
+/* منع تكبير الشاشة بالأصابع (iOS يتجاهل user-scalable) */
+['gesturestart', 'gesturechange', 'gestureend'].forEach((n) => document.addEventListener(n, (e) => e.preventDefault()));
+document.addEventListener('touchmove', (e) => { if (e.touches && e.touches.length > 1) e.preventDefault(); }, { passive: false });
+
 const VIEWS = {
   'merchant:stats'() {
     const o = S.data.orders;
     const pend = o.filter((x) => x.status === 'pending');
     return `${head('الإحصائيات', esc(S.user.name))}
+    ${adsSlider()}
     <div class="tiles">
       ${tile('طلبات مسجلة', 'بانتظار سائق', pend.length, 'var(--amber)')}
       ${tile('قيد التوصيل', '', countBy(o, ['picking_up', 'on_the_way']), 'var(--accent)')}

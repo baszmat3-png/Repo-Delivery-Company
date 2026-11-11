@@ -52,13 +52,13 @@ function send(res, status, data, headers = {}) {
   res.end(body);
 }
 
-function readBody(req) {
+function readBody(req, max = 200 * 1024) {
   return new Promise((resolve, reject) => {
     let size = 0;
     const chunks = [];
     req.on('data', (c) => {
       size += c.length;
-      if (size > 200 * 1024) { reject(new HttpError(413, 'الطلب كبير جداً')); req.destroy(); return; }
+      if (size > max) { reject(new HttpError(413, 'الطلب كبير جداً')); req.destroy(); return; }
       chunks.push(c);
     });
     req.on('end', () => {
@@ -94,7 +94,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/healthz') return send(res, 200, { ok: true });
     if (url.pathname === '/api/stream' && req.method === 'GET') return openStream(req, res, url);
     if (url.pathname.startsWith('/api/')) {
-      const body = ['POST', 'PUT', 'DELETE'].includes(req.method) ? await readBody(req) : null;
+      const body = ['POST', 'PUT', 'DELETE'].includes(req.method) ? await readBody(req, url.pathname === '/api/admin/ads' ? 1200 * 1024 : undefined) : null;
       const out = await dispatch(req, body, url);
       if (out === undefined) return send(res, 404, { error: 'المسار غير موجود' });
       if (req.method !== 'GET') broadcast();
