@@ -1279,7 +1279,8 @@ route('GET', '/api/admin/tracking', ADM('tracking'), async () => {
     };
   });
   const pending = (await q(`SELECT * FROM orders WHERE status='pending' ORDER BY created_at ASC LIMIT 50`)).rows.map((o) => ({ id: o.id, no: o.num, vehicle: o.vehicle, merchantName: o.merchant_name, customerArea: o.customer_area }));
-  return { now, drivers: out, stores, pending };
+  const noLoc = mer.filter((m) => m.map_url && !storeById[m.id]).map((m) => ({ id: m.id, name: m.name }));
+  return { now, drivers: out, stores, pending, noLoc };
 });
 
 route('GET', '/api/admin/tracking/:id/trail', ADM('tracking'), async (c) => {

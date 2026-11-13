@@ -101,7 +101,7 @@ async function load(silent) {
     jobs.push(P === 'staff' && isAdm() ? api('GET', '/api/admin/staff') : null);
     jobs.push(P === 'tracking' ? api('GET', '/api/admin/tracking') : null);
     const [d, o, f, v, cd, st, me, sf, tk] = await Promise.all(jobs);
-    if (tk) TRK.data = tk;
+    if (tk) trkSet(tk);
     if (me && me.user) setMe(me.user);
     if (sf) STAFF = sf.staff;
     D = d; if (o) O = o.orders; if (f) FN = f; if (v) V = v.vouchers; if (cd) CARDS = cd.cards; if (st) SET = st.settings; E = '';
@@ -282,7 +282,7 @@ function page() {
 }
 
 /* ---------------- تتبع المندوبين ---------------- */
-const TRK = { data: null, map: null, el: null, lp: null, mk: {}, sk: {}, lines: null, trail: null, sel: null, f: 'all', q: '', stores: true, routes: true, fitted: false, busy: false };
+const TRK = { real: null, demo: null, dm: null, at: 0, data: null, map: null, el: null, lp: null, mk: {}, sk: {}, lines: null, trail: null, sel: null, f: 'all', q: '', stores: true, routes: true, fitted: false, busy: false };
 const TST = { busy: ['في مهمة', 'y', '#f0b400'], free: ['متاح', 'green', '#16a34a'], offline: ['غير متصل', 'gray', '#6b7280'] };
 function loadLeaflet() {
   if (window.L) return Promise.resolve();
@@ -295,12 +295,41 @@ function loadLeaflet() {
   });
   return TRK.lp;
 }
+
+/* بيانات تجريبية (تُعرض في المتصفح فقط ولا تُحفظ): 10 مندوبين ومتجران على خريطة بغداد */
+const BAGHDAD = [33.3152, 44.3661];
+const DEMO_STORES = [{ id: -1, name: 'صيدلية جوهرة الأردن', area: 'الكرادة', lat: 33.3066, lng: 44.4024 }, { id: -2, name: 'مكتبة فوريد', area: 'المنصور', lat: 33.3226, lng: 44.3485 }];
+const DEMO_DRV = [
+  ['أحمد الكعبي', 'busy', 33.3122, 44.3895, 82, 9, 0, 1042, 0], ['علي حسين', 'busy', 33.3300, 44.3560, 64, 7, 0, 1041, 1], ['مصطفى جاسم', 'busy', 33.2985, 44.3715, 47, 5, 0, 1039, 0],
+  ['زيد الربيعي', 'busy', 33.3380, 44.3920, 19, 6, 12, 1037, 1], ['سجاد كريم', 'busy', 33.3235, 44.3380, 73, 4, 0, 1044, 0],
+  ['حيدر نعمة', 'free', 33.3070, 44.3560, 91, 3, 0, 0, 0], ['محمد الساعدي', 'free', 33.3420, 44.3700, 58, 2, 0, 0, 0], ['كرار عباس', 'free', 33.2890, 44.4150, 77, 5, 0, 0, 0],
+  ['يوسف منعم', 'offline', 33.3500, 44.4300, 12, 1, 0, 0, 0], ['باقر الزبيدي', 'offline', 33.2760, 44.3300, 35, 0, 0, 0, 0]
+];
+function trkDemoData() {
+  const now = Date.now();
+  if (!TRK.dm) TRK.dm = DEMO_DRV.map((d) => ({ lat: d[2], lng: d[3] }));
+  TRK.dm.forEach((p, i) => { if (DEMO_DRV[i][1] !== 'offline' && !DEMO_DRV[i][6]) { p.lat += (Math.random() - 0.5) * 0.0006; p.lng += (Math.random() - 0.5) * 0.0006; } });
+  return DEMO_DRV.map((d, i) => {
+    const o = d[7] ? { id: -d[7], no: d[7], status: d[8] ? 'on_the_way' : 'picking_up', merchantId: d[8] ? 0 : DEMO_STORES[i % 2].id, merchantName: d[8] ? DEMO_STORES[(i + 1) % 2].name : DEMO_STORES[i % 2].name, customerArea: ['الشعلة', 'الجامعة', 'اليرموك', 'الكاظمية', 'زيونة'][i % 5], store: d[8] ? null : DEMO_STORES[i % 2] } : null;
+    return { id: -(i + 1), demo: true, name: d[0], phone: '07700000000', vehicle: 'bike', active: true, verified: true, avatar: '', lat: TRK.dm[i].lat, lng: TRK.dm[i].lng, acc: 10, speed: d[1] === 'busy' && !d[6] ? 18 + i : 0, battery: d[4], lastAt: d[1] === 'offline' ? now - (20 + i) * 60000 : now - (3 + i) * 1000, status: d[1], today: d[5], idleMin: d[6], order: o };
+  });
+}
+function trkSet(tk) {
+  TRK.real = tk; TRK.at = Date.now();
+  if (TRK.demo === null) { let v = null; try { v = localStorage.getItem('rio_trk_demo'); } catch { /* ignore */ } TRK.demo = v === null ? !tk.drivers.some((x) => x.lat !== null) : v === '1'; }
+  TRK.data = TRK.demo ? { ...tk, drivers: tk.drivers.filter((x) => x.lat !== null).concat(trkDemoData()), stores: tk.stores.concat(DEMO_STORES) } : tk;
+}
+const trkKm = (a, b, c, d) => { const r = Math.PI / 180, x = Math.sin(((c - a) * r) / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin(((d - b) * r) / 2) ** 2; return 12742 * Math.asin(Math.sqrt(x)); };
+function trkEta(x) {
+  if (!x.order || x.order.status !== 'picking_up' || !x.order.store || x.lat === null) return null;
+  return Math.max(1, Math.round((trkKm(x.lat, x.lng, x.order.store.lat, x.order.store.lng) * 1.35 / 25) * 60));
+}
 const trkDrv = (id) => ((TRK.data || {}).drivers || []).find((x) => x.id === id);
 const trkAgo = (t) => { if (!t) return 'لا يوجد موقع'; const s = Math.max(0, Math.round((Date.now() - t) / 1000)); return s < 60 ? `قبل ${s} ث` : s < 3600 ? `قبل ${Math.round(s / 60)} د` : s < 86400 ? `قبل ${Math.round(s / 3600)} س` : `قبل ${Math.round(s / 86400)} يوم`; };
 const trkBat = (b) => (b === null || b === undefined ? '—' : `<span class="${b <= 20 ? 'neg' : ''}">${b}%</span>`);
 function tracking() {
   if (!TRK.data) return `<div class="card">${E ? esc(E) : 'جارٍ تحميل بيانات التتبع…'}</div>`;
-  return `<div class="trk"><div class="kpis" id="trk-kpis"></div><div id="trk-alert"></div>
+  return `<div class="trk"><div class="row between" style="margin-bottom:12px;flex-wrap:wrap"><span class="trk-live" id="trk-live"></span><span class="hint">مواقع المندوبين وحالة طلباتهم على الخريطة بشكل مباشر</span></div><div class="kpis" id="trk-kpis"></div><div id="trk-alert"></div>
   <div class="trk-grid"><div class="trk-mapwrap"><div id="trk-slot"></div>
     <div class="trk-legend"><span><i style="background:#f0b400"></i>في مهمة</span><span><i style="background:#16a34a"></i>متاح</span><span><i style="background:#6b7280"></i>غير متصل</span></div>
     <div class="trk-tg" id="trk-tg"></div><div id="trk-card"></div></div>
@@ -325,7 +354,8 @@ function trkKpiAlert() {
   k.innerHTML = kpi('مندوبون متصلون', nn(c.busy + c.free), 'b') + kpi('في مهمة توصيل', nn(c.busy), 'a') + kpi('متاحون', nn(c.free), 'g') + kpi('غير متصلين', nn(c.offline), '');
   const al = trkAlerts(), a = $('#trk-alert');
   if (a) a.innerHTML = al.length ? `<div class="trk-alert"><span>⚠ ${esc(al[0].t)}${al.length > 1 ? ` <small>(+${al.length - 1} تنبيهات)</small>` : ''}</span><button class="btn sm" data-a="trk-sel" data-id="${al[0].id}">عرض على الخريطة</button></div>` : '';
-  const tg = $('#trk-tg'); if (tg) tg.innerHTML = `<button data-a="trk-tg" data-k="stores" aria-pressed="${TRK.stores}">المتاجر</button><button data-a="trk-tg" data-k="routes" aria-pressed="${TRK.routes}">المسارات</button>`;
+  const tg = $('#trk-tg'); if (tg) tg.innerHTML = `<button data-a="trk-tg" data-k="stores" aria-pressed="${TRK.stores}">المتاجر</button><button data-a="trk-tg" data-k="routes" aria-pressed="${TRK.routes}">المسارات</button><button data-a="trk-tg" data-k="demo" aria-pressed="${!!TRK.demo}">تجريبي</button><button data-a="trk-store">+ ربط متجر</button>`;
+  const lv = $('#trk-live'); if (lv) lv.innerHTML = `<i></i>مباشر · آخر تحديث ${trkAgo(TRK.at)}`;
 }
 function trkList() {
   const c = trkCounts(), q = norm(TRK.q.trim());
@@ -335,7 +365,7 @@ function trkList() {
   const l = ((TRK.data || {}).drivers || []).filter((x) => (TRK.f === 'all' || x.status === TRK.f) && (!q || norm(x.name + ' ' + x.phone).includes(q))).sort((a, b) => rank[a.status] - rank[b.status] || a.name.localeCompare(b.name, 'ar'));
   const n = $('#trk-n'); if (n) n.textContent = `${nn(c.all)} مندوب`;
   const r = $('#trk-rows');
-  if (r) r.innerHTML = l.length ? l.map((x) => `<button type="button" class="trk-row ${TRK.sel === x.id ? 'on' : ''}" data-a="trk-sel" data-id="${x.id}"><span class="trk-av ${x.status}">${esc((x.name || '?').trim().charAt(0))}</span><span class="trk-in"><b>${esc(x.name)}</b> ${bdg(TST[x.status][0], TST[x.status][1])}<small>${x.order ? `طلب #${x.order.no} · ${esc(x.order.merchantName)}` : x.status === 'free' ? 'جاهز لاستلام طلب' : x.lastAt ? 'آخر ظهور ' + trkAgo(x.lastAt) : 'لم يرسل موقعه بعد'}</small></span><span class="trk-mt">${x.battery != null ? trkBat(x.battery) : ''}<small>${x.lastAt ? trkAgo(x.lastAt) : ''}</small></span></button>`).join('') : empty('لا يوجد مندوبون');
+  if (r) r.innerHTML = l.length ? l.map((x) => `<button type="button" class="trk-row ${TRK.sel === x.id ? 'on' : ''}" data-a="trk-sel" data-id="${x.id}"><span class="trk-av ${x.status}">${esc((x.name || '?').trim().charAt(0))}</span><span class="trk-in"><b>${esc(x.name)}</b> ${bdg(TST[x.status][0], TST[x.status][1])}<small>${x.order ? `طلب #${x.order.no}${trkEta(x) ? ' · ' + trkEta(x) + ' د للوصول' : ' · ' + esc(x.order.merchantName)}` : x.status === 'free' ? 'جاهز لاستلام طلب' : x.lastAt ? 'آخر ظهور ' + trkAgo(x.lastAt) : 'لم يرسل موقعه بعد'}</small></span><span class="trk-mt">${x.battery != null ? trkBat(x.battery) : ''}<small>${x.lastAt ? trkAgo(x.lastAt) : ''}</small></span></button>`).join('') : empty('لا يوجد مندوبون');
 }
 function trkCard() {
   const el = $('#trk-card'); if (!el) return;
@@ -343,8 +373,8 @@ function trkCard() {
   if (!x) { el.innerHTML = ''; return; }
   const o = x.order, wp = String(x.phone || '').replace(/\D/g, '').replace(/^0/, '964');
   el.innerHTML = `<div class="trk-card"><div class="row between"><div class="row" style="gap:10px"><span class="trk-av ${x.status}">${esc((x.name || '?').trim().charAt(0))}</span><div><b>${esc(x.name)}</b> ${bdg(TST[x.status][0], TST[x.status][1])}<div class="hint">${o ? `يوصّل الطلب #${o.no} من ${esc(o.merchantName)}${o.status === 'picking_up' ? ' (في الطريق للمتجر)' : ' (في الطريق للزبون: ' + esc(o.customerArea) + ')'}` : x.status === 'free' ? 'متاح لاستلام طلب جديد' : 'غير متصل'}</div></div></div><button class="x" data-a="trk-close" aria-label="إغلاق">×</button></div>
-  <div class="trk-st"><div><small>البطارية</small><b>${trkBat(x.battery)}</b></div><div><small>طلبات اليوم</small><b>${nn(x.today)}</b></div><div><small>السرعة</small><b>${x.speed != null ? nn(x.speed) + ' كم/س' : '—'}</b></div><div><small>آخر تحديث</small><b>${trkAgo(x.lastAt)}</b></div></div>
-  <div class="trk-bt"><a class="btn sm g" href="tel:${esc(x.phone)}">اتصال</a><a class="btn sm w" target="_blank" rel="noopener" href="https://wa.me/${wp}">واتساب</a><button class="btn sm g" data-a="trk-trail" data-id="${x.id}">سجل المسار</button><button class="btn sm" data-a="trk-assign" data-id="${x.id}">تكليف بطلب</button></div></div>`;
+  <div class="trk-st"><div><small>الطلب الحالي</small><b>${o ? '#' + o.no : '—'}</b></div><div><small>الوصول المتوقع</small><b>${trkEta(x) ? trkEta(x) + ' د' : '—'}</b></div><div><small>طلبات اليوم</small><b>${nn(x.today)}</b></div><div><small>البطارية</small><b>${trkBat(x.battery)}</b></div><div class="w"><small>آخر تحديث</small><b>${trkAgo(x.lastAt)}</b></div></div>
+  <div class="trk-bt">${x.demo ? '<span class="hint">مندوب تجريبي للعرض فقط</span>' : `<a class="btn sm g" href="tel:${esc(x.phone)}">اتصال</a><a class="btn sm w" target="_blank" rel="noopener" href="https://wa.me/${wp}">واتساب</a>`}<button class="btn sm g" data-a="trk-trail" data-id="${x.id}">سجل المسار</button><button class="btn sm" data-a="trk-assign" data-id="${x.id}">تكليف بطلب</button></div></div>`;
 }
 function trkIcon(x) {
   const sel = TRK.sel === x.id ? ' sel' : '';
@@ -371,11 +401,6 @@ function trkMap() {
     TRK.lines = L.layerGroup().addTo(TRK.map);
     for (const x of d.drivers) if (x.status === 'busy' && x.lat !== null && x.order && x.order.status === 'picking_up' && x.order.store) L.polyline([[x.lat, x.lng], [x.order.store.lat, x.order.store.lng]], { color: '#111827', weight: 3, dashArray: '8 8', opacity: 0.75 }).addTo(TRK.lines);
   }
-  if (!TRK.fitted) {
-    const pts = d.drivers.filter((x) => x.lat !== null && x.status !== 'offline').map((x) => [x.lat, x.lng]).concat(d.stores.map((s) => [s.lat, s.lng]));
-    const all = pts.length ? pts : d.drivers.filter((x) => x.lat !== null).map((x) => [x.lat, x.lng]);
-    if (all.length) { TRK.map.fitBounds(all, { padding: [60, 60], maxZoom: 15 }); TRK.fitted = true; }
-  }
 }
 async function trkAfter() {
   trkKpiAlert(); trkList(); trkCard();
@@ -384,7 +409,7 @@ async function trkAfter() {
   const slot2 = $('#trk-slot'); if (P !== 'tracking' || !slot2) return;
   if (!TRK.map) {
     TRK.el = document.createElement('div'); TRK.el.className = 'trk-map'; slot2.appendChild(TRK.el);
-    TRK.map = L.map(TRK.el, { zoomControl: false, attributionControl: true }).setView([33.3152, 44.3661], 12);
+    TRK.map = L.map(TRK.el, { zoomControl: false, attributionControl: true }).setView(BAGHDAD, 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(TRK.map);
     L.control.zoom({ position: 'bottomleft' }).addTo(TRK.map);
   } else { slot2.appendChild(TRK.el); setTimeout(() => TRK.map.invalidateSize(), 50); }
@@ -399,7 +424,7 @@ function trkSelect(id, fly) {
 async function trkRefresh() {
   if (TRK.busy || !T || P !== 'tracking' || document.hidden) return;
   TRK.busy = true;
-  try { TRK.data = await api('GET', '/api/admin/tracking'); trkKpiAlert(); trkList(); trkCard(); trkMap(); } catch { /* ignore */ }
+  try { trkSet(await api('GET', '/api/admin/tracking')); trkKpiAlert(); trkList(); trkCard(); trkMap(); } catch { /* ignore */ }
   TRK.busy = false;
 }
 setInterval(trkRefresh, 8000);
@@ -859,6 +884,13 @@ function modalHtml() {
     <label class="row" style="gap:10px;align-items:center;margin:10px 0 14px;cursor:pointer"><input type="checkbox" id="as-c" checked style="width:20px;height:20px"><span>خصم رسوم التطبيق من السائق الجديد <small class="muted">(ألغِ التحديد لتعيينه بدون خصم)</small></span></label>
     <div class="err" id="fe" role="alert"></div><button class="btn" style="width:100%" ${ds.length ? '' : 'disabled'}>${o.driverId ? 'تحويل الطلب' : 'تعيين الطلب'}</button></form>`];
   }
+  if (m.type === 'trkstore') {
+    const ms = (D.merchants || []).slice().sort((a, b) => a.name.localeCompare(b.name, 'ar')), nl = (TRK.real || {}).noLoc || [];
+    return ['ربط موقع متجر على الخريطة', `<form data-f="trkstore">${ms.length ? field('ts-m', 'المتجر', `<select class="in" id="ts-m">${ms.map((x) => `<option value="${x.id}">${esc(x.name)}${x.mapUrl ? ' ✓' : ''}</option>`).join('')}</select>`) : '<p class="muted">لا توجد متاجر.</p>'}
+    ${field('ts-u', 'رابط موقع المتجر', '<input class="in" id="ts-u" inputmode="url" dir="ltr" placeholder="https://maps.app.goo.gl/…" required>', 'الصق رابط الموقع من خرائط جوجل (يُقبل الرابط القصير). يظهر المتجر على الخريطة ويُستخدم لمسار السائق.')}
+    ${nl.length ? `<p class="hint" style="color:var(--red)">تعذّر استخراج الموقع من رابط: ${nl.map((x) => esc(x.name)).join('، ')}. استبدله برابط يحتوي إحداثيات.</p>` : ''}
+    <div class="err" id="fe" role="alert"></div><button class="btn" style="width:100%" ${ms.length ? '' : 'disabled'}>حفظ</button></form>`];
+  }
   if (m.type === 'trkassign') {
     const x = trkDrv(m.id), pend = (TRK.data || {}).pending || [];
     return [`تكليف ${esc(x ? x.name : '')} بطلب`, `<form data-f="trkassign">${pend.length ? field('ta-o', 'الطلب (بانتظار سائق)', `<select class="in" id="ta-o">${pend.map((o) => `<option value="${o.id}">#${o.no} — ${esc(o.merchantName)} → ${esc(o.customerArea)} (${o.vehicle === 'car' ? 'سيارة' : 'دراجة'})</option>`).join('')}</select>`) : '<p class="muted">لا توجد طلبات بانتظار سائق الآن.</p>'}
@@ -1039,10 +1071,11 @@ const clickActs = {
   'trk-sel'(el) { trkSelect(Number(el.dataset.id)); },
   'trk-close'() { trkSelect(null, false); },
   'trk-f'(el) { TRK.f = el.dataset.k; trkList(); },
-  'trk-tg'(el) { const k = el.dataset.k; TRK[k] = !TRK[k]; if (k === 'stores' && !TRK.stores) { Object.values(TRK.sk).forEach((m) => TRK.map.removeLayer(m)); TRK.sk = {}; } trkKpiAlert(); trkMap(); },
+  'trk-tg'(el) { const k = el.dataset.k; if (k === 'demo') { TRK.demo = !TRK.demo; try { localStorage.setItem('rio_trk_demo', TRK.demo ? '1' : '0'); } catch { /* ignore */ } trkSet(TRK.real); if (!TRK.demo && TRK.sel < 0) TRK.sel = null; trkKpiAlert(); trkList(); trkCard(); trkMap(); return; } TRK[k] = !TRK[k]; if (k === 'stores' && !TRK.stores) { Object.values(TRK.sk).forEach((m) => TRK.map.removeLayer(m)); TRK.sk = {}; } trkKpiAlert(); trkMap(); },
   async 'trk-trail'(el) {
     const id = Number(el.dataset.id);
     try {
+      if (id < 0) { const x = trkDrv(id); const pts = []; for (let i = 8; i >= 0; i--) pts.push([x.lat - i * 0.0011 + Math.sin(i) * 0.0004, x.lng - i * 0.0013 + Math.cos(i) * 0.0004]); if (TRK.trail) TRK.map.removeLayer(TRK.trail); TRK.trail = L.polyline(pts, { color: '#f0b400', weight: 4, dashArray: '2 8', lineCap: 'round' }).addTo(TRK.map); TRK.map.fitBounds(TRK.trail.getBounds(), { padding: [60, 60], maxZoom: 16 }); return toast('سجل مسار تجريبي'); }
       const r = await api('GET', `/api/admin/tracking/${id}/trail?hours=6`);
       if (TRK.trail) TRK.map.removeLayer(TRK.trail);
       if (r.points.length < 2) return toast('لا يوجد سجل مسار لهذا المندوب في آخر 6 ساعات');
@@ -1051,7 +1084,8 @@ const clickActs = {
       toast(`سجل المسار: آخر 6 ساعات (${r.points.length} نقطة)`);
     } catch (e) { toast(e.message, true); }
   },
-  'trk-assign'(el) { const x = trkDrv(Number(el.dataset.id)); if (x) { M = { type: 'trkassign', id: x.id }; drawModal(); } },
+  'trk-store'() { M = { type: 'trkstore' }; drawModal(); },
+  'trk-assign'(el) { const x = trkDrv(Number(el.dataset.id)); if (x && x.demo) return toast('هذا مندوب تجريبي للعرض فقط'); if (x) { M = { type: 'trkassign', id: x.id }; drawModal(); } },
   basis(el) { BASIS = el.dataset.k; ls.set('rio_basis', BASIS); draw(); },
   sort(el) { SORT = el.dataset.k; ls.set('rio_sort', SORT); draw(); },
   oview(el) { OV = el.dataset.k; ls.set('rio_oview', OV); draw(); },
@@ -1215,6 +1249,12 @@ document.addEventListener('submit', async (e) => {
       await api('PUT', '/api/admin/users/' + M.id, { discount: $('#mp-disc').value, pricing, applyAll: all }); toast('تم الحفظ'); closeModal(); await load();
     }
     else if (k === 'mloc') { await api('PUT', '/api/admin/users/' + M.id, { area: $('#l-area').value, mapUrl: $('#l-map').value }); toast('تم الحفظ'); closeModal(); await load(); }
+    else if (k === 'trkstore') {
+      const id = Number($('#ts-m').value);
+      await api('PUT', '/api/admin/users/' + id, { mapUrl: $('#ts-u').value });
+      closeModal(); await trkRefresh(); load(true);
+      toast(((TRK.real || {}).stores || []).some((x) => x.id === id) ? 'تم ربط موقع المتجر وظهر على الخريطة' : 'تم الحفظ، لكن تعذّر استخراج الإحداثيات من الرابط', !((TRK.real || {}).stores || []).some((x) => x.id === id));
+    }
     else if (k === 'trkassign') {
       await api('POST', `/api/admin/orders/${$('#ta-o').value}/assign`, { driverId: M.id, charge: $('#ta-c').checked });
       toast('تم تكليف المندوب بالطلب'); closeModal(); await trkRefresh(); load(true);
