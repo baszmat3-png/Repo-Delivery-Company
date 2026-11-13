@@ -237,15 +237,27 @@ function geoSend(force) {
   GEO.sent = now;
   api('POST', '/api/driver/location', { ...GEO.pos, battery: GEO.bat }).catch(() => {});
 }
+function geoPos(c) { GEO.pos = { lat: c.latitude, lng: c.longitude, acc: c.accuracy, speed: c.speed }; geoSend(false); }
 function geoStart() {
-  if (!S.user || S.user.role !== 'driver' || !navigator.geolocation || GEO.id !== null) return;
+  if (!S.user || S.user.role !== 'driver' || GEO.id !== null) return;
   try { if (navigator.getBattery) navigator.getBattery().then((b) => { GEO.bat = Math.round(b.level * 100); b.addEventListener('levelchange', () => { GEO.bat = Math.round(b.level * 100); }); }).catch(() => {}); } catch { /* ignore */ }
-  GEO.id = navigator.geolocation.watchPosition((p) => {
-    GEO.pos = { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy, speed: p.coords.speed };
-    geoSend(false);
-  }, () => {}, { enableHighAccuracy: true, maximumAge: 10000, timeout: 30000 });
+  /* التطبيق الأصلي: خدمة تعمل في الخلفية (إشعار دائم) فيستمر التتبع حتى عند فتح تطبيق الخرائط أو قفل الشاشة */
+  if (isNative()) {
+    try {
+      const bg = capPlugin('BackgroundGeolocation');
+      GEO.id = 'bg'; GEO.bg = bg;
+      bg.start({ backgroundTitle: 'ريوو للتوصيل اسرع', backgroundMessage: 'يتم مشاركة موقعك مع الإدارة أثناء العمل', requestPermissions: true, stale: false, distanceFilter: 5 }, (loc, err) => { if (loc) geoPos(loc); else if (err && err.code === 'NOT_AUTHORIZED') GEO.id = null; }).catch(() => { GEO.id = null; });
+      return;
+    } catch { /* نرجع للطريقة العادية */ }
+  }
+  if (!navigator.geolocation) return;
+  GEO.id = navigator.geolocation.watchPosition((p) => geoPos(p.coords), () => {}, { enableHighAccuracy: true, maximumAge: 10000, timeout: 30000 });
 }
-function geoStop() { if (GEO.id !== null) { try { navigator.geolocation.clearWatch(GEO.id); } catch { /* ignore */ } } GEO.id = null; GEO.pos = null; }
+function geoStop() {
+  if (GEO.id === 'bg') { try { GEO.bg.stop(); } catch { /* ignore */ } }
+  else if (GEO.id !== null) { try { navigator.geolocation.clearWatch(GEO.id); } catch { /* ignore */ } }
+  GEO.id = null; GEO.pos = null;
+}
 setInterval(() => geoSend(true), 30000); /* نبض: يبقى السائق «متصلاً» حتى لو لم يتحرك */
 document.addEventListener('visibilitychange', () => { if (!document.hidden) geoSend(true); });
 function logout() {

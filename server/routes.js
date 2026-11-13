@@ -1225,7 +1225,7 @@ module.exports = { dispatch, HttpError, getSettings };
 
 
 /* ================= تتبع المندوبين ================= */
-const ONLINE_MS = 3 * 60000; // السائق «متصل» إن وصل موقعه خلال آخر 3 دقائق
+const ONLINE_MS = 5 * 60000; // السائق «متصل» إن وصل موقعه خلال آخر 5 دقائق
 const IDLE_MS = 10 * 60000; // توقف أثناء مهمة أكثر من 10 دقائق = تنبيه
 const distM = (a, b, c, d) => { const R = 6371000, r = Math.PI / 180, dl = (c - a) * r, dg = (d - b) * r; const x = Math.sin(dl / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin(dg / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(x)); };
 

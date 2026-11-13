@@ -1,5 +1,5 @@
 // خدمة: تخزّن ملفات الواجهة فقط (لا تخزّن API أبداً) + تستقبل إشعارات الدفع حتى والتطبيق مغلق.
-const CACHE = 'rio-v12';
+const CACHE = 'rio-v13';
 const FILES = ['./', 'style.css', 'app.js', 'dialog.js', 'theme.js', 'config.js', 'manifest.webmanifest', 'icons/icon-192.png', 'hero.jpg', 'logo.png'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).catch(() => {})); self.skipWaiting(); });
 self.addEventListener('activate', (e) => {
