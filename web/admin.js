@@ -298,6 +298,7 @@ function loadLeaflet() {
 
 /* بيانات تجريبية (تُعرض في المتصفح فقط ولا تُحفظ): 10 مندوبين ومتجران على خريطة بغداد */
 const BAGHDAD = [33.3152, 44.3661];
+const BAGHDAD_BOX = [[32.85, 43.95], [33.80, 44.80]]; /* حدود محافظة بغداد التقريبية */
 const DEMO_STORES = [{ id: -1, name: 'صيدلية جوهرة الأردن', area: 'الكرادة', lat: 33.3066, lng: 44.4024 }, { id: -2, name: 'مكتبة فوريد', area: 'المنصور', lat: 33.3226, lng: 44.3485 }];
 const DEMO_DRV = [
   ['أحمد الكعبي', 'busy', 33.3122, 44.3895, 82, 9, 0, 1042, 0], ['علي حسين', 'busy', 33.3300, 44.3560, 64, 7, 0, 1041, 1], ['مصطفى جاسم', 'busy', 33.2985, 44.3715, 47, 5, 0, 1039, 0],
@@ -406,7 +407,7 @@ function trkTiles() {
   if (!TRK.map) return;
   if (TRK.tl) TRK.map.removeLayer(TRK.tl);
   let dark = false; try { dark = localStorage.getItem('rio_trk_dark') === '1'; } catch { /* ignore */ }
-  TRK.tl = L.tileLayer(`https://{s}.basemaps.cartocdn.com/rastertiles/${dark ? 'dark_all' : 'voyager'}/{z}/{x}/{y}{r}.png`, { subdomains: 'abcd', maxZoom: 20, attribution: '© OpenStreetMap © CARTO' }).addTo(TRK.map);
+  TRK.tl = L.tileLayer(`https://{s}.basemaps.cartocdn.com/rastertiles/${dark ? 'dark_all' : 'voyager'}/{z}/{x}/{y}{r}.png`, { subdomains: 'abcd', maxZoom: 20, bounds: BAGHDAD_BOX, attribution: '© OpenStreetMap © CARTO' }).addTo(TRK.map);
 }
 async function trkAfter() {
   trkKpiAlert(); trkList(); trkCard();
@@ -415,7 +416,7 @@ async function trkAfter() {
   const slot2 = $('#trk-slot'); if (P !== 'tracking' || !slot2) return;
   if (!TRK.map) {
     TRK.el = document.createElement('div'); TRK.el.className = 'trk-map'; slot2.appendChild(TRK.el);
-    TRK.map = L.map(TRK.el, { zoomControl: false, attributionControl: true }).setView(BAGHDAD, 13);
+    TRK.map = L.map(TRK.el, { zoomControl: false, attributionControl: true, maxBounds: BAGHDAD_BOX, maxBoundsViscosity: 1, minZoom: 10 }).setView(BAGHDAD, 13);
     trkTiles();
     L.control.zoom({ position: 'bottomleft' }).addTo(TRK.map);
   } else { slot2.appendChild(TRK.el); setTimeout(() => TRK.map.invalidateSize(), 50); }
