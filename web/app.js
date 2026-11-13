@@ -1390,9 +1390,8 @@ const SHEETS = {
   navmap(s) {
     const o = findOrder(s.id);
     if (!o) return ['موقع المتجر', '<p class="muted">تعذّر العثور على الطلب.</p>'];
-    const links = navLinks(o, s.ll);
-    const note = s.loading ? '<p class="hint" style="text-align:center">جارٍ تحديد موقع المتجر بدقة…</p>' : (s.ll ? '<p class="hint" style="text-align:center">اختر التطبيق وسيرسم لك المسار من موقعك إلى المتجر.</p>' : '<p class="hint" style="text-align:center">لم نجد إحداثيات دقيقة، سيتم البحث باسم المتجر والمنطقة.</p>');
-    return [`موقع المتجر · ${esc(o.merchantName)}`, `${note}<div class="st-list">${links.map(([l, u]) => `<a class="st-opt" href="${esc(u)}" target="_blank" rel="noopener"><span class="ck">${ico('pin')}</span>${l}</a>`).join('')}</div>`];
+    const links = navLinks(o, s.ll).filter((x) => x[1].indexOf('geo:') !== 0 && x[0] !== 'فتح رابط التاجر الأصلي');
+    return ['اختر تطبيق الخرائط', `<div class="st-list">${links.map(([l, u]) => `<a class="st-opt" href="${esc(u)}" target="_blank" rel="noopener"><span class="ck">${ico('pin')}</span>${l}</a>`).join('')}</div>`];
   },
   confirm(s) {
     return [s.title, `<p style="text-align:center;font-size:17px;margin:8px 0 18px">${esc(s.text)}</p><div class="row"><button class="btn danger grow" data-act="${s.yes}" data-id="${s.id}">نعم</button><button class="btn ghost grow" data-act="close-sheet">لا</button></div>`];
@@ -1520,14 +1519,24 @@ const ACTIONS = {
   otab: (el) => { S.ordersTab = el.dataset.t; S.menu = null; render(); },
   wtab: (el) => { S.walletTab = el.dataset.t; render(); },
   'new-order': () => openSheet({ type: 'new-order', form: newOrderForm() }),
-  navmap: (el) => {
+  navmap: async (el) => {
     const id = Number(el.dataset.id); const o = findOrder(id); if (!o) return;
-    const direct = mapCoords(o.merchantMap);
-    if (direct) return openSheet({ type: 'navmap', id, ll: direct });
-    if (!o.merchantMap) return openSheet({ type: 'navmap', id, ll: null });
-    const sh = { type: 'navmap', id, ll: null, loading: true };
-    openSheet(sh);
-    api('GET', '/api/geo?url=' + encodeURIComponent(o.merchantMap)).then((r) => { sh.ll = r.ll || null; }).catch(() => {}).finally(() => { sh.loading = false; if (S.sheet === sh) render(); });
+    let ll = mapCoords(o.merchantMap);
+    if (!ll && o.merchantMap) {
+      if (el.dataset.busy) return; el.dataset.busy = '1';
+      try { ll = (await api('GET', '/api/geo?url=' + encodeURIComponent(o.merchantMap))).ll || null; } catch { ll = null; }
+      delete el.dataset.busy;
+    }
+    /* أندرويد: رابط geo يفتح نافذة النظام لاختيار تطبيق الخرائط (Google Maps / Waze / غيرها) ويرسم المسار */
+    if (/Android/i.test(navigator.userAgent)) {
+      const q = ll ? ll[0] + ',' + ll[1] : '0,0';
+      const label = ll ? `(${encodeURIComponent(o.merchantName || 'المتجر')})` : '';
+      const search = ll ? q : encodeURIComponent((o.merchantName || '') + ' ' + (o.merchantArea || ''));
+      location.href = `geo:${q}?q=${search}${label}`;
+      return;
+    }
+    /* آيفون/الحاسوب: النظام لا يوفّر نافذة اختيار، فنعرض التطبيقات فقط */
+    openSheet({ type: 'navmap', id, ll });
   },
   receipt: (el) => receiptsOn() && openSheet({ type: 'receipt', id: Number(el.dataset.id) }),
   rsize: (el) => { RSIZE = el.dataset.k; store.set('rio_rsize', RSIZE); renderSheet(); },
