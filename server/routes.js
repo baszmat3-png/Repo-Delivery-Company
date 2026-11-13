@@ -1283,7 +1283,7 @@ route('GET', '/api/admin/tracking', ADM('tracking'), async () => {
   const pending = (await q(`SELECT * FROM orders WHERE status='pending' ORDER BY created_at ASC LIMIT 50`)).rows.map((o) => ({ id: o.id, no: o.num, vehicle: o.vehicle, merchantName: o.merchant_name, customerArea: o.customer_area }));
   const noLoc = mer.filter((m) => m.map_url && !storeById[m.id]).map((m) => ({ id: m.id, name: m.name }));
   const demoOff = (await q(`SELECT value FROM settings WHERE key='trk_demo_off'`)).rows.length > 0;
-  return { now, drivers: out, stores, pending, noLoc, demoOff };
+  return { now, drivers: out, stores, pending, noLoc, demoOff, mapKey: String(process.env.MAPTILER_KEY || '').replace(/[^\w-]/g, '').slice(0, 64) };
 });
 
 route('GET', '/api/admin/tracking/:id/trail', ADM('tracking'), async (c) => {

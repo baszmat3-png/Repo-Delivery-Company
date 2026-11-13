@@ -408,8 +408,11 @@ function trkTiles() {
   if (!TRK.map) return;
   if (TRK.tl) TRK.map.removeLayer(TRK.tl);
   let dark = false; try { dark = localStorage.getItem('rio_trk_dark') === '1'; } catch { /* ignore */ }
-  /* OpenStreetMap القياسي (مجاني بدون مفتاح، أسماء الشوارع بالعربية). الوضع الليلي: قلب ألوان الخريطة */
-  TRK.tl = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, bounds: BAGHDAD_BOX, className: dark ? 'trk-tiles-dark' : '', attribution: '© OpenStreetMap' }).addTo(TRK.map);
+  /* MapTiler إن ضُبط المتغير MAPTILER_KEY على الخادم، وإلا OpenStreetMap المجاني. الليلي: نمط داكن، أو قلب الألوان مع OSM */
+  const key = (TRK.real || {}).mapKey;
+  TRK.tl = key
+    ? L.tileLayer(`https://api.maptiler.com/maps/${dark ? 'streets-v2-dark' : 'streets-v2'}/{z}/{x}/{y}.png?key=${encodeURIComponent(key)}`, { maxZoom: 20, bounds: BAGHDAD_BOX, attribution: '© MapTiler © OpenStreetMap' }).addTo(TRK.map)
+    : L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, bounds: BAGHDAD_BOX, className: dark ? 'trk-tiles-dark' : '', attribution: '© OpenStreetMap' }).addTo(TRK.map);
 }
 async function trkAfter() {
   trkKpiAlert(); trkList(); trkCard();
