@@ -412,7 +412,14 @@ function trkTiles() {
   const key = (TRK.real || {}).mapKey, wrap = TRK.el && TRK.el.parentNode;
   const old = wrap && wrap.querySelector('.trk-nokey'); if (old) old.remove();
   if (!key) { if (wrap) wrap.insertAdjacentHTML('beforeend', '<div class="trk-nokey">لم يُضبط مفتاح الخريطة بعد. أضف المتغير <b>MAPTILER_KEY</b> في إعدادات الخادم على Render ثم أعد تحميل الصفحة.</div>'); TRK.tl = null; return; }
-  TRK.tl = L.tileLayer(`https://api.maptiler.com/maps/${dark ? 'streets-v2-dark' : 'streets-v2'}/{z}/{x}/{y}.png?key=${encodeURIComponent(key)}`, { maxZoom: 20, bounds: BAGHDAD_BOX, attribution: '© MapTiler © OpenStreetMap contributors' }).addTo(TRK.map);
+  /* النمط الفاتح الجديد (streets-v4) كما في معاينة MapTiler؛ إن لم يتوفر لمفتاحك نرجع تلقائياً إلى streets-v2 */
+  const mk = (id) => L.tileLayer(`https://api.maptiler.com/maps/${id}/{z}/{x}/{y}.png?key=${encodeURIComponent(key)}`, { maxZoom: 20, bounds: BAGHDAD_BOX, attribution: '© MapTiler © OpenStreetMap contributors' });
+  TRK.tl = mk(dark ? 'streets-v2-dark' : 'streets-v4').addTo(TRK.map);
+  if (!dark) {
+    let ok = 0, bad = 0; const lay = TRK.tl;
+    lay.on('tileload', () => { ok++; });
+    lay.on('tileerror', () => { bad++; if (!ok && bad >= 3 && TRK.tl === lay) { TRK.map.removeLayer(lay); TRK.tl = mk('streets-v2').addTo(TRK.map); } });
+  }
 }
 async function trkAfter() {
   trkKpiAlert(); trkList(); trkCard();
@@ -421,9 +428,10 @@ async function trkAfter() {
   const slot2 = $('#trk-slot'); if (P !== 'tracking' || !slot2) return;
   if (!TRK.map) {
     TRK.el = document.createElement('div'); TRK.el.className = 'trk-map'; slot2.appendChild(TRK.el);
-    TRK.map = L.map(TRK.el, { zoomControl: false, attributionControl: true, maxBounds: BAGHDAD_BOX, maxBoundsViscosity: 1, minZoom: 10 }).setView(BAGHDAD, 13);
+    TRK.map = L.map(TRK.el, { zoomControl: false, attributionControl: false, maxBounds: BAGHDAD_BOX, maxBoundsViscosity: 1, minZoom: 10 }).setView(BAGHDAD, 13);
     trkTiles();
     L.control.zoom({ position: 'bottomleft' }).addTo(TRK.map);
+    L.control.attribution({ prefix: false }).addTo(TRK.map);
   } else { slot2.appendChild(TRK.el); setTimeout(() => TRK.map.invalidateSize(), 50); if (!(TRK.real || {}).mapKey || !TRK.tl) trkTiles(); }
   trkMap();
 }
