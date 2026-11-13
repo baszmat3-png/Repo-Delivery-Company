@@ -89,6 +89,8 @@ async function init() {
   // ترقية قواعد البيانات القديمة (آمنة عند التكرار)
   await addColumn('users', 'discount', 'INTEGER NOT NULL DEFAULT 0');
   await addColumn('orders', 'discount', 'INTEGER NOT NULL DEFAULT 0');
+  for (const c of ['p_bike_same', 'p_bike_other', 'p_car_same', 'p_car_other', 'fee_same', 'fee_other']) await addColumn('users', c, 'INTEGER'); // تسعير خاص بالمتجر (NULL = يتبع الإعدادات العامة)
+  await addColumn('orders', 'fee_quote', 'INTEGER'); // رسوم التطبيق المحسوبة وقت إنشاء الطلب
   await addColumn('users', 'map_url', "TEXT NOT NULL DEFAULT ''");
   await addColumn('orders', 'merchant_map', "TEXT NOT NULL DEFAULT ''");
   await addColumn('users', 'perms', "TEXT NOT NULL DEFAULT ''");

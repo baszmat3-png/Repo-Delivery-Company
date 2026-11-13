@@ -436,10 +436,10 @@ function merchantList() {
   const mx = Math.max(1, ...l.map((m) => m.orders));
   const t = (k) => l.reduce((a, m) => a + (m[k] || 0), 0);
   return `<div class="tw"><table><thead><tr><th>#</th><th>المتجر</th><th>الطلبات</th><th class="n">المسلّمة</th><th class="n">الراجع</th><th class="n">قيمة البضائع</th><th class="n">أجور التوصيل</th><th>الموقع</th><th>آخر نشاط</th><th></th></tr></thead><tbody>
-  ${l.map((m, i) => `<tr><td>${rankB(i)}</td><td>${upImg(m, 30)}<b>${esc(m.name)}</b>${vbadge(m, 'merchant')} ${!m.active ? bdg('موقوف', 'red') : ''} ${top.includes(m.id) ? bdg('الأكثر طلباً', 'y') : ''}<div class="hint">${esc(m.area)} · <span class="num">${esc(m.phone)}</span></div></td>
+  ${l.map((m, i) => `<tr><td>${rankB(i)}</td><td>${upImg(m, 30)}<b>${esc(m.name)}</b>${vbadge(m, 'merchant')} ${!m.active ? bdg('موقوف', 'red') : ''} ${top.includes(m.id) ? bdg('الأكثر طلباً', 'y') : ''}${m.discount ? bdg('خصم ' + nf(m.discount), 'green') : ''}${Object.values(m.pricing || {}).some((v) => v !== null) ? bdg('تسعير خاص', 'blue') : ''}<div class="hint">${esc(m.area)} · <span class="num">${esc(m.phone)}</span></div></td>
   <td style="min-width:120px"><b>${nn(m.orders)}</b><div class="bar"><i style="width:${pct(m.orders, mx)}%"></i></div></td><td class="n">${nn(m.delivered)}</td><td class="n">${m.returned ? `<span class="neg">${nn(m.returned)}</span><div class="hint">${mm(m.returnedValue)}</div>` : '0'}</td>
   <td class="n">${mm(m.goods)}</td><td class="n">${mm(m.delivery)}</td><td>${m.mapUrl ? `<a class="btn sm g" target="_blank" rel="noopener" href="${esc(mapHref(m.mapUrl))}">خريطة</a>` : '<span class="muted">—</span>'}</td><td>${ago(m.lastAt)}</td>
-  <td class="act"><div class="row"><button class="btn sm" data-a="stmt" data-t="merchant" data-id="${m.id}">كشف / تصدير</button><button class="btn sm g" data-a="mloc" data-id="${m.id}">العنوان والموقع</button><button class="btn sm g" data-a="pw" data-id="${m.id}">كلمة سر</button><a class="btn sm w" target="_blank" rel="noopener" href="${wapw(m)}">واتساب</a><button class="btn sm ${m.verified ? 'g' : 'o'}" data-a="verify" data-id="${m.id}">${m.verified ? 'إلغاء التوثيق' : 'توثيق'}</button><button class="btn sm ${m.active ? 'g' : 'd'}" data-a="toggle" data-id="${m.id}">${m.active ? 'إيقاف' : 'تفعيل'}</button><button class="btn sm d" data-a="del-user" data-id="${m.id}">حذف</button></div></td></tr>`).join('')}
+  <td class="act"><div class="row"><button class="btn sm" data-a="stmt" data-t="merchant" data-id="${m.id}">كشف / تصدير</button><button class="btn sm g" data-a="mloc" data-id="${m.id}">العنوان والموقع</button><button class="btn sm g" data-a="mprice" data-id="${m.id}">خصم وتسعير</button><button class="btn sm g" data-a="pw" data-id="${m.id}">كلمة سر</button><a class="btn sm w" target="_blank" rel="noopener" href="${wapw(m)}">واتساب</a><button class="btn sm ${m.verified ? 'g' : 'o'}" data-a="verify" data-id="${m.id}">${m.verified ? 'إلغاء التوثيق' : 'توثيق'}</button><button class="btn sm ${m.active ? 'g' : 'd'}" data-a="toggle" data-id="${m.id}">${m.active ? 'إيقاف' : 'تفعيل'}</button><button class="btn sm d" data-a="del-user" data-id="${m.id}">حذف</button></div></td></tr>`).join('')}
   </tbody>${l.length ? `<tfoot><tr><td colspan="2">${l.length} متجر</td><td>${nn(t('orders'))}</td><td class="n">${nn(t('delivered'))}</td><td class="n">${nn(t('returned'))}</td><td class="n">${mm(t('goods'))}</td><td class="n">${mm(t('delivery'))}</td><td colspan="3"></td></tr></tfoot>` : ''}</table></div>${l.length ? '' : empty('لا توجد متاجر', 'أضف أول متجر من الزر أعلاه.')}`;
 }
 function merchants() {
@@ -706,6 +706,19 @@ function modalHtml() {
       <div class="field"><label>الصلاحيات</label><div class="card" style="padding:6px 12px">${PAGES_BASE.map(([k, l]) => `<div class="row between" style="padding:8px 0;border-bottom:1px solid var(--line)"><span>${l}</span><select class="in" id="pm-${k}" style="min-height:38px;max-width:160px">${PERM_LV.map(([v, t]) => `<option value="${v}" ${pm[k] === v || (!pm[k] && !v) ? 'selected' : ''}>${t}</option>`).join('')}</select></div>`).join('')}</div><span class="hint">«عرض فقط» يرى الصفحة دون تعديل. صفحة «فريق الإدارة» للمدير فقط ولا يمكن منحها.</span></div>
       <div class="err" id="fe" role="alert"></div><button class="btn" style="width:100%">${u ? 'حفظ' : 'إنشاء الحساب'}</button></form>`];
   }
+  if (m.type === 'mprice') {
+    const u = findU(m.id), pr = u.pricing || {};
+    const pf = (k, l) => field('mp-' + k, l, `<input class="in" id="mp-${k}" inputmode="numeric" value="${pr[k] === null || pr[k] === undefined ? '' : pr[k]}" placeholder="العام: ${nf(SET[k])}">`);
+    return [`خصم وتسعير ${esc(u.name)}`, `<form data-f="mprice"><p class="muted">طلبات المتجر في الفترة: <b>${nf(u.orders)}</b> · الخصم الحالي: <b>${mny(u.discount)}</b> لكل طلب.</p>
+    ${field('mp-disc', 'قيمة الخصم لكل طلب (د.ع)', `<input class="in" id="mp-disc" inputmode="numeric" value="${u.discount || 0}" required>`, 'يُخصم من أجرة التوصيل في الطلبات الجديدة لهذا المتجر. ضع 0 لإلغاء الخصم.')}
+    <h4 style="margin:14px 0 6px">أجرة التوصيل للزبون <small class="muted">(اتركها فارغة لاتباع السعر العام)</small></h4>
+    <div class="frm">${pf('bikeSame', 'دراجة · نفس المنطقة')}${pf('bikeOther', 'دراجة · منطقة ثانية')}${pf('carSame', 'سيارة · نفس المنطقة')}${pf('carOther', 'سيارة · منطقة ثانية')}</div>
+    <h4 style="margin:14px 0 6px">استقطاع السائق (رسوم التطبيق) <small class="muted">(اتركه فارغاً لاتباع الرسوم العامة)</small></h4>
+    <div class="frm">${pf('feeSame', 'نفس المنطقة')}${pf('feeOther', 'منطقة ثانية')}</div>
+    <label class="row" style="gap:10px;align-items:center;margin:14px 0;cursor:pointer"><input type="checkbox" id="mp-all" style="width:20px;height:20px"><span>تطبيق هذه القيم على <b>جميع المتاجر</b></span></label>
+    <p class="hint">يسري على الطلبات الجديدة فقط. الأسعار والرسوم العامة تُعدّل من الإعدادات.</p>
+    <div class="err" id="fe" role="alert"></div><button class="btn" style="width:100%">حفظ</button></form>`];
+  }
   if (m.type === 'mloc') {
     const u = findU(m.id);
     return [`عنوان وموقع ${esc(u.name)}`, `<form data-f="mloc">${field('l-area', 'منطقة المتجر', `<input class="in" id="l-area" value="${esc(u.area)}" required>`, 'تحدد سعر التوصيل (نفس المنطقة / منطقة ثانية)')}
@@ -915,6 +928,7 @@ const clickActs = {
     try { await api('PUT', '/api/admin/staff/' + u.id, { active: !prev }); toast(prev ? 'تم إيقاف الموظف' : 'تم تفعيل الموظف'); load(); } catch (e) { u.active = prev; draw(); toast(e.message, true); }
   },
   async 'staff-del'(el) { const u = STAFF.find((x) => x.id === Number(el.dataset.id)); if (u && await RioDialog.confirm('حذف حساب ' + u.name + ' نهائياً؟') && await act(() => api('DELETE', '/api/admin/staff/' + u.id), 'تم الحذف')) load(); },
+  mprice(el) { M = { type: 'mprice', id: Number(el.dataset.id) }; drawModal(); },
   mloc(el) { M = { type: 'mloc', id: Number(el.dataset.id) }; drawModal(); },
   assign(el) { const o = O.find((x) => x.id === Number(el.dataset.id)); if (o) { M = { type: 'assign', o }; drawModal(); } },
   pw(el) { M = { type: 'pw', id: Number(el.dataset.id) }; drawModal(); },
@@ -1044,6 +1058,12 @@ document.addEventListener('submit', async (e) => {
     else if (k === 'chat') {
       const inp = $('#chat-in'), t = inp.value.trim();
       if (t) { inp.value = ''; await api('POST', `/api/orders/${M.o.id}/messages`, { text: t }); M.loaded = false; await loadChat(); }
+    }
+    else if (k === 'mprice') {
+      const pricing = {}; for (const x of ['bikeSame', 'bikeOther', 'carSame', 'carOther', 'feeSame', 'feeOther']) pricing[x] = $('#mp-' + x).value;
+      const all = $('#mp-all').checked;
+      if (all && !(await RioDialog.confirm('سيتم تطبيق الخصم والأسعار والرسوم على جميع المتاجر. هل تريد المتابعة؟'))) return;
+      await api('PUT', '/api/admin/users/' + M.id, { discount: $('#mp-disc').value, pricing, applyAll: all }); toast('تم الحفظ'); closeModal(); await load();
     }
     else if (k === 'mloc') { await api('PUT', '/api/admin/users/' + M.id, { area: $('#l-area').value, mapUrl: $('#l-map').value }); toast('تم الحفظ'); closeModal(); await load(); }
     else if (k === 'assign') {

@@ -93,9 +93,12 @@ function can(user, pages, level = 'view') {
 }
 const need = (user, pages, level) => { if (!can(user, pages, level)) fail('ليست لديك صلاحية لهذا الإجراء', 403); };
 
+/* تسعير خاص بالمتجر: القيمة الفارغة (null) تعني اتباع الإعدادات العامة */
+const PRICE_COLS = { bikeSame: 'p_bike_same', bikeOther: 'p_bike_other', carSame: 'p_car_same', carOther: 'p_car_other', feeSame: 'fee_same', feeOther: 'fee_other' };
+const pricingOf = (u) => { const o = {}; for (const k of Object.keys(PRICE_COLS)) { const v = u[PRICE_COLS[k]]; o[k] = v === null || v === undefined ? null : Number(v); } return o; };
 const pub = (u) => ({
   id: u.id, role: u.role, name: u.name, phone: u.phone, active: !!u.active,
-  area: u.area, vehicle: u.vehicle, balance: u.balance, receiving: !!u.receiving, discount: 0, mapUrl: u.map_url || '', createdAt: u.created_at, avatar: u.avatar || '', verified: !!u.verified,
+  area: u.area, vehicle: u.vehicle, balance: u.balance, receiving: !!u.receiving, discount: u.role === 'merchant' ? (Number(u.discount) || 0) : 0, ...(u.role === 'merchant' ? { pricing: pricingOf(u) } : {}), mapUrl: u.map_url || '', createdAt: u.created_at, avatar: u.avatar || '', verified: !!u.verified,
   ...(u.role === 'staff' ? { username: String(u.phone).replace(/^staff:/, ''), perms: permsOf(u) } : {})
 });
 
@@ -105,7 +108,7 @@ const ord = (r) => ({
   product: r.product, qty: r.qty, vehicle: r.vehicle, sameArea: !!r.same_area, note: r.note,
   productPrice: r.product_price, deliveryPrice: r.delivery_price, total: r.total, status: r.status,
   driverId: r.driver_id, driverName: r.driver_name, fee: r.fee, createdAt: r.created_at, updatedAt: r.updated_at,
-  acceptedAt: r.accepted_at, deliveredAt: r.delivered_at, discount: 0, merchantMap: r.merchant_map || '', log: safeJson(r.log, [])
+  acceptedAt: r.accepted_at, deliveredAt: r.delivered_at, discount: r.discount || 0, feeQuote: r.fee_quote === null || r.fee_quote === undefined ? null : Number(r.fee_quote), merchantMap: r.merchant_map || '', log: safeJson(r.log, [])
 });
 
 function safeJson(s, d) { try { return JSON.parse(s); } catch { return d; } }
@@ -380,9 +383,12 @@ route('POST', '/api/merchant/orders', MERCHANT, async (c) => {
   const s = await getSettings();
   const auto = normArea(customerArea) === normArea(c.user.area);
   const same = b.zone === 'same' ? true : b.zone === 'other' ? false : auto;
-  const base = s[vehicle + (same ? 'Same' : 'Other')];
-  const disc = 0;
-  const deliveryPrice = base;
+  const pr = pricingOf(c.user);
+  const zk = same ? 'Same' : 'Other';
+  const base = pr[vehicle + zk] ?? s[vehicle + zk]; // سعر خاص بالمتجر إن وُجد وإلا السعر العام
+  const disc = Math.min(base, Math.max(0, Number(c.user.discount) || 0)); // خصم المتجر على أجرة التوصيل
+  const deliveryPrice = base - disc;
+  const feeQuote = pr['fee' + zk] ?? s['fee' + zk]; // استقطاع السائق (رسوم التطبيق)
   const now = Date.now();
   for (let i = 0; i < 5; i++) {
     const m = await q('SELECT COALESCE(MAX(num),1042)+1 AS n FROM orders');
@@ -390,7 +396,7 @@ route('POST', '/api/merchant/orders', MERCHANT, async (c) => {
       const row = await db.insert('orders', {
         num: m.rows[0].n, merchant_id: c.user.id, merchant_name: c.user.name, merchant_area: c.user.area, merchant_phone: c.user.phone, merchant_map: c.user.map_url || '',
         customer_area: customerArea, customer_phone: customerPhone, product, qty, vehicle, same_area: same ? 1 : 0,
-        note: clean(b.note, 200), product_price: productPrice, delivery_price: deliveryPrice, total: productPrice + deliveryPrice, discount: disc,
+        note: clean(b.note, 200), product_price: productPrice, delivery_price: deliveryPrice, total: productPrice + deliveryPrice, discount: disc, fee_quote: feeQuote,
         status: 'pending', driver_id: null, driver_name: '', fee: 0, created_at: now, updated_at: now,
         accepted_at: null, delivered_at: null, log: JSON.stringify([{ s: 'pending', at: now }])
       });
@@ -488,7 +494,7 @@ route('POST', '/api/driver/orders/:id/accept', DRIVER, async (c) => {
   if (!o || o.status !== 'pending') fail('الطلب لم يعد متاحاً', 409);
   if ((o.vehicle === 'car' ? 'car' : 'bike') !== (u.vehicle === 'car' ? 'car' : 'bike')) fail(o.vehicle === 'car' ? 'هذا الطلب لسائقي السيارات فقط' : 'هذا الطلب لسائقي الدراجات فقط', 403);
   const s = await getSettings();
-  const fee = o.same_area ? s.feeSame : s.feeOther;
+  const fee = o.fee_quote !== null && o.fee_quote !== undefined ? Number(o.fee_quote) : (o.same_area ? s.feeSame : s.feeOther);
   const pay = await q('UPDATE users SET balance=balance-$1 WHERE id=$2 AND balance>=$1 RETURNING balance', [fee, u.id]);
   if (!pay.rows.length) fail('رصيدك لا يكفي لرسوم التطبيق. اشحن المحفظة أولاً', 402);
   const now = Date.now();
@@ -641,7 +647,7 @@ route('POST', '/api/admin/orders/:id/assign', ADM('orders', 'edit'), async (c) =
   const s = await getSettings();
   const now = Date.now();
   const charge = c.body.charge !== false;
-  const fee = charge ? (o.same_area ? s.feeSame : s.feeOther) : 0;
+  const fee = charge ? (o.fee_quote !== null && o.fee_quote !== undefined ? Number(o.fee_quote) : (o.same_area ? s.feeSame : s.feeOther)) : 0;
   if (fee > 0) {
     const pay = await q('UPDATE users SET balance=balance-$1 WHERE id=$2 AND balance>=$1 RETURNING balance', [fee, d.id]);
     if (!pay.rows.length) fail('رصيد السائق لا يكفي لرسوم التطبيق. اشحن رصيده أو عيّن الطلب بدون خصم الرسوم', 402);
@@ -710,12 +716,35 @@ route('PUT', '/api/admin/users/:id', ADM(['merchants', 'drivers'], 'edit'), asyn
   if (b.active !== undefined) patch.active = b.active ? 1 : 0;
   if (b.verified !== undefined) patch.verified = b.verified ? 1 : 0;
   if (b.mapUrl !== undefined && u.role === 'merchant') patch.map_url = cleanUrl(b.mapUrl);
+  const price = {}; // خصم وتسعير المتجر (يمكن تطبيقه على كل المتاجر)
+  if (u.role === 'merchant') {
+    if (b.discount !== undefined) {
+      const v = int(b.discount) || 0;
+      if (!Number.isFinite(v) || v < 0 || v > 10000000) fail('قيمة الخصم غير صحيحة');
+      price.discount = v;
+    }
+    if (b.pricing && typeof b.pricing === 'object') {
+      for (const k of Object.keys(PRICE_COLS)) {
+        if (b.pricing[k] === undefined) continue;
+        const raw = b.pricing[k];
+        if (raw === null || String(raw).trim() === '') { price[PRICE_COLS[k]] = null; continue; }
+        const v = int(raw);
+        if (!Number.isFinite(v) || v < 0 || v > 10000000) fail('قيمة غير صحيحة: ' + k);
+        price[PRICE_COLS[k]] = v;
+      }
+    }
+    Object.assign(patch, price);
+  }
   if (b.password) {
     if (String(b.password).length < 6) fail('كلمة المرور لا تقل عن 6 أحرف');
     patch.pass_hash = await hashPassword(String(b.password));
   }
   if (!Object.keys(patch).length) fail('لا يوجد ما يُحدَّث');
   const saved = await db.update('users', 'id', u.id, patch);
+  if (b.applyAll && u.role === 'merchant' && Object.keys(price).length) {
+    const cols = Object.keys(price);
+    await q(`UPDATE users SET ${cols.map((k, i) => `${k}=$${i + 1}`).join(',')} WHERE role='merchant'`, cols.map((k) => price[k]));
+  }
   if (patch.map_url !== undefined) await q(`UPDATE orders SET merchant_map=$1 WHERE merchant_id=$2 AND status NOT IN ('delivered','partial','returned','rejected','cancelled')`, [patch.map_url, u.id]);
   return { user: pub(saved) };
 });

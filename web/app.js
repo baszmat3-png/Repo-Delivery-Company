@@ -193,7 +193,7 @@ async function refresh(manual) {
     if (S.user && (S.user.role === 'merchant' || S.user.role === 'driver') && d && d.adsVer !== undefined && d.adsVer !== S.adsVer) {
       try { const a = await api('GET', '/api/ads'); S.ads = a.ads; S.adsVer = d.adsVer; lastSig = ''; } catch { /* ignore */ }
     }
-    if (d && d.me && S.user && d.me.id === S.user.id && d.me.name !== S.user.name) S.user = { ...S.user, ...d.me };
+    if (d && d.me && S.user && d.me.id === S.user.id && (d.me.name !== S.user.name || d.me.discount !== S.user.discount || JSON.stringify(d.me.pricing) !== JSON.stringify(S.user.pricing))) S.user = { ...S.user, ...d.me };
     const cfgChanged = d && d.settings ? applyCfg(d.settings) : false;
     const sig = JSON.stringify(d);
     S.loading = false; S.error = '';
@@ -414,7 +414,7 @@ function availOrderCard(o, s, receiving) {
   return orderCard(o, {
     corner: `<button class="oc-cb g" data-act="accept" data-id="${o.id}"><span>قبول الطلب</span>${ico('check')}</button><button class="oc-cb r" data-act="note" data-id="${o.id}"><span>ملاحظة</span><span class="oc-ex">!</span></button>`,
     /* قبل قبول الطلب: لا موقع متجر (Waze) ولا تفاصيل منتج، فقط السعر والتوصيل والعنوانين نصاً */
-    after: OCD === 'classic' ? `<p class="hint" style="margin-top:12px">رسوم التطبيق عند القبول ${money(o.sameArea ? s.feeSame : s.feeOther)}</p>` : ''
+    after: OCD === 'classic' ? `<p class="hint" style="margin-top:12px">رسوم التطبيق عند القبول ${money(o.feeQuote ?? (o.sameArea ? s.feeSame : s.feeOther))}</p>` : ''
   });
 }
 
@@ -1473,7 +1473,8 @@ function updateOrderForm() {
   const f = s.form;
   const st = S.data.settings;
   if (!f.zoneManual) f.zone = f.customerArea.trim() && normArea(f.customerArea) === normArea(S.user.area) ? 'same' : 'other';
-  const p = (z) => st[f.vehicle + (z === 'same' ? 'Same' : 'Other')];
+  const pr = S.user.pricing || {};
+  const p = (z) => { const k = f.vehicle + (z === 'same' ? 'Same' : 'Other'); const base = pr[k] ?? st[k]; return Math.max(0, base - Math.min(base, Number(S.user.discount) || 0)); };
   $('#o-zone').innerHTML = ['same', 'other'].map((z) => `<button type="button" data-act="zone" data-z="${z}" aria-pressed="${f.zone === z}">${money(p(z))}<small>${z === 'same' ? 'نفس المنطقة' : 'منطقة ثانية'}</small></button>`).join('');
   const price = Number(digits(f.productPrice).replace(/[,\s]/g, '')) || 0;
   $('#o-total').innerHTML = money(price + p(f.zone));
