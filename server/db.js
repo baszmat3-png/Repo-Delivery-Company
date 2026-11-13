@@ -65,7 +65,10 @@ function ddl() {
     `CREATE INDEX IF NOT EXISTS push_subs_user_idx ON push_subs(user_id)`,
     `CREATE TABLE IF NOT EXISTS ads(
       id ${pk}, image TEXT NOT NULL, link TEXT NOT NULL DEFAULT '', sort INTEGER NOT NULL DEFAULT 0,
-      active INTEGER NOT NULL DEFAULT 1, created_at BIGINT NOT NULL)`
+      active INTEGER NOT NULL DEFAULT 1, created_at BIGINT NOT NULL)`,
+    `CREATE TABLE IF NOT EXISTS loc_trail(
+      id ${pk}, driver_id INTEGER NOT NULL, lat DOUBLE PRECISION NOT NULL, lng DOUBLE PRECISION NOT NULL, at BIGINT NOT NULL)`,
+    `CREATE INDEX IF NOT EXISTS loc_trail_idx ON loc_trail(driver_id, at)`
   ];
 }
 
@@ -96,6 +99,8 @@ async function init() {
   await addColumn('users', 'perms', "TEXT NOT NULL DEFAULT ''");
   await addColumn('users', 'avatar', "TEXT NOT NULL DEFAULT ''");
   await addColumn('users', 'verified', 'INTEGER NOT NULL DEFAULT 0');
+  // تتبع المندوبين: آخر موقع معروف + إحداثيات المتجر المستخرجة من رابطه
+  for (const [c, t] of [['loc_lat', 'DOUBLE PRECISION'], ['loc_lng', 'DOUBLE PRECISION'], ['loc_at', 'BIGINT'], ['loc_moved_at', 'BIGINT'], ['loc_acc', 'INTEGER'], ['loc_speed', 'INTEGER'], ['loc_bat', 'INTEGER'], ['map_ll', 'TEXT']]) await addColumn('users', c, t);
   await addColumn('ads', 'aud', "TEXT NOT NULL DEFAULT 'merchant'");
   for (const s of [
     'CREATE INDEX IF NOT EXISTS orders_created_idx ON orders(created_at)',

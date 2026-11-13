@@ -72,7 +72,7 @@ function cleanUrl(v) {
 }
 
 /* صلاحيات فريق الإدارة: {صفحة: 'view'|'edit'} */
-const PAGES_ALL = ['home', 'orders', 'merchants', 'drivers', 'customers', 'finance', 'vouchers', 'cards', 'settings'];
+const PAGES_ALL = ['home', 'orders', 'merchants', 'drivers', 'tracking', 'customers', 'finance', 'vouchers', 'cards', 'settings'];
 function permsOf(u) {
   const o = safeJson(u.perms, {});
   const out = {};
@@ -715,7 +715,7 @@ route('PUT', '/api/admin/users/:id', ADM(['merchants', 'drivers'], 'edit'), asyn
   if (b.vehicle !== undefined) patch.vehicle = b.vehicle === 'car' ? 'car' : 'bike';
   if (b.active !== undefined) patch.active = b.active ? 1 : 0;
   if (b.verified !== undefined) patch.verified = b.verified ? 1 : 0;
-  if (b.mapUrl !== undefined && u.role === 'merchant') patch.map_url = cleanUrl(b.mapUrl);
+  if (b.mapUrl !== undefined && u.role === 'merchant') { patch.map_url = cleanUrl(b.mapUrl); patch.map_ll = null; }
   const price = {}; // خصم وتسعير المتجر (يمكن تطبيقه على كل المتاجر)
   if (u.role === 'merchant') {
     if (b.discount !== undefined) {
@@ -1222,3 +1222,68 @@ route('GET', '/api/admin/statement', ADM(['merchants', 'drivers', 'customers', '
 });
 
 module.exports = { dispatch, HttpError, getSettings };
+
+
+/* ================= تتبع المندوبين ================= */
+const ONLINE_MS = 3 * 60000; // السائق «متصل» إن وصل موقعه خلال آخر 3 دقائق
+const IDLE_MS = 10 * 60000; // توقف أثناء مهمة أكثر من 10 دقائق = تنبيه
+const distM = (a, b, c, d) => { const R = 6371000, r = Math.PI / 180, dl = (c - a) * r, dg = (d - b) * r; const x = Math.sin(dl / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin(dg / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(x)); };
+
+route('POST', '/api/driver/location', DRIVER, async (c) => {
+  const b = c.body, lat = Number(b.lat), lng = Number(b.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180 || (lat === 0 && lng === 0)) fail('موقع غير صحيح');
+  const u = c.user, now = Date.now();
+  const had = u.loc_lat !== null && u.loc_lat !== undefined && u.loc_lng !== null && u.loc_lng !== undefined;
+  const moved = had ? distM(Number(u.loc_lat), Number(u.loc_lng), lat, lng) : Infinity;
+  const nn = (v, lo, hi) => { const n = Math.round(Number(v)); return Number.isFinite(n) && n >= lo && n <= hi ? n : null; };
+  const patch = { loc_lat: lat, loc_lng: lng, loc_at: now, loc_acc: nn(b.acc, 0, 100000), loc_speed: nn(Number(b.speed) * 3.6, 0, 400), loc_bat: nn(b.battery, 0, 100) };
+  if (moved > 40 || !u.loc_moved_at) patch.loc_moved_at = now;
+  await db.update('users', 'id', u.id, patch);
+  if (moved > 30) {
+    await db.insert('loc_trail', { driver_id: u.id, lat, lng, at: now });
+    if (Math.random() < 0.02) await q('DELETE FROM loc_trail WHERE at<$1', [now - 3 * DAY]);
+  }
+  return { ok: true };
+});
+
+route('GET', '/api/admin/tracking', ADM('tracking'), async () => {
+  const now = Date.now(), ds = dayStart(now);
+  const drivers = (await q(`SELECT * FROM users WHERE role='driver' AND phone NOT LIKE 'deleted-%' ORDER BY name`)).rows;
+  const live = (await q(`SELECT * FROM orders WHERE status IN ('picking_up','on_the_way','return_sent') AND driver_id IS NOT NULL`)).rows;
+  const today = (await q(`SELECT driver_id, COUNT(*) AS n FROM orders WHERE driver_id IS NOT NULL AND accepted_at>=$1 GROUP BY driver_id`, [ds])).rows;
+  const todayN = {}; today.forEach((r) => { todayN[r.driver_id] = Number(r.n); });
+  const mer = (await q(`SELECT * FROM users WHERE role='merchant' AND phone NOT LIKE 'deleted-%'`)).rows;
+  const stores = [];
+  const need = mer.filter((m) => m.map_url && !m.map_ll).slice(0, 12);
+  await Promise.all(need.map(async (m) => {
+    const ll = await resolveLL(m.map_url);
+    m.map_ll = ll ? ll[0] + ',' + ll[1] : '';
+    await q('UPDATE users SET map_ll=$1 WHERE id=$2', [m.map_ll, m.id]);
+  }));
+  for (const m of mer) {
+    const p = String(m.map_ll || '').split(',').map(Number);
+    if (p.length === 2 && Number.isFinite(p[0]) && Number.isFinite(p[1])) stores.push({ id: m.id, name: m.name, area: m.area, lat: p[0], lng: p[1] });
+  }
+  const storeById = {}; stores.forEach((s) => { storeById[s.id] = s; });
+  const out = drivers.map((u) => {
+    const o = live.find((x) => x.driver_id === u.id && x.status !== 'return_sent') || live.find((x) => x.driver_id === u.id);
+    const has = u.loc_lat !== null && u.loc_lat !== undefined && u.loc_at;
+    const online = !!(has && now - Number(u.loc_at) <= ONLINE_MS && u.active);
+    const st = !online ? 'offline' : o ? 'busy' : 'free';
+    const idleMs = online && o && u.loc_moved_at ? now - Number(u.loc_moved_at) : 0;
+    return {
+      id: u.id, name: u.name, phone: u.phone, vehicle: u.vehicle, active: !!u.active, verified: !!u.verified, avatar: u.avatar || '',
+      lat: has ? Number(u.loc_lat) : null, lng: has ? Number(u.loc_lng) : null, acc: u.loc_acc, speed: u.loc_speed, battery: u.loc_bat, lastAt: has ? Number(u.loc_at) : 0,
+      status: st, today: todayN[u.id] || 0, idleMin: idleMs >= IDLE_MS ? Math.floor(idleMs / 60000) : 0,
+      order: o ? { id: o.id, no: o.num, status: o.status, merchantId: o.merchant_id, merchantName: o.merchant_name, customerArea: o.customer_area, store: storeById[o.merchant_id] || null } : null
+    };
+  });
+  const pending = (await q(`SELECT * FROM orders WHERE status='pending' ORDER BY created_at ASC LIMIT 50`)).rows.map((o) => ({ id: o.id, no: o.num, vehicle: o.vehicle, merchantName: o.merchant_name, customerArea: o.customer_area }));
+  return { now, drivers: out, stores, pending };
+});
+
+route('GET', '/api/admin/tracking/:id/trail', ADM('tracking'), async (c) => {
+  const hours = Math.min(48, Math.max(1, Number(c.query.hours) || 6));
+  const r = await q('SELECT lat, lng, at FROM loc_trail WHERE driver_id=$1 AND at>=$2 ORDER BY at ASC LIMIT 1500', [Number(c.params.id), Date.now() - hours * 3600000]);
+  return { points: r.rows.map((x) => [Number(x.lat), Number(x.lng), Number(x.at)]) };
+});

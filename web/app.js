@@ -227,8 +227,29 @@ function liveRefresh() {
   if (S.sheet || S.menu || (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))) { S.dirty = true; return; }
   refresh();
 }
-function setUser(u) { S.user = u; connectLive(); setTimeout(syncCfg, 100); setTimeout(checkNotifs, 600); if (u && u.role !== 'admin') setTimeout(promptOnEntry, 500); }
+function setUser(u) { S.user = u; geoStart(); connectLive(); setTimeout(syncCfg, 100); setTimeout(checkNotifs, 600); if (u && u.role !== 'admin') setTimeout(promptOnEntry, 500); }
+/* ===== إرسال موقع السائق للإدارة (أثناء فتح التطبيق) ===== */
+const GEO = { id: null, pos: null, sent: 0, bat: null };
+function geoSend(force) {
+  if (!GEO.pos || !S.token || !S.user || S.user.role !== 'driver') return;
+  const now = Date.now();
+  if (!force && now - GEO.sent < 14000) return;
+  GEO.sent = now;
+  api('POST', '/api/driver/location', { ...GEO.pos, battery: GEO.bat }).catch(() => {});
+}
+function geoStart() {
+  if (!S.user || S.user.role !== 'driver' || !navigator.geolocation || GEO.id !== null) return;
+  try { if (navigator.getBattery) navigator.getBattery().then((b) => { GEO.bat = Math.round(b.level * 100); b.addEventListener('levelchange', () => { GEO.bat = Math.round(b.level * 100); }); }).catch(() => {}); } catch { /* ignore */ }
+  GEO.id = navigator.geolocation.watchPosition((p) => {
+    GEO.pos = { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy, speed: p.coords.speed };
+    geoSend(false);
+  }, () => {}, { enableHighAccuracy: true, maximumAge: 10000, timeout: 30000 });
+}
+function geoStop() { if (GEO.id !== null) { try { navigator.geolocation.clearWatch(GEO.id); } catch { /* ignore */ } } GEO.id = null; GEO.pos = null; }
+setInterval(() => geoSend(true), 30000); /* نبض: يبقى السائق «متصلاً» حتى لو لم يتحرك */
+document.addEventListener('visibilitychange', () => { if (!document.hidden) geoSend(true); });
 function logout() {
+  geoStop();
   S.token = null; S.user = null; S.data = null; S.sheet = null; S.menu = null; lastSig = ''; S.unread = 0; S.pushOn = false; entryAsked = false; S.nperm = '';
   store.del(TOKEN_KEY);
   history.replaceState(null, '', location.pathname);

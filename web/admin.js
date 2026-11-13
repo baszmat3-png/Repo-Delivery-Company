@@ -20,7 +20,7 @@ const sizeSeg = () => `<div class="row" style="justify-content:center;margin-bot
 const docBtns = () => `<button class="btn" data-a="print-doc">${ico('print')} طباعة / PDF</button><button class="btn g" data-a="save-doc">${ico('dl')} حفظ صورة</button>`;
 const DONE = ['delivered', 'partial'], RET = ['returned', 'partial', 'rejected'];
 const CATS = ['الإيجار', 'الوقود', 'السحب', 'الطعام', 'تنقلات شخصية', 'الإنترنت', 'اشتراكات تقنية', 'رواتب', 'إعلانات', 'صيانة', 'كهرباء وماء', 'أخرى'];
-const PAGES_BASE = [['home', 'لوحة المعلومات', 'home'], ['orders', 'الطلبات', 'orders'], ['merchants', 'المتاجر', 'store'], ['drivers', 'المندوبون', 'bike'], ['customers', 'العملاء', 'users'], ['finance', 'المالية والأرباح', 'money'], ['vouchers', 'سندات القبض والصرف', 'voucher'], ['cards', 'كروت الشحن', 'card'], ['settings', 'الإعدادات', 'settings']];
+const PAGES_BASE = [['home', 'لوحة المعلومات', 'home'], ['orders', 'الطلبات', 'orders'], ['merchants', 'المتاجر', 'store'], ['drivers', 'المندوبون', 'bike'], ['tracking', 'تتبع المندوبين', 'pin'], ['customers', 'العملاء', 'users'], ['finance', 'المالية والأرباح', 'money'], ['vouchers', 'سندات القبض والصرف', 'voucher'], ['cards', 'كروت الشحن', 'card'], ['settings', 'الإعدادات', 'settings']];
 const PAGES = PAGES_BASE.slice();
 const ls0 = (() => { try { return JSON.parse(localStorage.getItem('rio_admin_me') || 'null'); } catch { return null; } })();
 let ME = ls0, STAFF = [];
@@ -99,7 +99,9 @@ async function load(silent) {
     jobs.push(api('GET', '/api/settings'));
     jobs.push(api('GET', '/api/me'));
     jobs.push(P === 'staff' && isAdm() ? api('GET', '/api/admin/staff') : null);
-    const [d, o, f, v, cd, st, me, sf] = await Promise.all(jobs);
+    jobs.push(P === 'tracking' ? api('GET', '/api/admin/tracking') : null);
+    const [d, o, f, v, cd, st, me, sf, tk] = await Promise.all(jobs);
+    if (tk) TRK.data = tk;
     if (me && me.user) setMe(me.user);
     if (sf) STAFF = sf.staff;
     D = d; if (o) O = o.orders; if (f) FN = f; if (v) V = v.vouchers; if (cd) CARDS = cd.cards; if (st) SET = st.settings; E = '';
@@ -271,12 +273,136 @@ function draw() {
   <div id="view" class="${perm(P) === 'edit' ? '' : 'ro'}">${!D ? `<div class="card">${E ? `${esc(E)} <button class="btn sm" data-a="reload">إعادة المحاولة</button>` : 'جارٍ التحميل…'}</div>` : E ? `<div class="card" style="color:var(--red)">${esc(E)}</div>` + page() : page()}</div></main></div>`;
   Object.keys(keep).forEach((id) => { const e = document.getElementById(id); if (e && e.value !== keep[id] && !e.matches('[type=date]') || (e && e.id === 'q')) e.value = keep[id]; });
   if (af) { const e = document.getElementById(af[0]); if (e) { e.focus(); try { e.setSelectionRange(af[1], af[2]); } catch { /* */ } } }
+  if (P === 'tracking' && D) trkAfter();
   window.scrollTo(0, sy);
 }
 
 function page() {
-  return ({ home, orders, merchants, drivers, customers, finance, vouchers, cards, settings, staff })[P]();
+  return ({ home, orders, merchants, drivers, tracking, customers, finance, vouchers, cards, settings, staff })[P]();
 }
+
+/* ---------------- تتبع المندوبين ---------------- */
+const TRK = { data: null, map: null, el: null, lp: null, mk: {}, sk: {}, lines: null, trail: null, sel: null, f: 'all', q: '', stores: true, routes: true, fitted: false, busy: false };
+const TST = { busy: ['في مهمة', 'y', '#f0b400'], free: ['متاح', 'green', '#16a34a'], offline: ['غير متصل', 'gray', '#6b7280'] };
+function loadLeaflet() {
+  if (window.L) return Promise.resolve();
+  if (TRK.lp) return TRK.lp;
+  TRK.lp = new Promise((res, rej) => {
+    const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css'; document.head.appendChild(css);
+    const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+    sc.onload = () => res(); sc.onerror = () => { TRK.lp = null; rej(new Error('تعذّر تحميل الخريطة. تحقق من الإنترنت')); };
+    document.head.appendChild(sc);
+  });
+  return TRK.lp;
+}
+const trkDrv = (id) => ((TRK.data || {}).drivers || []).find((x) => x.id === id);
+const trkAgo = (t) => { if (!t) return 'لا يوجد موقع'; const s = Math.max(0, Math.round((Date.now() - t) / 1000)); return s < 60 ? `قبل ${s} ث` : s < 3600 ? `قبل ${Math.round(s / 60)} د` : s < 86400 ? `قبل ${Math.round(s / 3600)} س` : `قبل ${Math.round(s / 86400)} يوم`; };
+const trkBat = (b) => (b === null || b === undefined ? '—' : `<span class="${b <= 20 ? 'neg' : ''}">${b}%</span>`);
+function tracking() {
+  if (!TRK.data) return `<div class="card">${E ? esc(E) : 'جارٍ تحميل بيانات التتبع…'}</div>`;
+  return `<div class="trk"><div class="kpis" id="trk-kpis"></div><div id="trk-alert"></div>
+  <div class="trk-grid"><div class="trk-mapwrap"><div id="trk-slot"></div>
+    <div class="trk-legend"><span><i style="background:#f0b400"></i>في مهمة</span><span><i style="background:#16a34a"></i>متاح</span><span><i style="background:#6b7280"></i>غير متصل</span></div>
+    <div class="trk-tg" id="trk-tg"></div><div id="trk-card"></div></div>
+  <div class="card trk-list"><div class="row between"><b>المندوبون</b><small class="muted" id="trk-n"></small></div><input class="in" id="trk-q" placeholder="بحث عن مندوب…" value="${esc(TRK.q)}" style="margin:10px 0"><div class="chips" id="trk-f" style="margin-bottom:8px"></div><div id="trk-rows"></div></div></div></div>`;
+}
+function trkCounts() {
+  const l = (TRK.data || {}).drivers || [], c = { all: l.length, busy: 0, free: 0, offline: 0 };
+  l.forEach((x) => { c[x.status]++; });
+  return c;
+}
+function trkAlerts() {
+  const out = [];
+  for (const x of (TRK.data || {}).drivers || []) {
+    if (x.status !== 'busy') continue;
+    if (x.idleMin) out.push({ id: x.id, t: `${x.name} متوقف منذ ${x.idleMin} دقيقة أثناء تنفيذ الطلب #${x.order.no}${x.battery != null ? ` · البطارية ${x.battery}%` : ''}` });
+    else if (x.battery != null && x.battery <= 15) out.push({ id: x.id, t: `بطارية ${x.name} منخفضة ${x.battery}% أثناء تنفيذ الطلب #${x.order.no}` });
+  }
+  return out;
+}
+function trkKpiAlert() {
+  const c = trkCounts(), k = $('#trk-kpis'); if (!k) return;
+  k.innerHTML = kpi('مندوبون متصلون', nn(c.busy + c.free), 'b') + kpi('في مهمة توصيل', nn(c.busy), 'a') + kpi('متاحون', nn(c.free), 'g') + kpi('غير متصلين', nn(c.offline), '');
+  const al = trkAlerts(), a = $('#trk-alert');
+  if (a) a.innerHTML = al.length ? `<div class="trk-alert"><span>⚠ ${esc(al[0].t)}${al.length > 1 ? ` <small>(+${al.length - 1} تنبيهات)</small>` : ''}</span><button class="btn sm" data-a="trk-sel" data-id="${al[0].id}">عرض على الخريطة</button></div>` : '';
+  const tg = $('#trk-tg'); if (tg) tg.innerHTML = `<button data-a="trk-tg" data-k="stores" aria-pressed="${TRK.stores}">المتاجر</button><button data-a="trk-tg" data-k="routes" aria-pressed="${TRK.routes}">المسارات</button>`;
+}
+function trkList() {
+  const c = trkCounts(), q = norm(TRK.q.trim());
+  const F = [['all', 'الكل'], ['busy', 'في مهمة'], ['free', 'متاح'], ['offline', 'غير متصل']];
+  const f = $('#trk-f'); if (f) f.innerHTML = F.map(([k, l]) => `<button type="button" class="chip" data-a="trk-f" data-k="${k}" aria-pressed="${TRK.f === k}">${l} · ${nn(c[k])}</button>`).join('');
+  const rank = { busy: 0, free: 1, offline: 2 };
+  const l = ((TRK.data || {}).drivers || []).filter((x) => (TRK.f === 'all' || x.status === TRK.f) && (!q || norm(x.name + ' ' + x.phone).includes(q))).sort((a, b) => rank[a.status] - rank[b.status] || a.name.localeCompare(b.name, 'ar'));
+  const n = $('#trk-n'); if (n) n.textContent = `${nn(c.all)} مندوب`;
+  const r = $('#trk-rows');
+  if (r) r.innerHTML = l.length ? l.map((x) => `<button type="button" class="trk-row ${TRK.sel === x.id ? 'on' : ''}" data-a="trk-sel" data-id="${x.id}"><span class="trk-av ${x.status}">${esc((x.name || '?').trim().charAt(0))}</span><span class="trk-in"><b>${esc(x.name)}</b> ${bdg(TST[x.status][0], TST[x.status][1])}<small>${x.order ? `طلب #${x.order.no} · ${esc(x.order.merchantName)}` : x.status === 'free' ? 'جاهز لاستلام طلب' : x.lastAt ? 'آخر ظهور ' + trkAgo(x.lastAt) : 'لم يرسل موقعه بعد'}</small></span><span class="trk-mt">${x.battery != null ? trkBat(x.battery) : ''}<small>${x.lastAt ? trkAgo(x.lastAt) : ''}</small></span></button>`).join('') : empty('لا يوجد مندوبون');
+}
+function trkCard() {
+  const el = $('#trk-card'); if (!el) return;
+  const x = trkDrv(TRK.sel);
+  if (!x) { el.innerHTML = ''; return; }
+  const o = x.order, wp = String(x.phone || '').replace(/\D/g, '').replace(/^0/, '964');
+  el.innerHTML = `<div class="trk-card"><div class="row between"><div class="row" style="gap:10px"><span class="trk-av ${x.status}">${esc((x.name || '?').trim().charAt(0))}</span><div><b>${esc(x.name)}</b> ${bdg(TST[x.status][0], TST[x.status][1])}<div class="hint">${o ? `يوصّل الطلب #${o.no} من ${esc(o.merchantName)}${o.status === 'picking_up' ? ' (في الطريق للمتجر)' : ' (في الطريق للزبون: ' + esc(o.customerArea) + ')'}` : x.status === 'free' ? 'متاح لاستلام طلب جديد' : 'غير متصل'}</div></div></div><button class="x" data-a="trk-close" aria-label="إغلاق">×</button></div>
+  <div class="trk-st"><div><small>البطارية</small><b>${trkBat(x.battery)}</b></div><div><small>طلبات اليوم</small><b>${nn(x.today)}</b></div><div><small>السرعة</small><b>${x.speed != null ? nn(x.speed) + ' كم/س' : '—'}</b></div><div><small>آخر تحديث</small><b>${trkAgo(x.lastAt)}</b></div></div>
+  <div class="trk-bt"><a class="btn sm g" href="tel:${esc(x.phone)}">اتصال</a><a class="btn sm w" target="_blank" rel="noopener" href="https://wa.me/${wp}">واتساب</a><button class="btn sm g" data-a="trk-trail" data-id="${x.id}">سجل المسار</button><button class="btn sm" data-a="trk-assign" data-id="${x.id}">تكليف بطلب</button></div></div>`;
+}
+function trkIcon(x) {
+  const sel = TRK.sel === x.id ? ' sel' : '';
+  return L.divIcon({ className: 'trk-mk', html: `<div class="mk ${x.status}${sel}"><span>${esc((x.name || '?').trim().charAt(0))}</span></div><div class="mk-l">${esc((x.name || '').split(' ')[0])}</div>`, iconSize: [44, 56], iconAnchor: [22, 22] });
+}
+function trkMap() {
+  if (!TRK.map || !window.L) return;
+  const d = TRK.data, seen = {};
+  for (const x of d.drivers) {
+    if (x.lat === null || x.lng === null) continue;
+    seen[x.id] = 1;
+    if (TRK.mk[x.id]) { TRK.mk[x.id].setLatLng([x.lat, x.lng]); TRK.mk[x.id].setIcon(trkIcon(x)); }
+    else { const m = L.marker([x.lat, x.lng], { icon: trkIcon(x), keyboard: false, zIndexOffset: x.status === 'busy' ? 200 : 100 }).addTo(TRK.map); m.on('click', () => trkSelect(x.id, false)); TRK.mk[x.id] = m; }
+  }
+  Object.keys(TRK.mk).forEach((id) => { if (!seen[id]) { TRK.map.removeLayer(TRK.mk[id]); delete TRK.mk[id]; } });
+  const ss = {};
+  if (TRK.stores) for (const st of d.stores) {
+    ss[st.id] = 1;
+    if (!TRK.sk[st.id]) TRK.sk[st.id] = L.marker([st.lat, st.lng], { icon: L.divIcon({ className: 'trk-mk', html: `<div class="mk st"><span>▣</span></div><div class="mk-l">${esc(st.name)}</div>`, iconSize: [44, 56], iconAnchor: [22, 22] }), keyboard: false, zIndexOffset: 0 }).addTo(TRK.map);
+  }
+  Object.keys(TRK.sk).forEach((id) => { if (!ss[id]) { TRK.map.removeLayer(TRK.sk[id]); delete TRK.sk[id]; } });
+  if (TRK.lines) { TRK.map.removeLayer(TRK.lines); TRK.lines = null; }
+  if (TRK.routes) {
+    TRK.lines = L.layerGroup().addTo(TRK.map);
+    for (const x of d.drivers) if (x.status === 'busy' && x.lat !== null && x.order && x.order.status === 'picking_up' && x.order.store) L.polyline([[x.lat, x.lng], [x.order.store.lat, x.order.store.lng]], { color: '#111827', weight: 3, dashArray: '8 8', opacity: 0.75 }).addTo(TRK.lines);
+  }
+  if (!TRK.fitted) {
+    const pts = d.drivers.filter((x) => x.lat !== null && x.status !== 'offline').map((x) => [x.lat, x.lng]).concat(d.stores.map((s) => [s.lat, s.lng]));
+    const all = pts.length ? pts : d.drivers.filter((x) => x.lat !== null).map((x) => [x.lat, x.lng]);
+    if (all.length) { TRK.map.fitBounds(all, { padding: [60, 60], maxZoom: 15 }); TRK.fitted = true; }
+  }
+}
+async function trkAfter() {
+  trkKpiAlert(); trkList(); trkCard();
+  const slot = $('#trk-slot'); if (!slot || !TRK.data) return;
+  try { await loadLeaflet(); } catch (e) { slot.innerHTML = `<div class="muted" style="padding:40px;text-align:center">${esc(e.message)}</div>`; return; }
+  const slot2 = $('#trk-slot'); if (P !== 'tracking' || !slot2) return;
+  if (!TRK.map) {
+    TRK.el = document.createElement('div'); TRK.el.className = 'trk-map'; slot2.appendChild(TRK.el);
+    TRK.map = L.map(TRK.el, { zoomControl: false, attributionControl: true }).setView([33.3152, 44.3661], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(TRK.map);
+    L.control.zoom({ position: 'bottomleft' }).addTo(TRK.map);
+  } else { slot2.appendChild(TRK.el); setTimeout(() => TRK.map.invalidateSize(), 50); }
+  trkMap();
+}
+function trkSelect(id, fly) {
+  TRK.sel = id; if (TRK.trail && TRK.map) { TRK.map.removeLayer(TRK.trail); TRK.trail = null; }
+  trkList(); trkCard(); trkMap();
+  const x = trkDrv(id);
+  if (fly !== false && x && x.lat !== null && TRK.map) TRK.map.flyTo([x.lat, x.lng], Math.max(TRK.map.getZoom(), 15), { duration: 0.6 });
+}
+async function trkRefresh() {
+  if (TRK.busy || !T || P !== 'tracking' || document.hidden) return;
+  TRK.busy = true;
+  try { TRK.data = await api('GET', '/api/admin/tracking'); trkKpiAlert(); trkList(); trkCard(); trkMap(); } catch { /* ignore */ }
+  TRK.busy = false;
+}
+setInterval(trkRefresh, 8000);
 
 /* ---------------- فريق الإدارة ---------------- */
 const permBadges = (u) => PAGES_BASE.filter((x) => (u.perms || {})[x[0]]).map((x) => bdg(`${x[1]}${u.perms[x[0]] === 'edit' ? ' ✎' : ''}`, u.perms[x[0]] === 'edit' ? 'green' : 'gray')).join(' ') || '<span class="muted">بدون صلاحيات</span>';
@@ -733,6 +859,12 @@ function modalHtml() {
     <label class="row" style="gap:10px;align-items:center;margin:10px 0 14px;cursor:pointer"><input type="checkbox" id="as-c" checked style="width:20px;height:20px"><span>خصم رسوم التطبيق من السائق الجديد <small class="muted">(ألغِ التحديد لتعيينه بدون خصم)</small></span></label>
     <div class="err" id="fe" role="alert"></div><button class="btn" style="width:100%" ${ds.length ? '' : 'disabled'}>${o.driverId ? 'تحويل الطلب' : 'تعيين الطلب'}</button></form>`];
   }
+  if (m.type === 'trkassign') {
+    const x = trkDrv(m.id), pend = (TRK.data || {}).pending || [];
+    return [`تكليف ${esc(x ? x.name : '')} بطلب`, `<form data-f="trkassign">${pend.length ? field('ta-o', 'الطلب (بانتظار سائق)', `<select class="in" id="ta-o">${pend.map((o) => `<option value="${o.id}">#${o.no} — ${esc(o.merchantName)} → ${esc(o.customerArea)} (${o.vehicle === 'car' ? 'سيارة' : 'دراجة'})</option>`).join('')}</select>`) : '<p class="muted">لا توجد طلبات بانتظار سائق الآن.</p>'}
+    <label class="row" style="gap:10px;align-items:center;margin:10px 0 14px;cursor:pointer"><input type="checkbox" id="ta-c" checked style="width:20px;height:20px"><span>خصم رسوم التطبيق من المندوب</span></label>
+    <div class="err" id="fe" role="alert"></div><button class="btn" style="width:100%" ${pend.length ? '' : 'disabled'}>تكليف</button></form>`];
+  }
   if (m.type === 'assigned') {
     const d = m.d;
     return ['تم تعيين الطلب', `<div class="card" style="background:var(--ac-soft);box-shadow:none"><p style="margin:0">الطلب <b>#${m.o.no}</b> أصبح عند <b>${esc(d.name)}</b> بحالة «${esc(ST[m.o.status])}».</p></div>
@@ -904,6 +1036,22 @@ const clickActs = {
   'batch-x'() { BATCH = null; draw(); },
   async 'del-card'(el) { if (await RioDialog.confirm('حذف هذا الكرت؟') && await act(() => api('DELETE', '/api/admin/cards/' + el.dataset.n), 'تم الحذف')) load(); },
   reload() { load(); },
+  'trk-sel'(el) { trkSelect(Number(el.dataset.id)); },
+  'trk-close'() { trkSelect(null, false); },
+  'trk-f'(el) { TRK.f = el.dataset.k; trkList(); },
+  'trk-tg'(el) { const k = el.dataset.k; TRK[k] = !TRK[k]; if (k === 'stores' && !TRK.stores) { Object.values(TRK.sk).forEach((m) => TRK.map.removeLayer(m)); TRK.sk = {}; } trkKpiAlert(); trkMap(); },
+  async 'trk-trail'(el) {
+    const id = Number(el.dataset.id);
+    try {
+      const r = await api('GET', `/api/admin/tracking/${id}/trail?hours=6`);
+      if (TRK.trail) TRK.map.removeLayer(TRK.trail);
+      if (r.points.length < 2) return toast('لا يوجد سجل مسار لهذا المندوب في آخر 6 ساعات');
+      TRK.trail = L.polyline(r.points.map((p) => [p[0], p[1]]), { color: '#f0b400', weight: 4, dashArray: '2 8', lineCap: 'round' }).addTo(TRK.map);
+      TRK.map.fitBounds(TRK.trail.getBounds(), { padding: [60, 60], maxZoom: 16 });
+      toast(`سجل المسار: آخر 6 ساعات (${r.points.length} نقطة)`);
+    } catch (e) { toast(e.message, true); }
+  },
+  'trk-assign'(el) { const x = trkDrv(Number(el.dataset.id)); if (x) { M = { type: 'trkassign', id: x.id }; drawModal(); } },
   basis(el) { BASIS = el.dataset.k; ls.set('rio_basis', BASIS); draw(); },
   sort(el) { SORT = el.dataset.k; ls.set('rio_sort', SORT); draw(); },
   oview(el) { OV = el.dataset.k; ls.set('rio_oview', OV); draw(); },
@@ -985,6 +1133,7 @@ document.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && M) closeModal(); });
 document.addEventListener('input', (e) => {
   const t = e.target;
+  if (t.id === 'trk-q') { TRK.q = t.value; trkList(); return; }
   if (t.id === 'q') { Q = t.value; const l = $('#list'); if (l) l.innerHTML = ({ orders: ordersList, merchants: merchantList, drivers: driverList, customers: customerList })[P](); }
   else if (/^(ea|va|a-amt|d-v|g-count|s-(bikeSame|bikeOther|carSame|carOther|feeSame|feeOther|lateMin))$/.test(t.id)) { const v = t.value.replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)); if (v !== t.value) t.value = v; }
 });
@@ -1066,6 +1215,10 @@ document.addEventListener('submit', async (e) => {
       await api('PUT', '/api/admin/users/' + M.id, { discount: $('#mp-disc').value, pricing, applyAll: all }); toast('تم الحفظ'); closeModal(); await load();
     }
     else if (k === 'mloc') { await api('PUT', '/api/admin/users/' + M.id, { area: $('#l-area').value, mapUrl: $('#l-map').value }); toast('تم الحفظ'); closeModal(); await load(); }
+    else if (k === 'trkassign') {
+      await api('POST', `/api/admin/orders/${$('#ta-o').value}/assign`, { driverId: M.id, charge: $('#ta-c').checked });
+      toast('تم تكليف المندوب بالطلب'); closeModal(); await trkRefresh(); load(true);
+    }
     else if (k === 'assign') {
       const id = Number($('#as-d').value), d = D.drivers.find((x) => x.id === id);
       const r = await api('POST', `/api/admin/orders/${M.o.id}/assign`, { driverId: id, charge: $('#as-c').checked });
