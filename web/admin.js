@@ -317,7 +317,8 @@ function trkDemoData() {
 }
 function trkSet(tk) {
   TRK.real = tk; TRK.at = Date.now();
-  if (TRK.demo === null) { let v = null; try { v = localStorage.getItem('rio_trk_demo'); } catch { /* ignore */ } TRK.demo = v === null ? !tk.drivers.some((x) => x.lat !== null) : v === '1'; }
+  if (tk.demoOff) TRK.demo = false;
+  else if (TRK.demo === null) { let v = null; try { v = localStorage.getItem('rio_trk_demo'); } catch { /* ignore */ } TRK.demo = v === null ? !tk.drivers.some((x) => x.lat !== null) : v === '1'; }
   TRK.data = TRK.demo ? { ...tk, drivers: tk.drivers.filter((x) => x.lat !== null).concat(trkDemoData()), stores: tk.stores.concat(DEMO_STORES) } : tk;
 }
 const trkKm = (a, b, c, d) => { const r = Math.PI / 180, x = Math.sin(((c - a) * r) / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin(((d - b) * r) / 2) ** 2; return 12742 * Math.asin(Math.sqrt(x)); };
@@ -355,7 +356,7 @@ function trkKpiAlert() {
   k.innerHTML = kpi('مندوبون متصلون', nn(c.busy + c.free), 'b') + kpi('في مهمة توصيل', nn(c.busy), 'a') + kpi('متاحون', nn(c.free), 'g') + kpi('غير متصلين', nn(c.offline), '');
   const al = trkAlerts(), a = $('#trk-alert');
   if (a) a.innerHTML = al.length ? `<div class="trk-alert"><span>⚠ ${esc(al[0].t)}${al.length > 1 ? ` <small>(+${al.length - 1} تنبيهات)</small>` : ''}</span><button class="btn sm" data-a="trk-sel" data-id="${al[0].id}">عرض على الخريطة</button></div>` : '';
-  const tg = $('#trk-tg'); if (tg) tg.innerHTML = `<button data-a="trk-tg" data-k="stores" aria-pressed="${TRK.stores}">المتاجر</button><button data-a="trk-tg" data-k="routes" aria-pressed="${TRK.routes}">المسارات</button><button data-a="trk-dark" aria-pressed="${(() => { try { return localStorage.getItem('rio_trk_dark') === '1'; } catch { return false; } })()}">ليلي</button><button data-a="trk-tg" data-k="demo" aria-pressed="${!!TRK.demo}">تجريبي</button><button data-a="trk-store">+ ربط متجر</button>`;
+  const tg = $('#trk-tg'); if (tg) tg.innerHTML = `<button data-a="trk-tg" data-k="stores" aria-pressed="${TRK.stores}">المتاجر</button><button data-a="trk-tg" data-k="routes" aria-pressed="${TRK.routes}">المسارات</button><button data-a="trk-dark" aria-pressed="${(() => { try { return localStorage.getItem('rio_trk_dark') === '1'; } catch { return false; } })()}">ليلي</button>${(TRK.real || {}).demoOff ? '' : `<button data-a="trk-tg" data-k="demo" aria-pressed="${!!TRK.demo}">تجريبي</button>`}<button data-a="trk-store">+ ربط متجر</button>`;
   const lv = $('#trk-live'); if (lv) lv.innerHTML = `<i></i>مباشر · آخر تحديث ${trkAgo(TRK.at)}`;
 }
 function trkList() {
@@ -690,7 +691,7 @@ function cards() {
 }
 
 /* ---------------- الإعدادات ---------------- */
-const SECS = [['themes', 'الثيمات'], ['wa', 'قوالب رسائل واتساب'], ['prices', 'أسعار التوصيل للزبون'], ['fees', 'الرسوم'], ['receipts', 'الوصولات'], ['alerts', 'التنبيهات والدعم'], ['ocd', 'تصميم الوصولات'], ['ads', 'إعلانات التاجر'], ['adsd', 'إعلانات السائق'], ['stats', 'إعادة تعيين الإحصائيات'], ['rcards', 'تصفير الكروت'], ['reset', 'تصفير البيانات']];
+const SECS = [['themes', 'الثيمات'], ['wa', 'قوالب رسائل واتساب'], ['prices', 'أسعار التوصيل للزبون'], ['fees', 'الرسوم'], ['receipts', 'الوصولات'], ['alerts', 'التنبيهات والدعم'], ['ocd', 'تصميم الوصولات'], ['ads', 'إعلانات التاجر'], ['adsd', 'إعلانات السائق'], ['trkdemo', 'التتبع التجريبي'], ['stats', 'إعادة تعيين الإحصائيات'], ['rcards', 'تصفير الكروت'], ['reset', 'تصفير البيانات']];
 const saveBar = (label = 'حفظ') => `<div class="err" id="fe" role="alert"></div><button class="btn" style="min-height:44px">${label}</button>`;
 function settings() {
   if (!SET) return `<div class="card">جارٍ التحميل…</div>`;
@@ -722,6 +723,9 @@ function settings() {
       <p class="hint" style="margin:0 0 12px">يحذف كل الطلبات والمحادثات والإشعارات وحركات المحفظة والمصاريف والسندات، فتصبح كل الإحصائيات والأرقام صفراً. الحسابات والإعدادات وكروت الشحن تبقى كما هي.</p>
       <label class="row" style="gap:10px;align-items:center;cursor:pointer;margin-bottom:14px"><input type="checkbox" id="rs-bal" checked style="width:22px;height:22px"><span><b>تصفير أرصدة السائقين</b><span class="hint" style="display:block">يجعل رصيد كل سائق صفراً. ألغِ التحديد إن أردت إبقاء الأرصدة.</span></span></label>
       <button type="button" class="btn d" style="min-height:44px" data-a="reset-stats">إعادة تعيين الإحصائيات الآن</button></div>`,
+    trkdemo: () => `<div class="card"><div class="ch">التتبع التجريبي <small>حذف نهائي لا يمكن التراجع عنه</small></div>
+      <p class="hint" style="margin:0 0 12px">يحذف الحسابات التجريبية (التجار 07700000201–203 والسائقان 07700000301–302) مع طلباتهم ومسارات تتبعهم، ويخفي المندوبين والمتاجر التجريبية من خريطة التتبع نهائياً. حسابات وطلبات العملاء الحقيقيين لا تتأثر.</p>
+      <button type="button" class="btn d" style="min-height:44px" data-a="trk-clear">حذف بيانات وحسابات التتبع التجريبية</button></div>`,
     rcards: () => `<div class="card"><div class="ch">تصفير الكروت <small>حذف نهائي لا يمكن التراجع عنه</small></div>
       <p class="hint" style="margin:0 0 12px">يحذف كل كروت الشحن (المتاحة والمستخدمة) من النظام. لن تعمل الكروت المحذوفة بعد ذلك، ولا يتأثر رصيد من شحنها سابقاً.</p>
       <button type="button" class="btn d" style="min-height:44px" data-a="reset-cards">حذف كل الكروت الآن</button></div>`,
@@ -1059,6 +1063,11 @@ const clickActs = {
     if (!(await RioDialog.typed('هذا الإجراء نهائي ولا يمكن التراجع عنه.\nاكتب كلمة «حذف» للتأكيد.', 'حذف', { title: 'تأكيد أخير' }))) return;
     const r = await act(() => api('POST', '/api/admin/reset-cards', { confirm: true }));
     if (r && r !== true) { toast(`تم حذف ${r.cards} كرت`); await load(); }
+  },
+  async 'trk-clear'() {
+    if (!await RioDialog.confirm('سيتم حذف الحسابات التجريبية وطلباتها ومسارات تتبعها، وإخفاء المندوبين والمتاجر التجريبية من الخريطة نهائياً. هل أنت متأكد؟')) return;
+    const r = await act(() => api('POST', '/api/admin/reset', { confirm: true, demo: true, orders: false, tracking: true }));
+    if (r && r !== true) { TRK.demo = false; try { localStorage.setItem('rio_trk_demo', '0'); } catch { /* ignore */ } toast(`تم الحذف: ${r.orders} طلب، ${r.accounts} حساب تجريبي`); await load(); }
   },
   async 'reset-go'() {
     const orders = $('#rs-orders').checked, demo = $('#rs-demo').checked;

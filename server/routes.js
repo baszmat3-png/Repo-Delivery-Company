@@ -1005,12 +1005,14 @@ route('POST', '/api/admin/reset', ADMIN, async (c) => {
   }
   if (demoIds.length) {
     await q(`DELETE FROM txs WHERE driver_id IN (${ids})`);
+    await q(`DELETE FROM loc_trail WHERE driver_id IN (${ids})`);
     await q(`DELETE FROM messages WHERE user_id IN (${ids})`);
     await q(`DELETE FROM notifs WHERE user_id IN (${ids})`);
     await q(`DELETE FROM push_subs WHERE user_id IN (${ids})`);
     await q(`DELETE FROM users WHERE id IN (${ids})`);
     out.accounts = demoIds.length;
   }
+  if (wantDemo && c.body.tracking === true) await q(`INSERT INTO settings(key,value) VALUES('trk_demo_off','1') ON CONFLICT(key) DO UPDATE SET value=excluded.value`);
   if (wantDemo) await q(`INSERT INTO settings(key,value) VALUES('demo_cleared','1') ON CONFLICT(key) DO UPDATE SET value=excluded.value`);
   return { ok: true, ...out };
 });
@@ -1280,7 +1282,8 @@ route('GET', '/api/admin/tracking', ADM('tracking'), async () => {
   });
   const pending = (await q(`SELECT * FROM orders WHERE status='pending' ORDER BY created_at ASC LIMIT 50`)).rows.map((o) => ({ id: o.id, no: o.num, vehicle: o.vehicle, merchantName: o.merchant_name, customerArea: o.customer_area }));
   const noLoc = mer.filter((m) => m.map_url && !storeById[m.id]).map((m) => ({ id: m.id, name: m.name }));
-  return { now, drivers: out, stores, pending, noLoc };
+  const demoOff = (await q(`SELECT value FROM settings WHERE key='trk_demo_off'`)).rows.length > 0;
+  return { now, drivers: out, stores, pending, noLoc, demoOff };
 });
 
 route('GET', '/api/admin/tracking/:id/trail', ADM('tracking'), async (c) => {
