@@ -1248,8 +1248,64 @@ route('POST', '/api/driver/location', DRIVER, async (c) => {
   return { ok: true };
 });
 
+/* ===== بيانات تتبع تجريبية حقيقية (حسابات بأرقام 077000002xx/003xx تُحذف بزر «حذف بيانات وحسابات التتبع التجريبية») ===== */
+const TD_STORES = [['07700000204', 'صيدلية جوهرة الأردن', 'الكرادة', 33.3066, 44.4024], ['07700000205', 'مكتبة فوريد', 'المنصور', 33.3226, 44.3485]];
+// [الهاتف، الاسم، الحالة، lat، lng، البطارية، طلبات اليوم، دقائق التوقف، رقم الطلب، في الطريق للزبون؟]
+const TD_DRIVERS = [
+  ['07700000303', 'أحمد الكعبي', 'busy', 33.3122, 44.3895, 82, 9, 0, 1042, 0], ['07700000304', 'علي حسين', 'busy', 33.3300, 44.3560, 64, 7, 0, 1041, 1],
+  ['07700000305', 'مصطفى جاسم', 'busy', 33.2985, 44.3715, 47, 5, 0, 1039, 0], ['07700000306', 'زيد الربيعي', 'busy', 33.3380, 44.3920, 19, 6, 12, 1037, 1],
+  ['07700000307', 'سجاد كريم', 'busy', 33.3235, 44.3380, 73, 4, 0, 1044, 0], ['07700000308', 'حيدر نعمة', 'free', 33.3070, 44.3560, 91, 3, 0, 0, 0],
+  ['07700000309', 'محمد الساعدي', 'free', 33.3420, 44.3700, 58, 2, 0, 0, 0], ['07700000310', 'كرار عباس', 'free', 33.2890, 44.4150, 77, 5, 0, 0, 0],
+  ['07700000311', 'يوسف منعم', 'offline', 33.3500, 44.4300, 12, 1, 0, 0, 0], ['07700000312', 'باقر الزبيدي', 'offline', 33.2760, 44.3300, 35, 0, 0, 0, 0]
+];
+TD_STORES.forEach((x) => DEMO_PHONES.push(x[0])); TD_DRIVERS.forEach((x) => DEMO_PHONES.push(x[0]));
+
+route('POST', '/api/admin/tracking/add-demo', ADMIN, async () => {
+  const now = Date.now(), hash = await hashPassword('123456');
+  const exist = async (phone) => (await q('SELECT * FROM users WHERE phone=$1', [phone])).rows[0];
+  const stores = [];
+  for (const [phone, name, area, lat, lng] of TD_STORES) {
+    let u = await exist(phone);
+    if (!u) u = await db.insert('users', { role: 'merchant', name, phone, pass_hash: hash, active: 1, area, vehicle: 'bike', balance: 0, receiving: 1, discount: 0, map_url: `https://www.google.com/maps?q=${lat},${lng}`, map_ll: `${lat},${lng}`, verified: 1, created_at: now });
+    stores.push(u);
+  }
+  let added = 0;
+  for (let i = 0; i < TD_DRIVERS.length; i++) {
+    const [phone, name, st, lat, lng, bat, , idle, no, onway] = TD_DRIVERS[i];
+    let d = await exist(phone);
+    if (d) continue;
+    d = await db.insert('users', { role: 'driver', name, phone, pass_hash: hash, active: 1, area: '', vehicle: 'bike', balance: 20000, receiving: 1, discount: 0, verified: 1, created_at: now,
+      loc_lat: lat, loc_lng: lng, loc_at: st === 'offline' ? now - (20 + i) * 60000 : now, loc_moved_at: now - idle * 60000, loc_acc: 10, loc_speed: 0, loc_bat: bat });
+    added++;
+    if (no) {
+      const m = stores[i % 2], created = now - 25 * 60000;
+      const mx = await q('SELECT COALESCE(MAX(num),1042)+1 AS n FROM orders');
+      await db.insert('orders', {
+        num: mx.rows[0].n, merchant_id: m.id, merchant_name: m.name, merchant_area: m.area, merchant_phone: m.phone, merchant_map: m.map_url,
+        customer_area: ['الشعلة', 'الجامعة', 'اليرموك', 'الكاظمية', 'زيونة'][i % 5], customer_phone: '0770000' + String(1000 + i).slice(1), product: 'طلب تجريبي', qty: 1, vehicle: 'bike', same_area: 0, note: '',
+        product_price: 10000, delivery_price: 5000, total: 15000, discount: 0, status: onway ? 'on_the_way' : 'picking_up', driver_id: d.id, driver_name: d.name, fee: 0, fee_quote: 0,
+        created_at: created, updated_at: now - 5 * 60000, accepted_at: created + 4 * 60000, delivered_at: null, log: JSON.stringify([{ s: 'pending', at: created }, { s: 'picking_up', at: created + 4 * 60000 }])
+      }).catch(() => {});
+    }
+  }
+  await q(`DELETE FROM settings WHERE key='trk_demo_off'`);
+  return { ok: true, drivers: added, stores: stores.length };
+});
+
+/* يُبقي المندوبين التجريبيين «متصلين»: يحدّث وقت الموقع ويحرّكهم قليلاً (ما عدا غير المتصلين والمتوقف) */
+async function refreshDemoLoc(now) {
+  const live = TD_DRIVERS.filter((x) => x[2] !== 'offline');
+  const rows = (await q(`SELECT * FROM users WHERE phone IN (${live.map((_, i) => '$' + (i + 1)).join(',')})`, live.map((x) => x[0]))).rows;
+  for (const u of rows) {
+    const t = TD_DRIVERS.find((x) => x[0] === u.phone);
+    if (t[7]) { await q('UPDATE users SET loc_at=$1 WHERE id=$2', [now, u.id]); continue; } // المتوقف: يتحدث وقت الإرسال فقط
+    await q('UPDATE users SET loc_at=$1, loc_moved_at=$1, loc_lat=$2, loc_lng=$3, loc_speed=$4 WHERE id=$5', [now, Number(u.loc_lat) + (Math.random() - 0.5) * 0.0006, Number(u.loc_lng) + (Math.random() - 0.5) * 0.0006, t[2] === 'busy' ? 18 : 0, u.id]);
+  }
+}
+
 route('GET', '/api/admin/tracking', ADM('tracking'), async () => {
   const now = Date.now(), ds = dayStart(now);
+  await refreshDemoLoc(now).catch(() => {});
   const drivers = (await q(`SELECT * FROM users WHERE role='driver' AND phone NOT LIKE 'deleted-%' ORDER BY name`)).rows;
   const live = (await q(`SELECT * FROM orders WHERE status IN ('picking_up','on_the_way','return_sent') AND driver_id IS NOT NULL`)).rows;
   const today = (await q(`SELECT driver_id, COUNT(*) AS n FROM orders WHERE driver_id IS NOT NULL AND accepted_at>=$1 GROUP BY driver_id`, [ds])).rows;
@@ -1276,7 +1332,7 @@ route('GET', '/api/admin/tracking', ADM('tracking'), async () => {
     return {
       id: u.id, name: u.name, phone: u.phone, vehicle: u.vehicle, active: !!u.active, verified: !!u.verified, avatar: u.avatar || '',
       lat: has ? Number(u.loc_lat) : null, lng: has ? Number(u.loc_lng) : null, acc: u.loc_acc, speed: u.loc_speed, battery: u.loc_bat, lastAt: has ? Number(u.loc_at) : 0,
-      status: st, today: todayN[u.id] || 0, idleMin: idleMs >= IDLE_MS ? Math.floor(idleMs / 60000) : 0,
+      status: st, today: (TD_DRIVERS.find((x) => x[0] === u.phone) || [])[6] ?? (todayN[u.id] || 0), idleMin: idleMs >= IDLE_MS ? Math.floor(idleMs / 60000) : 0,
       order: o ? { id: o.id, no: o.num, status: o.status, merchantId: o.merchant_id, merchantName: o.merchant_name, customerArea: o.customer_area, store: storeById[o.merchant_id] || null } : null
     };
   });
