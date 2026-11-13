@@ -354,7 +354,7 @@ function trkKpiAlert() {
   k.innerHTML = kpi('مندوبون متصلون', nn(c.busy + c.free), 'b') + kpi('في مهمة توصيل', nn(c.busy), 'a') + kpi('متاحون', nn(c.free), 'g') + kpi('غير متصلين', nn(c.offline), '');
   const al = trkAlerts(), a = $('#trk-alert');
   if (a) a.innerHTML = al.length ? `<div class="trk-alert"><span>⚠ ${esc(al[0].t)}${al.length > 1 ? ` <small>(+${al.length - 1} تنبيهات)</small>` : ''}</span><button class="btn sm" data-a="trk-sel" data-id="${al[0].id}">عرض على الخريطة</button></div>` : '';
-  const tg = $('#trk-tg'); if (tg) tg.innerHTML = `<button data-a="trk-tg" data-k="stores" aria-pressed="${TRK.stores}">المتاجر</button><button data-a="trk-tg" data-k="routes" aria-pressed="${TRK.routes}">المسارات</button><button data-a="trk-tg" data-k="demo" aria-pressed="${!!TRK.demo}">تجريبي</button><button data-a="trk-store">+ ربط متجر</button>`;
+  const tg = $('#trk-tg'); if (tg) tg.innerHTML = `<button data-a="trk-tg" data-k="stores" aria-pressed="${TRK.stores}">المتاجر</button><button data-a="trk-tg" data-k="routes" aria-pressed="${TRK.routes}">المسارات</button><button data-a="trk-dark" aria-pressed="${(() => { try { return localStorage.getItem('rio_trk_dark') === '1'; } catch { return false; } })()}">ليلي</button><button data-a="trk-tg" data-k="demo" aria-pressed="${!!TRK.demo}">تجريبي</button><button data-a="trk-store">+ ربط متجر</button>`;
   const lv = $('#trk-live'); if (lv) lv.innerHTML = `<i></i>مباشر · آخر تحديث ${trkAgo(TRK.at)}`;
 }
 function trkList() {
@@ -402,6 +402,12 @@ function trkMap() {
     for (const x of d.drivers) if (x.status === 'busy' && x.lat !== null && x.order && x.order.status === 'picking_up' && x.order.store) L.polyline([[x.lat, x.lng], [x.order.store.lat, x.order.store.lng]], { color: '#111827', weight: 3, dashArray: '8 8', opacity: 0.75 }).addTo(TRK.lines);
   }
 }
+function trkTiles() {
+  if (!TRK.map) return;
+  if (TRK.tl) TRK.map.removeLayer(TRK.tl);
+  let dark = false; try { dark = localStorage.getItem('rio_trk_dark') === '1'; } catch { /* ignore */ }
+  TRK.tl = L.tileLayer(`https://{s}.basemaps.cartocdn.com/rastertiles/${dark ? 'dark_all' : 'voyager'}/{z}/{x}/{y}{r}.png`, { subdomains: 'abcd', maxZoom: 20, attribution: '© OpenStreetMap © CARTO' }).addTo(TRK.map);
+}
 async function trkAfter() {
   trkKpiAlert(); trkList(); trkCard();
   const slot = $('#trk-slot'); if (!slot || !TRK.data) return;
@@ -410,7 +416,7 @@ async function trkAfter() {
   if (!TRK.map) {
     TRK.el = document.createElement('div'); TRK.el.className = 'trk-map'; slot2.appendChild(TRK.el);
     TRK.map = L.map(TRK.el, { zoomControl: false, attributionControl: true }).setView(BAGHDAD, 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(TRK.map);
+    trkTiles();
     L.control.zoom({ position: 'bottomleft' }).addTo(TRK.map);
   } else { slot2.appendChild(TRK.el); setTimeout(() => TRK.map.invalidateSize(), 50); }
   trkMap();
@@ -1084,6 +1090,7 @@ const clickActs = {
       toast(`سجل المسار: آخر 6 ساعات (${r.points.length} نقطة)`);
     } catch (e) { toast(e.message, true); }
   },
+  'trk-dark'() { try { localStorage.setItem('rio_trk_dark', localStorage.getItem('rio_trk_dark') === '1' ? '0' : '1'); } catch { /* ignore */ } trkTiles(); trkKpiAlert(); },
   'trk-store'() { M = { type: 'trkstore' }; drawModal(); },
   'trk-assign'(el) { const x = trkDrv(Number(el.dataset.id)); if (x && x.demo) return toast('هذا مندوب تجريبي للعرض فقط'); if (x) { M = { type: 'trkassign', id: x.id }; drawModal(); } },
   basis(el) { BASIS = el.dataset.k; ls.set('rio_basis', BASIS); draw(); },
