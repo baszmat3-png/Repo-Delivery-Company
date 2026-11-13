@@ -365,7 +365,7 @@ function trkList() {
   const f = $('#trk-f'); if (f) f.innerHTML = F.map(([k, l]) => `<button type="button" class="chip" data-a="trk-f" data-k="${k}" aria-pressed="${TRK.f === k}">${l} · ${nn(c[k])}</button>`).join('');
   const rank = { busy: 0, free: 1, offline: 2 };
   const l = ((TRK.data || {}).drivers || []).filter((x) => (TRK.f === 'all' || x.status === TRK.f) && (!q || norm(x.name + ' ' + x.phone).includes(q))).sort((a, b) => rank[a.status] - rank[b.status] || a.name.localeCompare(b.name, 'ar'));
-  const n = $('#trk-n'); if (n) n.textContent = `${nn(c.all)} مندوب`;
+  const n = $('#trk-n'); if (n) n.textContent = `${nf(c.all)} مندوب`;
   const r = $('#trk-rows');
   if (r) r.innerHTML = l.length ? l.map((x) => `<button type="button" class="trk-row ${TRK.sel === x.id ? 'on' : ''}" data-a="trk-sel" data-id="${x.id}"><span class="trk-av ${x.status}">${esc((x.name || '?').trim().charAt(0))}</span><span class="trk-in"><b>${esc(x.name)}</b> ${bdg(TST[x.status][0], TST[x.status][1])}<small>${x.order ? `طلب #${x.order.no}${trkEta(x) ? ' · ' + trkEta(x) + ' د للوصول' : ' · ' + esc(x.order.merchantName)}` : x.status === 'free' ? 'جاهز لاستلام طلب' : x.lastAt ? 'آخر ظهور ' + trkAgo(x.lastAt) : 'لم يرسل موقعه بعد'}</small></span><span class="trk-mt">${x.battery != null ? trkBat(x.battery) : ''}<small>${x.lastAt ? trkAgo(x.lastAt) : ''}</small></span></button>`).join('') : empty('لا يوجد مندوبون');
 }
@@ -408,7 +408,8 @@ function trkTiles() {
   if (!TRK.map) return;
   if (TRK.tl) TRK.map.removeLayer(TRK.tl);
   let dark = false; try { dark = localStorage.getItem('rio_trk_dark') === '1'; } catch { /* ignore */ }
-  TRK.tl = L.tileLayer(`https://{s}.basemaps.cartocdn.com/rastertiles/${dark ? 'dark_all' : 'voyager'}/{z}/{x}/{y}{r}.png`, { subdomains: 'abcd', maxZoom: 20, bounds: BAGHDAD_BOX, attribution: '© OpenStreetMap © CARTO' }).addTo(TRK.map);
+  /* OpenStreetMap القياسي (مجاني بدون مفتاح، أسماء الشوارع بالعربية). الوضع الليلي: قلب ألوان الخريطة */
+  TRK.tl = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, bounds: BAGHDAD_BOX, className: dark ? 'trk-tiles-dark' : '', attribution: '© OpenStreetMap' }).addTo(TRK.map);
 }
 async function trkAfter() {
   trkKpiAlert(); trkList(); trkCard();
