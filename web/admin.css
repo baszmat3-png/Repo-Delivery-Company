@@ -338,3 +338,4 @@ tfoot td{font-weight:800;background:var(--soft2);position:sticky;bottom:0}
 .trk-tg{flex-wrap:wrap;justify-content:flex-end;max-width:calc(100% - 24px)}
 .trk-tg button{white-space:nowrap}
 @media(max-width:700px){.trk-tg{top:8px;inset-inline-end:8px;gap:6px}.trk-tg button{padding:7px 10px;font-size:12px;border-radius:10px}.trk-mapwrap{height:68vh}}
+.trk-nokey{position:absolute;inset:0;z-index:400;display:grid;place-items:center;text-align:center;padding:30px;background:rgba(255,255,255,.92);color:#0f172a;font-weight:700;line-height:1.9}

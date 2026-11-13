@@ -408,11 +408,11 @@ function trkTiles() {
   if (!TRK.map) return;
   if (TRK.tl) TRK.map.removeLayer(TRK.tl);
   let dark = false; try { dark = localStorage.getItem('rio_trk_dark') === '1'; } catch { /* ignore */ }
-  /* MapTiler إن ضُبط المتغير MAPTILER_KEY على الخادم، وإلا OpenStreetMap المجاني. الليلي: نمط داكن، أو قلب الألوان مع OSM */
-  const key = (TRK.real || {}).mapKey;
-  TRK.tl = key
-    ? L.tileLayer(`https://api.maptiler.com/maps/${dark ? 'streets-v2-dark' : 'streets-v2'}/{z}/{x}/{y}.png?key=${encodeURIComponent(key)}`, { maxZoom: 20, bounds: BAGHDAD_BOX, attribution: '© MapTiler © OpenStreetMap' }).addTo(TRK.map)
-    : L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, bounds: BAGHDAD_BOX, className: dark ? 'trk-tiles-dark' : '', attribution: '© OpenStreetMap' }).addTo(TRK.map);
+  /* خريطة MapTiler فقط (المفتاح في متغير الخادم MAPTILER_KEY). الليلي: النمط الداكن */
+  const key = (TRK.real || {}).mapKey, wrap = TRK.el && TRK.el.parentNode;
+  const old = wrap && wrap.querySelector('.trk-nokey'); if (old) old.remove();
+  if (!key) { if (wrap) wrap.insertAdjacentHTML('beforeend', '<div class="trk-nokey">لم يُضبط مفتاح الخريطة بعد. أضف المتغير <b>MAPTILER_KEY</b> في إعدادات الخادم على Render ثم أعد تحميل الصفحة.</div>'); TRK.tl = null; return; }
+  TRK.tl = L.tileLayer(`https://api.maptiler.com/maps/${dark ? 'streets-v2-dark' : 'streets-v2'}/{z}/{x}/{y}.png?key=${encodeURIComponent(key)}`, { maxZoom: 20, bounds: BAGHDAD_BOX, attribution: '© MapTiler © OpenStreetMap contributors' }).addTo(TRK.map);
 }
 async function trkAfter() {
   trkKpiAlert(); trkList(); trkCard();
@@ -424,7 +424,7 @@ async function trkAfter() {
     TRK.map = L.map(TRK.el, { zoomControl: false, attributionControl: true, maxBounds: BAGHDAD_BOX, maxBoundsViscosity: 1, minZoom: 10 }).setView(BAGHDAD, 13);
     trkTiles();
     L.control.zoom({ position: 'bottomleft' }).addTo(TRK.map);
-  } else { slot2.appendChild(TRK.el); setTimeout(() => TRK.map.invalidateSize(), 50); }
+  } else { slot2.appendChild(TRK.el); setTimeout(() => TRK.map.invalidateSize(), 50); if (!(TRK.real || {}).mapKey || !TRK.tl) trkTiles(); }
   trkMap();
 }
 function trkSelect(id, fly) {
