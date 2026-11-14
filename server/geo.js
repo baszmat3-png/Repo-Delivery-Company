@@ -12,8 +12,19 @@ const PATS = [
   new RegExp(`center=${num}%2C${num}`, 'i'),
   new RegExp(`"${num},\\s*${num}"`),
 ];
+/* رابط Waze القصير: waze.com/ul/h<geohash> (يحمل الإحداثيات نفسها، ودقته نحو 5 م) */
+const B32 = '0123456789bcdefghjkmnpqrstuvwxyz';
+function geohash(h) {
+  let lat = [-90, 90], lng = [-180, 180], ev = true;
+  for (const c of h.toLowerCase()) { const v = B32.indexOf(c); if (v < 0) return null; for (let b = 4; b >= 0; b--) { const r = ev ? lng : lat, m = (r[0] + r[1]) / 2; if ((v >> b) & 1) r[0] = m; else r[1] = m; ev = !ev; } }
+  return [(lat[0] + lat[1]) / 2, (lng[0] + lng[1]) / 2];
+}
 function parseLL(text, exactOnly) {
   const s = String(text || '');
+  const w = s.match(/waze\.com\/ul\/h([0-9b-hjkmnp-z]{6,12})(?:[/?#]|$)/i);
+  if (w) { const g = geohash(w[1]); if (g && okLL(g[0], g[1])) return [Number(g[0].toFixed(6)), Number(g[1].toFixed(6))]; }
+  const wl = s.match(/[?&]to=ll\.(-?\d{1,3}\.\d+)(?:,|%2C)(-?\d{1,3}\.\d+)/i);
+  if (wl && okLL(Number(wl[1]), Number(wl[2]))) return [Number(wl[1]), Number(wl[2])];
   /* PATS[0..1] = موضع العلامة نفسها (دقيق)؛ الباقي مركز الشاشة (@lat,lng) أي تقريبي */
   for (const re of exactOnly ? PATS.slice(0, 2) : PATS) {
     const m = s.match(re);
@@ -52,4 +63,4 @@ async function resolveLL(url) {
   cache.set(raw, { ll, t: Date.now() });
   return ll;
 }
-module.exports = { resolveLL, parseLL };
+module.exports = { resolveLL, parseLL, geohash };

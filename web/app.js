@@ -634,6 +634,8 @@ function profileView(me, settings) {
 function mapCoords(url) {
   /* الأدق أولاً: موضع العلامة (!3d!4d) ثم متغيرات الرابط (q/ll/destination)، وأخيراً مركز الشاشة (@) */
   let t = String(url || ''); try { t = decodeURIComponent(t); } catch { /* ignore */ }
+  const w = t.match(/waze\.com\/ul\/h([0-9b-hjkmnp-z]{6,12})(?:[/?#]|$)/i); /* رابط Waze القصير = geohash */
+  if (w) { const B = '0123456789bcdefghjkmnpqrstuvwxyz'; let la = [-90, 90], lo = [-180, 180], ev = true; for (const c of w[1].toLowerCase()) { const v = B.indexOf(c); for (let b = 4; b >= 0; b--) { const r = ev ? lo : la, m = (r[0] + r[1]) / 2; if ((v >> b) & 1) r[0] = m; else r[1] = m; ev = !ev; } } return [((la[0] + la[1]) / 2).toFixed(6), ((lo[0] + lo[1]) / 2).toFixed(6)]; }
   const N = '(-?\\d{1,3}\\.\\d{3,})';
   const pats = [new RegExp(`!3d${N}!4d${N}`), new RegExp(`[?&](?:destination|daddr|ll|q|query|sll)=${N}\\s*[,+]\\s*${N}`, 'i'), new RegExp(`@${N},${N}`), new RegExp(`${N}\\s*,\\s*${N}`)];
   for (const re of pats) { const m = t.match(re); if (m) return [m[1], m[2]]; }
