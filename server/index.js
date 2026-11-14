@@ -2,6 +2,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 const db = require('./db');
 const { dispatch, HttpError } = require('./routes');
 const { seedAdmin, seedDemo } = require('./seed');
@@ -31,6 +32,9 @@ function openStream(req, res, url) {
   req.on('close', () => { clearInterval(hb); clients.delete(res); });
 }
 
+/* مسارات لا تغيّر بيانات يراها الآخرون: لا ترسل «تغيّر» لكل الأجهزة (موقع السائق كان يجعل كل الأجهزة تعيد التحميل كل 14 ثانية) */
+const QUIET = new Set(['/api/driver/location', '/api/login', '/api/me/password', '/api/push/subscribe', '/api/push/unsubscribe', '/api/push/test', '/api/notifs/read', '/api/notifs/clear']);
+
 const WEB = path.join(__dirname, '..', 'web');
 const PORT = Number(process.env.PORT) || 3000;
 const MIME = {
@@ -39,8 +43,14 @@ const MIME = {
   '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8'
 };
 
+/* توفير الباندويث: ضغط gzip للردود النصية (JSON/HTML/JS/CSS) الأكبر من 1KB */
+const GZ_TYPES = /json|javascript|text\/|svg|manifest/;
 function send(res, status, data, headers = {}) {
-  const body = typeof data === 'string' || Buffer.isBuffer(data) ? data : JSON.stringify(data);
+  let body = typeof data === 'string' || Buffer.isBuffer(data) ? data : JSON.stringify(data);
+  const ct = headers['Content-Type'] || 'application/json; charset=utf-8';
+  if (res._gz && status === 200 && body && body.length > 1024 && GZ_TYPES.test(ct)) {
+    try { body = zlib.gzipSync(body, { level: 6 }); headers = { ...headers, 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' }; } catch { /* يُرسل بدون ضغط */ }
+  }
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Access-Control-Allow-Origin': '*',
@@ -91,13 +101,14 @@ const server = http.createServer(async (req, res) => {
   try {
     if (req.method === 'OPTIONS') return send(res, 204, '');
     const url = new URL(req.url, 'http://localhost');
+    res._gz = /\bgzip\b/.test(String(req.headers['accept-encoding'] || ''));
     if (url.pathname === '/healthz') return send(res, 200, { ok: true });
     if (url.pathname === '/api/stream' && req.method === 'GET') return openStream(req, res, url);
     if (url.pathname.startsWith('/api/')) {
       const body = ['POST', 'PUT', 'DELETE'].includes(req.method) ? await readBody(req, url.pathname === '/api/admin/ads' ? 1200 * 1024 : undefined) : null;
       const out = await dispatch(req, body, url);
       if (out === undefined) return send(res, 404, { error: 'المسار غير موجود' });
-      if (req.method !== 'GET') broadcast();
+      if (req.method !== 'GET' && !QUIET.has(url.pathname)) broadcast();
       return send(res, 200, out, { 'Cache-Control': 'no-store' });
     }
     if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'Method Not Allowed', { 'Content-Type': 'text/plain' });

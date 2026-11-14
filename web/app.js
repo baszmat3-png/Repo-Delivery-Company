@@ -1819,8 +1819,12 @@ window.addEventListener('hashchange', () => {
   if (S.user && t && t !== S.tab && (t === 'notifs' && S.user.role !== 'admin' || TABS[S.user.role].some((x) => x[0] === t))) go(t);
 });
 
+let lastPoll = 0;
 setInterval(() => {
   if (!S.user || S.sheet || S.menu || document.hidden) return;
+  /* إذا كانت المزامنة الفورية متصلة فالتحديث الدوري احتياطي فقط كل 60 ثانية */
+  if (es && es.readyState === 1 && Date.now() - lastPoll < 60000) return;
+  lastPoll = Date.now();
   const a = document.activeElement;
   if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
   refresh();

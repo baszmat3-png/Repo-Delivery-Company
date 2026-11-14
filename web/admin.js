@@ -121,7 +121,8 @@ function connect() {
 }
 function disconnect() { if (es) { es.close(); es = null; } LIVE = false; }
 function setLive() { document.querySelectorAll('.live').forEach((e) => { e.classList.toggle('on', LIVE); const s = e.querySelector('span'); if (s) s.textContent = LIVE ? 'مزامنة فورية' : 'غير متصل — تحديث دوري'; }); }
-setInterval(() => { if (T && !document.hidden && !LIVE) load(true); }, 20000);
+let lastAP = 0;
+setInterval(() => { if (!T || document.hidden) return; if (LIVE && Date.now() - lastAP < 60000) return; lastAP = Date.now(); load(true); }, 20000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden && T) load(true); });
 function logout() { unsubscribePush(T); entryAsked = false; clickAsked = false; MENU = false; T = ''; ls.del(KEY); try { localStorage.removeItem('rio_admin_me'); } catch { /* ignore */ } ME = null; applyPerms(); disconnect(); D = null; M = null; draw(); drawModal(); }
 
