@@ -359,6 +359,8 @@ function navLinks(o, ll) {
     out.push(['Waze', `https://waze.com/ul?ll=${d}&navigate=yes&zoom=17`]);
     if (isIos) out.push(['خرائط Apple', `https://maps.apple.com/?daddr=${d}&dirflg=d`]);
     if (isAnd) out.push(['تطبيق خرائط آخر', `geo:${d}?q=${d}(${encodeURIComponent(name)})`]);
+  } else if (o.merchantMap) {
+    out.push(['Google Maps', o.merchantMap]);
   } else {
     const q = encodeURIComponent(name + ' ' + (o.merchantArea || ''));
     out.push(['Google Maps', `https://www.google.com/maps/dir/?api=1&destination=${q}&travelmode=driving`]);
@@ -630,8 +632,12 @@ function profileView(me, settings) {
 }
 
 function mapCoords(url) {
-  const m = String(url || '').match(/(-?\d{1,3}\.\d{3,})\s*[,%2C]+\s*(-?\d{1,3}\.\d{3,})/i) || String(url || '').match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-  return m ? [m[1], m[2]] : null;
+  /* الأدق أولاً: موضع العلامة (!3d!4d) ثم متغيرات الرابط (q/ll/destination)، وأخيراً مركز الشاشة (@) */
+  let t = String(url || ''); try { t = decodeURIComponent(t); } catch { /* ignore */ }
+  const N = '(-?\\d{1,3}\\.\\d{3,})';
+  const pats = [new RegExp(`!3d${N}!4d${N}`), new RegExp(`[?&](?:destination|daddr|ll|q|query|sll)=${N}\\s*[,+]\\s*${N}`, 'i'), new RegExp(`@${N},${N}`), new RegExp(`${N}\\s*,\\s*${N}`)];
+  for (const re of pats) { const m = t.match(re); if (m) return [m[1], m[2]]; }
+  return null;
 }
 function tplText(key, vars) {
   const T = (S.data && S.data.settings && S.data.settings.templates) || {};
@@ -1562,6 +1568,7 @@ const ACTIONS = {
     }
     /* أندرويد: رابط geo يفتح نافذة النظام لاختيار تطبيق الخرائط (Google Maps / Waze / غيرها) ويرسم المسار */
     if (/Android/i.test(navigator.userAgent)) {
+      if (!ll && o.merchantMap) { location.href = o.merchantMap; return; } /* لا إحداثيات: نفتح رابط التاجر نفسه (أدق من البحث بالاسم) */
       const q = ll ? ll[0] + ',' + ll[1] : '0,0';
       const label = ll ? `(${encodeURIComponent(o.merchantName || 'المتجر')})` : '';
       const search = ll ? q : encodeURIComponent((o.merchantName || '') + ' ' + (o.merchantArea || ''));
