@@ -283,6 +283,7 @@ function page() {
 }
 
 /* ---------------- تتبع المندوبين ---------------- */
+let REVIEWTXT = '';
 const TRK = { real: null, demo: null, dm: null, at: 0, data: null, map: null, el: null, lp: null, mk: {}, sk: {}, lines: null, trail: null, sel: null, f: 'all', q: '', stores: true, routes: true, fitted: false, busy: false };
 const TST = { busy: ['في مهمة', 'y', '#f0b400'], free: ['متاح', 'green', '#16a34a'], offline: ['غير متصل', 'gray', '#6b7280'] };
 function loadLeaflet() {
@@ -704,7 +705,7 @@ function cards() {
 }
 
 /* ---------------- الإعدادات ---------------- */
-const SECS = [['themes', 'الثيمات'], ['wa', 'قوالب رسائل واتساب'], ['prices', 'أسعار التوصيل للزبون'], ['fees', 'الرسوم'], ['receipts', 'الوصولات'], ['alerts', 'التنبيهات والدعم'], ['ocd', 'تصميم الوصولات'], ['ads', 'إعلانات التاجر'], ['adsd', 'إعلانات السائق'], ['trkdemo', 'التتبع التجريبي'], ['stats', 'إعادة تعيين الإحصائيات'], ['rcards', 'تصفير الكروت'], ['reset', 'تصفير البيانات']];
+const SECS = [['themes', 'الثيمات'], ['wa', 'قوالب رسائل واتساب'], ['prices', 'أسعار التوصيل للزبون'], ['fees', 'الرسوم'], ['receipts', 'الوصولات'], ['alerts', 'التنبيهات والدعم'], ['ocd', 'تصميم الوصولات'], ['ads', 'إعلانات التاجر'], ['adsd', 'إعلانات السائق'], ['review', 'حسابات مراجعة Google Play'], ['trkdemo', 'التتبع التجريبي'], ['stats', 'إعادة تعيين الإحصائيات'], ['rcards', 'تصفير الكروت'], ['reset', 'تصفير البيانات']];
 const saveBar = (label = 'حفظ') => `<div class="err" id="fe" role="alert"></div><button class="btn" style="min-height:44px">${label}</button>`;
 function settings() {
   if (!SET) return `<div class="card">جارٍ التحميل…</div>`;
@@ -736,6 +737,10 @@ function settings() {
       <p class="hint" style="margin:0 0 12px">يحذف كل الطلبات والمحادثات والإشعارات وحركات المحفظة والمصاريف والسندات، فتصبح كل الإحصائيات والأرقام صفراً. الحسابات والإعدادات وكروت الشحن تبقى كما هي.</p>
       <label class="row" style="gap:10px;align-items:center;cursor:pointer;margin-bottom:14px"><input type="checkbox" id="rs-bal" checked style="width:22px;height:22px"><span><b>تصفير أرصدة السائقين</b><span class="hint" style="display:block">يجعل رصيد كل سائق صفراً. ألغِ التحديد إن أردت إبقاء الأرصدة.</span></span></label>
       <button type="button" class="btn d" style="min-height:44px" data-a="reset-stats">إعادة تعيين الإحصائيات الآن</button></div>`,
+    review: () => `<div class="card"><div class="ch">حسابات مراجعة Google Play <small>تاجر وسائق للمراجعين</small></div>
+      <p class="hint" style="margin:0 0 12px">ينشئ حساب تاجر وحساب سائق (مفعّلين، رصيد السائق 50,000) بكلمة مرور عشوائية. الضغط مرة أخرى يولّد كلمة مرور جديدة. الحسابان لا يحذفهما زر حذف التتبع التجريبي.</p>
+      <button type="button" class="btn" style="min-height:44px" data-a="review-make">إنشاء / تحديث حسابات المراجعة</button>
+      ${REVIEWTXT ? `<p class="hint" style="margin:14px 0 6px">انسخ هذا النص كما هو إلى Play Console ← محتوى التطبيق ← الوصول إلى التطبيق:</p><textarea class="in" id="review-txt" readonly rows="12" dir="ltr" style="width:100%;font-family:monospace;font-size:13px">${esc(REVIEWTXT)}</textarea><button type="button" class="btn g" style="margin-top:8px" data-a="review-copy">نسخ النص</button>` : ''}</div>`,
     trkdemo: () => `<div class="card"><div class="ch">التتبع التجريبي <small>حذف نهائي لا يمكن التراجع عنه</small></div>
       <p class="hint" style="margin:0 0 12px">يحذف الحسابات التجريبية (التجار 07700000201–205 والسائقون 07700000301–312) مع طلباتهم ومسارات تتبعهم، ويخفي المندوبين والمتاجر التجريبية من خريطة التتبع نهائياً. حسابات وطلبات العملاء الحقيقيين لا تتأثر.</p>
       <button type="button" class="btn" style="min-height:44px;margin-inline-end:8px" data-a="trk-add-demo">إضافة 10 مندوبين ومتجرين تجريبيين</button>
@@ -1078,6 +1083,25 @@ const clickActs = {
     const r = await act(() => api('POST', '/api/admin/reset-cards', { confirm: true }));
     if (r && r !== true) { toast(`تم حذف ${r.cards} كرت`); await load(); }
   },
+  async 'review-make'() {
+    const r = await act(() => api('POST', '/api/admin/review-accounts', {}));
+    if (!r || r === true) return;
+    REVIEWTXT = `The app has two roles. Log in with the phone number (11 digits) and password below.
+
+Merchant account:
+Phone: ${r.merchant}
+Password: ${r.password}
+-> Create a new delivery order from the home screen.
+
+Driver account:
+Phone: ${r.driver}
+Password: ${r.password}
+-> Open "Available orders", accept the order created by the merchant, then update its status.
+
+The driver app asks for location permission (the driver's position is shared with the company while working).`;
+    toast('تم إنشاء حسابات المراجعة'); draw();
+  },
+  async 'review-copy'() { const t = $('#review-txt'); if (!t) return; try { await navigator.clipboard.writeText(t.value); toast('تم النسخ'); } catch { t.select(); document.execCommand('copy'); toast('تم النسخ'); } },
   async 'trk-add-demo'() {
     const r = await act(() => api('POST', '/api/admin/tracking/add-demo', {}));
     if (r && r !== true) { toast(r.drivers ? `تمت إضافة ${r.drivers} مندوب و${r.stores} متجر تجريبي` : 'المندوبون والمتاجر التجريبية موجودة مسبقاً'); await trkRefresh(); load(true); }

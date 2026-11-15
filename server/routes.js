@@ -1347,3 +1347,19 @@ route('GET', '/api/admin/tracking/:id/trail', ADM('tracking'), async (c) => {
   const r = await q('SELECT lat, lng, at FROM loc_trail WHERE driver_id=$1 AND at>=$2 ORDER BY at ASC LIMIT 1500', [Number(c.params.id), Date.now() - hours * 3600000]);
   return { points: r.rows.map((x) => [Number(x.lat), Number(x.lng), Number(x.at)]) };
 });
+
+/* ===== حسابات مراجعة Google Play: تاجر وسائق مفعّلان بكلمة مرور عشوائية (غير مدرجة ضمن الحسابات التجريبية فلا يحذفها زر الحذف) ===== */
+const REVIEW = { merchant: '07701234501', driver: '07701234502' };
+route('POST', '/api/admin/review-accounts', ADMIN, async () => {
+  const A = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let pw = ''; for (let i = 0; i < 10; i++) pw += A[crypto.randomInt(A.length)];
+  const hash = await hashPassword(pw), now = Date.now();
+  const upsert = async (role, phone, name, area, extra) => {
+    const ex = (await q('SELECT * FROM users WHERE phone=$1', [phone])).rows[0];
+    if (ex) { await db.update('users', 'id', ex.id, { pass_hash: hash, active: 1, verified: 1, receiving: 1, ...extra(ex) }); return; }
+    await db.insert('users', { role, name, phone, pass_hash: hash, active: 1, area, vehicle: 'bike', balance: 0, receiving: 1, discount: 0, verified: 1, created_at: now, ...extra({ balance: 0 }) });
+  };
+  await upsert('merchant', REVIEW.merchant, 'متجر المراجعة', 'الكرادة', () => ({}));
+  await upsert('driver', REVIEW.driver, 'سائق المراجعة', '', (u) => ({ balance: Math.max(Number(u.balance) || 0, 50000) }));
+  return { merchant: REVIEW.merchant, driver: REVIEW.driver, password: pw };
+});

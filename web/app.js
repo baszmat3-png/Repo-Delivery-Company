@@ -238,7 +238,16 @@ function geoSend(force) {
   api('POST', '/api/driver/location', { ...GEO.pos, battery: GEO.bat }).catch(() => {});
 }
 function geoPos(c) { GEO.pos = { lat: c.latitude, lng: c.longitude, acc: c.accuracy, speed: c.speed }; geoSend(false); }
+/* إفصاح واضح قبل طلب إذن الموقع (متطلب Google Play): يظهر مرة واحدة ثم يُحفظ الاختيار */
 function geoStart() {
+  if (!S.user || S.user.role !== 'driver' || GEO.id !== null || GEO.asking) return;
+  let ok = false; try { ok = localStorage.getItem('rio_geo_ok') === '1'; } catch { /* ignore */ }
+  if (ok) return geoBegin();
+  GEO.asking = true;
+  RioDialog.confirm('يستخدم تطبيق السائق موقعك الجغرافي لمشاركته مع إدارة الشركة أثناء عملك، لتتبع الطلبات وتوزيعها.\n\nيستمر ذلك حتى عند فتح تطبيق آخر (كتطبيق الخرائط) أو قفل الشاشة، ويظهر إشعار دائم أثناء المشاركة. يتوقف عند تسجيل الخروج، ولا يُشارك موقعك مع أي جهة أخرى.', { title: 'مشاركة موقعك مع الإدارة', ok: 'موافق', cancel: 'ليس الآن', danger: false })
+    .then((v) => { GEO.asking = false; if (v) { try { localStorage.setItem('rio_geo_ok', '1'); } catch { /* ignore */ } geoBegin(); } });
+}
+function geoBegin() {
   if (!S.user || S.user.role !== 'driver' || GEO.id !== null) return;
   try { if (navigator.getBattery) navigator.getBattery().then((b) => { GEO.bat = Math.round(b.level * 100); b.addEventListener('levelchange', () => { GEO.bat = Math.round(b.level * 100); }); }).catch(() => {}); } catch { /* ignore */ }
   /* التطبيق الأصلي: خدمة تعمل في الخلفية (إشعار دائم) فيستمر التتبع حتى عند فتح تطبيق الخرائط أو قفل الشاشة */
