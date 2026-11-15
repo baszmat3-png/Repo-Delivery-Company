@@ -327,6 +327,9 @@ function loginView() {
     <div class="lg-or"><span>أو</span></div>
     <button type="button" class="lg-reg" data-act="register" data-role="merchant">${ico('store')} تسجيل كتاجر</button>
     <button type="button" class="lg-reg" data-act="register" data-role="driver">${ico('user')} تسجيل كسائق</button>
+    <div class="lg-or"><span>حسابات تجريبية (لمراجعة المتجر)</span></div>
+    <button type="button" class="lg-demo" data-act="demo-fill" data-phone="07700000201" data-pass="123456">${ico('store')} تعبئة تلقائية: حساب تاجر تجريبي</button>
+    <button type="button" class="lg-demo" data-act="demo-fill" data-phone="07700000301" data-pass="123456">${ico('user')} تعبئة تلقائية: حساب سائق تجريبي</button>
     <p class="lg-new">ليس لديك حساب؟ <button type="button" class="lg-link" data-act="register" data-role="driver">إنشاء حساب جديد</button></p>
   </form></div>`;
 }
@@ -1591,6 +1594,11 @@ const ACTIONS = {
   password: () => openSheet({ type: 'password' }),
   'delete-me': () => openSheet({ type: 'delete-me' }),
   'close-sheet': () => closeSheet(),
+  'demo-fill': (el) => {
+    const f = el.closest('form');
+    f.phone.value = el.dataset.phone; f.password.value = el.dataset.pass;
+    const e = document.getElementById('l-err'); if (e) e.textContent = '';
+  },
   register: (el) => { openSheet({ type: 'register', role: el.dataset.role, vehicle: 'bike' }); },
   'register-role': (el) => openSheet({ type: 'register', role: el.dataset.role, vehicle: S.sheet.vehicle || 'bike' }),
   eye: (el) => { const i = el.parentElement.querySelector('input'); const show = i.type === 'password'; i.type = show ? 'text' : 'password'; el.setAttribute('aria-label', show ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'); },

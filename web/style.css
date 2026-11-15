@@ -348,6 +348,9 @@ a.btn{text-decoration:none}
 .lg-reg[data-role="merchant"]{background:#8a3a10;color:#fff}
 .lg-reg[data-role="driver"]{background:#111;color:#ffd21f}
 .lg-reg:active{transform:scale(.98)}
+.lg-demo{display:flex;align-items:center;justify-content:center;gap:8px;border:2px dashed #999;border-radius:14px;min-height:48px;background:transparent;color:inherit;font-weight:800;font-size:15px;cursor:pointer}
+.lg-demo .ic{width:20px;height:20px}
+.lg-demo:active{transform:scale(.98)}
 .lg-new{font-size:14px;color:#111;margin:4px 0 0}
 .lg-link{background:none;border:0;padding:0;font:inherit;color:#1a6fe0;font-weight:700;text-decoration:underline;cursor:pointer}
 
