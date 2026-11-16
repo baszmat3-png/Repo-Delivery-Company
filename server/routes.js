@@ -379,7 +379,7 @@ route('POST', '/api/merchant/orders', MERCHANT, async (c) => {
   if (!customerArea) fail('اكتب منطقة الزبون');
   if (!validPhone(customerPhone)) fail('رقم الزبون يجب أن يبدأ بـ 07 ويتكوّن من 11 رقماً');
   if (!product) fail('اكتب نوع المنتج');
-  if (!Number.isFinite(productPrice) || productPrice <= 0 || productPrice > 100000000) fail('اكتب سعر المنتج');
+  if (!Number.isFinite(productPrice) || productPrice < 0 || productPrice > 100000000) fail('اكتب سعر المنتج (أو 0 إذا كان التوصيل فقط)');
   const s = await getSettings();
   const auto = normArea(customerArea) === normArea(c.user.area);
   const same = b.zone === 'same' ? true : b.zone === 'other' ? false : auto;

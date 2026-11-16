@@ -470,7 +470,7 @@ function driverOrderCard(o) {
   return orderCard(o, {
     corner: chatBtn(o), noteBtn: !!o.note,
     status: st, rows: customerRows(o) + ocRow('phone', 'هاتف المتجر', telLink(o.merchantPhone)),
-    after: o.status === 'picking_up' ? `<div class="notice">ادفع للتاجر ${money(o.productPrice)} عند الاستلام، وبعدها اضغط على الحالة واختر «تم الاستلام من التاجر».</div>` : '',
+    after: o.status === 'picking_up' ? (!o.productPrice ? `<div class="notice">طلب توصيل فقط: لا يوجد مبلغ للدفع للتاجر. حصّل أجرة التوصيل ${money(o.deliveryPrice)} من الزبون، ثم اضغط على الحالة واختر «تم الاستلام من التاجر».</div>` : `<div class="notice">ادفع للتاجر ${money(o.productPrice)} عند الاستلام، وبعدها اضغط على الحالة واختر «تم الاستلام من التاجر».</div>`) : '',
     actions: `${receiptsOn() ? `<button class="btn ghost sm" data-act="receipt" data-id="${o.id}">وصل</button>` : ''}<a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a><a class="btn ghost sm" href="${supportLink(o)}" target="_blank" rel="noopener">واتساب الدعم</a>${wazeLinks(o)}`
   });
 }
@@ -1373,10 +1373,10 @@ const SHEETS = {
       <div class="field"><span class="lbl">العدد</span><div class="stepper"><button type="button" data-act="qty" data-d="1" aria-label="زيادة">+</button><b id="o-qty">${f.qty}</b><button type="button" data-act="qty" data-d="-1" aria-label="إنقاص">−</button></div></div>
       <div class="field"><span class="lbl">نوع التوصيل</span><div class="seg" id="o-veh"><button type="button" data-act="veh" data-v="bike" aria-pressed="${f.vehicle === 'bike'}">${ico('bike')} دراجة</button><button type="button" data-act="veh" data-v="car" aria-pressed="${f.vehicle === 'car'}">${ico('car')} سيارة</button></div></div>
       <div class="field"><span class="lbl">سعر التوصيل</span><div class="seg" id="o-zone"></div><span class="hint" id="o-zhint">منطقة متجرك: ${esc(S.user.area)}. يتحدد السعر تلقائياً حسب منطقة الزبون وتقدر تغيّره.</span></div>
-      ${field('o-price', 'سعر المنتج (د.ع)', `<input class="in" id="o-price" name="productPrice" data-in="no" inputmode="numeric" placeholder="مثال: 30000" value="${esc(f.productPrice)}" required>`)}
+      ${field('o-price', 'سعر المنتج (د.ع)', `<input class="in" id="o-price" name="productPrice" data-in="no" inputmode="numeric" placeholder="مثال: 30000 (اكتب 0 للتوصيل فقط)" value="${esc(f.productPrice)}" required>`)}
       ${field('o-note', 'ملاحظة للسائق (اختياري)', `<textarea class="in" id="o-note" name="note" data-in="no" maxlength="200">${esc(f.note)}</textarea>`)}
       <div class="row between" style="border-top:1px dashed var(--line);padding-top:12px"><b>السعر الإجمالي</b><b id="o-total" style="font-size:20px"></b></div>
-      <p class="hint">السائق يدفع لك سعر المنتج عند الاستلام، ويحصّل الإجمالي من الزبون.</p>
+      <p class="hint">السائق يدفع لك سعر المنتج عند الاستلام، ويحصّل الإجمالي من الزبون. إذا كان توصيلاً فقط اكتب 0 ويُحسب أجر التوصيل فقط.</p>
       <p class="hint" id="o-err" style="color:var(--red)" role="alert"></p>
       <button class="btn block" type="submit" id="o-btn">إرسال الطلب</button></form>`;
     setTimeout(updateOrderForm, 0);
