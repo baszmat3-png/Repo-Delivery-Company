@@ -868,3 +868,8 @@ html:has(body.au-on),body.au-on{background:#0a0a0c}
 .au-brand{z-index:1;margin:0 0 118px}
 .au-brand h1{font-size:46px}
 .au-card{z-index:1;background:rgba(14,14,17,.7)}
+
+/* خريطة بغداد الأصلية + إصلاح التمرير (clip بدل hidden حتى لا يتحرك الحاوي داخلياً عند التركيز) */
+.au{overflow:clip}
+.au-art{top:112px;width:min(270px,66vw);height:auto;opacity:1;filter:none;user-select:none}
+.au-reg .au-art{top:42%;width:92vw;opacity:.2}
