@@ -96,6 +96,10 @@ async function init() {
   await addColumn('orders', 'fee_quote', 'INTEGER'); // رسوم التطبيق المحسوبة وقت إنشاء الطلب
   await addColumn('users', 'map_url', "TEXT NOT NULL DEFAULT ''");
   await addColumn('orders', 'merchant_map', "TEXT NOT NULL DEFAULT ''");
+  await addColumn('orders', 'pay_mode', "TEXT NOT NULL DEFAULT 'cod'"); // cod = الدفع عند التسليم، prepaid = مدفوع مقدماً
+  await addColumn('orders', 'pay_confirmed', 'INTEGER NOT NULL DEFAULT 0');
+  await addColumn('orders', 'pay_confirmed_by', "TEXT NOT NULL DEFAULT ''");
+  await addColumn('orders', 'pay_confirmed_at', 'BIGINT');
   await addColumn('users', 'perms', "TEXT NOT NULL DEFAULT ''");
   await addColumn('users', 'avatar', "TEXT NOT NULL DEFAULT ''");
   await addColumn('users', 'verified', 'INTEGER NOT NULL DEFAULT 0');

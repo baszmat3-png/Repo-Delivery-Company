@@ -485,12 +485,23 @@ function ocDesignPicker() {
 
 const customerRows = (o) => ocRow('phone', 'رقم الزبون', telLink(o.customerPhone)) + ocRow('cash', 'المطلوب من الزبون', money(o.total)) + ocRow('box', 'المنتج', `${esc(o.product)} × ${o.qty} · ${vehName(o.vehicle)}`);
 
+/* الدفع المقدم: شارة وتأكيد (التاجر أو السائق) */
+function payBox(o) {
+  if (o.payMode !== 'prepaid') return '';
+  const closed = ['cancelled', 'returned', 'return_sent', 'rejected'].includes(o.status);
+  const who = o.payConfirmedBy === 'merchant' ? 'التاجر' : 'السائق';
+  const stt = o.payConfirmed ? `<span class="pill green">مدفوع مقدماً ✓ أكّده ${who}</span>` : `<span class="pill amber">مدفوع مقدماً — بانتظار تأكيد الدفع</span>`;
+  const btn = !o.payConfirmed && !closed && (S.user.role === 'driver' || S.user.role === 'merchant') ? `<button class="btn sm" data-act="pay-confirm" data-id="${o.id}">${S.user.role === 'driver' ? 'تم الدفع' : 'تأكيد استلام الدفع'}</button>` : '';
+  const need = S.user.role === 'driver' ? `<p class="hint" style="margin-top:6px">لا تحصّل سعر المنتج من الزبون، المطلوب منه أجرة التوصيل فقط: <b>${money(o.deliveryPrice)}</b></p>` : '';
+  return `<div class="notice" style="display:flex;flex-direction:column;gap:8px"><div class="row between" style="gap:8px;flex-wrap:wrap">${stt}${btn}</div>${need}</div>`;
+}
+
 function merchantOrderCard(o, withCancel) {
   const armed = S.armed === 'c' + o.id;
   return orderCard(o, {
     corner: o.driverId ? chatBtn(o) : '', noteBtn: !!o.note,
     status: pill(o.status), rows: customerRows(o) + (o.driverName ? ocRow('user', 'السائق', esc(o.driverName)) : ''),
-    after: o.status === 'return_sent' ? `<div class="notice">السائق ${esc(o.driverName || '')} أعلن أنه أرجع الطلب إليك. أكّد الاستلام عند وصول البضاعة.</div>` : '',
+    after: payBox(o) + (o.status === 'return_sent' ? `<div class="notice">السائق ${esc(o.driverName || '')} أعلن أنه أرجع الطلب إليك. أكّد الاستلام عند وصول البضاعة.</div>` : ''),
     actions: `<a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a>${wazeLinks(o)}${o.status === 'return_sent' ? `<button class="btn sm" data-act="ask-recv" data-id="${o.id}">تأكيد استلام المرتجع</button><button class="btn ghost sm" data-act="not-recv" data-id="${o.id}">لم أستلمه</button>` : ''}${withCancel && o.status === 'pending' ? `<button class="btn danger sm ${armed ? 'arm' : ''}" data-act="cancel" data-id="${o.id}">${armed ? 'اضغط للتأكيد' : 'إلغاء الطلب'}</button>` : ''}`
   });
 }
@@ -511,7 +522,7 @@ function driverOrderCard(o) {
   return orderCard(o, {
     corner: chatBtn(o), noteBtn: !!o.note,
     status: st, rows: customerRows(o) + ocRow('phone', 'هاتف المتجر', telLink(o.merchantPhone)),
-    after: o.status === 'picking_up' ? (!o.productPrice ? `<div class="notice">طلب توصيل فقط: لا يوجد مبلغ للدفع للتاجر. حصّل أجرة التوصيل ${money(o.deliveryPrice)} من الزبون، ثم اضغط على الحالة واختر «تم الاستلام من التاجر».</div>` : `<div class="notice">ادفع للتاجر ${money(o.productPrice)} عند الاستلام، وبعدها اضغط على الحالة واختر «تم الاستلام من التاجر».</div>`) : '',
+    after: payBox(o) + (o.status === 'picking_up' && o.payMode === 'prepaid' ? `<div class="notice">الزبون دفع سعر المنتج مقدماً: لا تدفع للتاجر شيئاً، ثم اضغط على الحالة واختر «تم الاستلام من التاجر».</div>` : o.status === 'picking_up' ? (!o.productPrice ? `<div class="notice">طلب توصيل فقط: لا يوجد مبلغ للدفع للتاجر. حصّل أجرة التوصيل ${money(o.deliveryPrice)} من الزبون، ثم اضغط على الحالة واختر «تم الاستلام من التاجر».</div>` : `<div class="notice">ادفع للتاجر ${money(o.productPrice)} عند الاستلام، وبعدها اضغط على الحالة واختر «تم الاستلام من التاجر».</div>`) : ''),
     actions: `${receiptsOn() ? `<button class="btn ghost sm" data-act="receipt" data-id="${o.id}">وصل</button>` : ''}<a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a><a class="btn ghost sm" href="${supportLink(o)}" target="_blank" rel="noopener">واتساب الدعم</a>${wazeLinks(o)}`
   });
 }
@@ -1415,6 +1426,7 @@ const SHEETS = {
       <div class="field"><span class="lbl">نوع التوصيل</span><div class="seg" id="o-veh"><button type="button" data-act="veh" data-v="bike" aria-pressed="${f.vehicle === 'bike'}">${ico('bike')} دراجة</button><button type="button" data-act="veh" data-v="car" aria-pressed="${f.vehicle === 'car'}">${ico('car')} سيارة</button></div></div>
       <div class="field"><span class="lbl">سعر التوصيل</span><div class="seg" id="o-zone"></div><span class="hint" id="o-zhint">منطقة متجرك: ${esc(S.user.area)}. يتحدد السعر تلقائياً حسب منطقة الزبون وتقدر تغيّره.</span></div>
       ${field('o-price', 'سعر المنتج (د.ع)', `<input class="in" id="o-price" name="productPrice" data-in="no" inputmode="numeric" placeholder="مثال: 30000 (اكتب 0 للتوصيل فقط)" value="${esc(f.productPrice)}" required>`)}
+      <div class="field"><span class="lbl">طريقة الدفع</span><div class="seg" id="o-pay"><button type="button" data-act="paymode" data-v="cod" aria-pressed="${f.payMode !== 'prepaid'}">${ico('wallet')} عند التسليم</button><button type="button" data-act="paymode" data-v="prepaid" aria-pressed="${f.payMode === 'prepaid'}">${ico('check')} مدفوع مقدماً</button></div><span class="hint" id="o-payhint"></span></div>
       ${field('o-note', 'ملاحظة للسائق (اختياري)', `<textarea class="in" id="o-note" name="note" data-in="no" maxlength="200">${esc(f.note)}</textarea>`)}
       <div class="row between" style="border-top:1px dashed var(--line);padding-top:12px"><b>السعر الإجمالي</b><b id="o-total" style="font-size:20px"></b></div>
       <p class="hint">السائق يدفع لك سعر المنتج عند الاستلام، ويحصّل الإجمالي من الزبون. إذا كان توصيلاً فقط اكتب 0 ويُحسب أجر التوصيل فقط.</p>
@@ -1556,7 +1568,7 @@ const SHEETS = {
 };
 
 /* ----- نموذج الطلب ----- */
-function newOrderForm() { return { customerArea: '', customerPhone: '', product: '', qty: 1, vehicle: 'bike', zone: null, zoneManual: false, productPrice: '', note: '' }; }
+function newOrderForm() { return { customerArea: '', customerPhone: '', product: '', qty: 1, vehicle: 'bike', zone: null, zoneManual: false, productPrice: '', payMode: 'cod', note: '' }; }
 function updateOrderForm() {
   const s = S.sheet;
   if (!s || s.type !== 'new-order' || !$('#o-zone')) return;
@@ -1568,6 +1580,9 @@ function updateOrderForm() {
   $('#o-zone').innerHTML = ['same', 'other'].map((z) => `<button type="button" data-act="zone" data-z="${z}" aria-pressed="${f.zone === z}">${money(p(z))}<small>${z === 'same' ? 'نفس المنطقة' : 'منطقة ثانية'}</small></button>`).join('');
   const price = Number(digits(f.productPrice).replace(/[,\s]/g, '')) || 0;
   $('#o-total').innerHTML = money(price + p(f.zone));
+  const pre = f.payMode === 'prepaid';
+  document.querySelectorAll('#o-pay button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === (pre ? 'prepaid' : 'cod'))));
+  const ph = $('#o-payhint'); if (ph) ph.textContent = pre ? `الزبون دفع سعر المنتج مقدماً: السائق لا يدفع لك ولا يحصّل منه إلا أجرة التوصيل (${money(p(f.zone))}).` : 'السائق يدفع لك سعر المنتج عند الاستلام ويحصّل الإجمالي من الزبون.';
   $('#o-qty').textContent = f.qty;
   document.querySelectorAll('#o-veh button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === f.vehicle)));
 }
@@ -1654,6 +1669,11 @@ const ACTIONS = {
   menu: (el) => { S.menu = null; openSheet({ type: 'status', id: Number(el.dataset.id) }); },
   qty: (el) => { const f = S.sheet.form; f.qty = Math.min(99, Math.max(1, f.qty + Number(el.dataset.d))); updateOrderForm(); },
   veh: (el) => { S.sheet.form.vehicle = el.dataset.v; updateOrderForm(); },
+  paymode: (el) => { S.sheet.form.payMode = el.dataset.v; updateOrderForm(); },
+  'pay-confirm': async (el) => {
+    const role = S.user.role === 'driver' ? 'driver' : 'merchant';
+    if (await act(() => api('POST', `/api/${role}/orders/${el.dataset.id}/pay-confirm`), 'تم تأكيد الدفع')) refresh(true);
+  },
   zone: (el) => { S.sheet.form.zone = el.dataset.z; S.sheet.form.zoneManual = true; updateOrderForm(); },
   'me-veh': (el) => { S.sheet.vehicle = el.dataset.v; syncVeh(el); },
   'nu-veh': (el) => { S.sheet.vehicle = el.dataset.v; syncVeh(el); },
@@ -1804,7 +1824,7 @@ const FORMS = {
   },
   async 'new-order'(f) {
     const form = S.sheet.form;
-    const body = { customerArea: form.customerArea, customerPhone: form.customerPhone, product: form.product, qty: form.qty, vehicle: form.vehicle, zone: form.zone, productPrice: form.productPrice, note: form.note };
+    const body = { customerArea: form.customerArea, customerPhone: form.customerPhone, product: form.product, qty: form.qty, vehicle: form.vehicle, zone: form.zone, productPrice: form.productPrice, payMode: form.payMode, note: form.note };
     await api('POST', '/api/merchant/orders', body);
     toast('أُرسل الطلب للسائقين');
     closeSheet(); go('stats');

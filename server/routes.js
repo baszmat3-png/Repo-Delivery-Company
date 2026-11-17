@@ -108,7 +108,7 @@ const ord = (r) => ({
   product: r.product, qty: r.qty, vehicle: r.vehicle, sameArea: !!r.same_area, note: r.note,
   productPrice: r.product_price, deliveryPrice: r.delivery_price, total: r.total, status: r.status,
   driverId: r.driver_id, driverName: r.driver_name, fee: r.fee, createdAt: r.created_at, updatedAt: r.updated_at,
-  acceptedAt: r.accepted_at, deliveredAt: r.delivered_at, discount: r.discount || 0, feeQuote: r.fee_quote === null || r.fee_quote === undefined ? null : Number(r.fee_quote), merchantMap: r.merchant_map || '', log: safeJson(r.log, [])
+  acceptedAt: r.accepted_at, deliveredAt: r.delivered_at, discount: r.discount || 0, feeQuote: r.fee_quote === null || r.fee_quote === undefined ? null : Number(r.fee_quote), merchantMap: r.merchant_map || '', payMode: r.pay_mode === 'prepaid' ? 'prepaid' : 'cod', payConfirmed: !!r.pay_confirmed, payConfirmedBy: r.pay_confirmed_by || '', payConfirmedAt: r.pay_confirmed_at || null, log: safeJson(r.log, [])
 });
 
 function safeJson(s, d) { try { return JSON.parse(s); } catch { return d; } }
@@ -376,6 +376,7 @@ route('POST', '/api/merchant/orders', MERCHANT, async (c) => {
   const qty = Math.min(99, Math.max(1, int(b.qty) || 1));
   const vehicle = b.vehicle === 'car' ? 'car' : 'bike';
   const productPrice = int(b.productPrice);
+  const payMode = b.payMode === 'prepaid' ? 'prepaid' : 'cod';
   if (!customerArea) fail('اكتب منطقة الزبون');
   if (!validPhone(customerPhone)) fail('رقم الزبون يجب أن يبدأ بـ 07 ويتكوّن من 11 رقماً');
   if (!product) fail('اكتب نوع المنتج');
@@ -396,12 +397,12 @@ route('POST', '/api/merchant/orders', MERCHANT, async (c) => {
       const row = await db.insert('orders', {
         num: m.rows[0].n, merchant_id: c.user.id, merchant_name: c.user.name, merchant_area: c.user.area, merchant_phone: c.user.phone, merchant_map: c.user.map_url || '',
         customer_area: customerArea, customer_phone: customerPhone, product, qty, vehicle, same_area: same ? 1 : 0,
-        note: clean(b.note, 200), product_price: productPrice, delivery_price: deliveryPrice, total: productPrice + deliveryPrice, discount: disc, fee_quote: feeQuote,
+        note: clean(b.note, 200), product_price: productPrice, delivery_price: deliveryPrice, total: (payMode === 'prepaid' ? 0 : productPrice) + deliveryPrice, discount: disc, fee_quote: feeQuote, pay_mode: payMode,
         status: 'pending', driver_id: null, driver_name: '', fee: 0, created_at: now, updated_at: now,
         accepted_at: null, delivered_at: null, log: JSON.stringify([{ s: 'pending', at: now }])
       });
       await notifyNewOrder(row);
-      notifyAdmins({ kind: 'order_new', orderId: row.id, orderNo: row.num, title: `طلب جديد #${row.num}`, body: `${row.merchant_name} — ${row.merchant_area} ← ${row.customer_area}\nالمطلوب ${iqd(row.total)}` });
+      notifyAdmins({ kind: 'order_new', orderId: row.id, orderNo: row.num, title: `طلب جديد #${row.num}`, body: `${row.merchant_name} — ${row.merchant_area} ← ${row.customer_area}\n${payMode === 'prepaid' ? 'مدفوع مقدماً — المطلوب من الزبون ' + iqd(row.delivery_price) : 'المطلوب ' + iqd(row.total)}` });
       return { order: ord(row) };
     } catch (e) {
       if (!/unique|duplicate/i.test(String(e.message))) throw e;
@@ -1363,3 +1364,19 @@ route('POST', '/api/admin/review-accounts', ADMIN, async () => {
   await upsert('driver', REVIEW.driver, 'سائق المراجعة', '', (u) => ({ balance: Math.max(Number(u.balance) || 0, 50000) }));
   return { merchant: REVIEW.merchant, driver: REVIEW.driver, password: pw };
 });
+
+/* ===== تأكيد الدفع للطلبات المدفوعة مقدماً: يؤكده التاجر أو السائق ===== */
+async function confirmPay(c, who, where) {
+  const r = await q(`SELECT * FROM orders WHERE id=$1 AND ${where}=$2`, [Number(c.params.id), c.user.id]);
+  const o = r.rows[0];
+  if (!o) fail('الطلب غير موجود', 404);
+  if (o.pay_mode !== 'prepaid') fail('هذا الطلب ليس مدفوعاً مقدماً', 409);
+  if (o.pay_confirmed) return { order: ord(o) };
+  if (['cancelled', 'returned', 'return_sent', 'rejected'].includes(o.status)) fail('لا يمكن تأكيد الدفع لهذا الطلب', 409);
+  const now = Date.now();
+  const u = await db.update('orders', 'id', o.id, { pay_confirmed: 1, pay_confirmed_by: who, pay_confirmed_at: now, updated_at: now });
+  notifyAdmins({ kind: 'order_status', orderId: o.id, orderNo: o.num, title: `تأكيد دفع الطلب #${o.num}`, body: `${who === 'merchant' ? 'التاجر' : 'السائق'} أكّد أن الطلب مدفوع مقدماً` });
+  return { order: ord(u) };
+}
+route('POST', '/api/merchant/orders/:id/pay-confirm', MERCHANT, (c) => confirmPay(c, 'merchant', 'merchant_id'));
+route('POST', '/api/driver/orders/:id/pay-confirm', DRIVER, (c) => confirmPay(c, 'driver', 'driver_id'));
