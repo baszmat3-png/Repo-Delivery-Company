@@ -844,3 +844,16 @@ html:has(body.au-on),body.au-on{background:#0a0a0c}
 .au-has{text-align:center;margin:10px 0 0;font-size:14px;color:#b9b2a0}
 .au-link{background:none;border:0;padding:0;font:inherit;font-weight:800;color:#e8c14a;cursor:pointer}
 .au .hint{min-height:0;margin:0;font-size:13px}
+
+.au-big{font-size:36px}
+.au-pick{display:flex;align-items:center;gap:14px;width:100%;box-sizing:border-box;margin-top:14px;padding:18px 16px;border:1px solid rgba(255,255,255,.12);border-radius:24px;background:rgba(255,255,255,.04);color:#f4efe2;font:inherit;text-align:right;cursor:pointer}
+.au-pick[aria-pressed="true"]{border-color:#e8c14a;background:rgba(232,193,74,.1)}
+.au-pi{width:62px;height:62px;flex:none;display:grid;place-items:center;border:1px solid rgba(232,193,74,.4);border-radius:20px;background:rgba(232,193,74,.08);color:#e8c14a}
+.au-pi .ic{width:30px;height:30px}
+.au-pt{flex:1;display:flex;flex-direction:column;gap:4px}
+.au-pt b{font-size:22px;font-weight:900;color:#fff}
+.au-pt small{font-size:14px;color:#b9b2a0;line-height:1.6}
+.au-pk{width:36px;height:36px;flex:none;display:grid;place-items:center;border:1.5px solid rgba(255,255,255,.3);border-radius:50%;color:#1a1405}
+.au-pick[aria-pressed="true"] .au-pk{background:#e8c14a;border-color:#e8c14a}
+.au-pk .ic{width:18px;height:18px;stroke-width:3}
+.au-foot{display:flex;flex-direction:column;position:relative;width:100%;max-width:520px;margin-top:auto;padding-top:40px}

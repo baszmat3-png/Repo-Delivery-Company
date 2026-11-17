@@ -340,8 +340,7 @@ function loginView() {
     <p class="hint" id="l-err" style="color:#ff8a80" role="alert"></p>
     <button class="au-btn" type="submit" id="l-btn">تسجيل الدخول</button>
     <div class="au-or"><span>أو</span></div>
-    <button type="button" class="au-ghost" data-act="register" data-role="merchant">${ico('store')} تسجيل كتاجر</button>
-    <button type="button" class="au-ghost" data-act="register" data-role="driver">${ico('bike')} تسجيل كسائق</button>
+    <button type="button" class="au-ghost" data-act="register" data-role="merchant">إنشاء حساب</button>
   </form></div>`;
 }
 
@@ -353,9 +352,19 @@ function auArt() {
 /* صفحة إنشاء الحساب (بدون تسجيل دخول) */
 function regView(s) {
   const m = s.role === 'merchant';
+  if (s.step !== 'form') {
+    const card = (r, icn, t, d) => `<button type="button" class="au-pick" data-act="reg-pick" data-role="${r}" aria-pressed="${s.role === r}"><span class="au-pi">${ico(icn)}</span><span class="au-pt"><b>${t}</b><small>${d}</small></span><span class="au-pk">${s.role === r ? ico('check') : ''}</span></button>`;
+    return `<div class="au au-reg">${auArt()}
+  <div class="au-hd"><button type="button" class="au-back" data-act="close-sheet" aria-label="رجوع">${ico('chev')}</button><b class="au-logo">ريوو</b></div>
+  <div class="au-form"><h2 class="au-big">إنشاء حساب</h2><p class="au-sub">اختر نوع حسابك للبدء</p>
+    ${card('merchant', 'store', 'تاجر', 'سجّل متجرك وأرسل طلباتك للزبائن بتوصيل أسرع')}
+    ${card('driver', 'bike', 'مندوب', 'استلم الطلبات وأوصلها واكسب من كل توصيلة')}
+  </div>
+  <div class="au-foot"><button type="button" class="au-btn" data-act="reg-go">متابعة</button><p class="au-has">لديك حساب؟ <button type="button" class="au-link" data-act="close-sheet">تسجيل الدخول</button></p></div></div>`;
+  }
   const inp = (icn, id, name, ph, extra = '') => `<div class="au-in">${ico(icn)}<input id="${id}" name="${name}" placeholder="${ph}" aria-label="${ph}" ${extra}></div>`;
   return `<div class="au au-reg">${auArt()}
-  <div class="au-hd"><button type="button" class="au-back" data-act="close-sheet" aria-label="رجوع">${ico('chev')}</button><b class="au-logo">ريوو</b></div>
+  <div class="au-hd"><button type="button" class="au-back" data-act="reg-back" aria-label="رجوع">${ico('chev')}</button><b class="au-logo">ريوو</b></div>
   <form class="au-form" data-form="register">
     <h2>${m ? 'إنشاء حساب تاجر' : 'إنشاء حساب مندوب'}</h2><p class="au-sub">${m ? 'أدخل بيانات متجرك للبدء' : 'أدخل بياناتك للانضمام كمندوب توصيل'}</p>
     <label class="au-lbl" for="r-name">${m ? 'اسم المتجر' : 'اسمك الثلاثي'}</label>
@@ -1634,8 +1643,10 @@ const ACTIONS = {
   password: () => openSheet({ type: 'password' }),
   'delete-me': () => openSheet({ type: 'delete-me' }),
   'close-sheet': () => closeSheet(),
-  register: (el) => { openSheet({ type: 'register', role: el.dataset.role, vehicle: 'bike' }); },
-  'register-role': (el) => openSheet({ type: 'register', role: el.dataset.role, vehicle: S.sheet.vehicle || 'bike' }),
+  register: () => { openSheet({ type: 'register', step: 'choose', role: 'merchant', vehicle: 'bike' }); },
+  'reg-pick': (el) => { S.sheet.role = el.dataset.role; render(); },
+  'reg-go': () => { S.sheet.step = 'form'; render(); setTimeout(() => { const f = $('.au-form input'); if (f) f.focus(); }, 60); },
+  'reg-back': () => { S.sheet.step = 'choose'; render(); },
   eye: (el) => { const i = el.parentElement.querySelector('input'); const show = i.type === 'password'; i.type = show ? 'text' : 'password'; el.setAttribute('aria-label', show ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'); },
   'ask-return': (el) => { S.menu = null; openSheet({ type: 'confirm', title: 'إرجاع الطلب', text: 'عزيزي الكابتن، هل أنت متأكد من إرجاع الطلب للتاجر؟', yes: 'do-return', id: el.dataset.id }); },
   'ask-recv': (el) => openSheet({ type: 'confirm', title: 'استلام المرتجع', text: 'هل استلمت الطلب المرتجع من السائق؟', yes: 'do-recv', id: el.dataset.id }),
