@@ -397,12 +397,12 @@ route('POST', '/api/merchant/orders', MERCHANT, async (c) => {
       const row = await db.insert('orders', {
         num: m.rows[0].n, merchant_id: c.user.id, merchant_name: c.user.name, merchant_area: c.user.area, merchant_phone: c.user.phone, merchant_map: c.user.map_url || '',
         customer_area: customerArea, customer_phone: customerPhone, product, qty, vehicle, same_area: same ? 1 : 0,
-        note: clean(b.note, 200), product_price: productPrice, delivery_price: deliveryPrice, total: (payMode === 'prepaid' ? 0 : productPrice) + deliveryPrice, discount: disc, fee_quote: feeQuote, pay_mode: payMode,
+        note: clean(b.note, 200), product_price: productPrice, delivery_price: deliveryPrice, total: productPrice + deliveryPrice, discount: disc, fee_quote: feeQuote, pay_mode: payMode,
         status: 'pending', driver_id: null, driver_name: '', fee: 0, created_at: now, updated_at: now,
         accepted_at: null, delivered_at: null, log: JSON.stringify([{ s: 'pending', at: now }])
       });
       await notifyNewOrder(row);
-      notifyAdmins({ kind: 'order_new', orderId: row.id, orderNo: row.num, title: `طلب جديد #${row.num}`, body: `${row.merchant_name} — ${row.merchant_area} ← ${row.customer_area}\n${payMode === 'prepaid' ? 'مدفوع مقدماً — المطلوب من الزبون ' + iqd(row.delivery_price) : 'المطلوب ' + iqd(row.total)}` });
+      notifyAdmins({ kind: 'order_new', orderId: row.id, orderNo: row.num, title: `طلب جديد #${row.num}`, body: `${row.merchant_name} — ${row.merchant_area} ← ${row.customer_area}\n${payMode === 'prepaid' ? 'دفع مباشر للتاجر — المطلوب من الزبون ' + iqd(row.total) : 'المطلوب ' + iqd(row.total)}` });
       return { order: ord(row) };
     } catch (e) {
       if (!/unique|duplicate/i.test(String(e.message))) throw e;
@@ -1370,12 +1370,12 @@ async function confirmPay(c, who, where) {
   const r = await q(`SELECT * FROM orders WHERE id=$1 AND ${where}=$2`, [Number(c.params.id), c.user.id]);
   const o = r.rows[0];
   if (!o) fail('الطلب غير موجود', 404);
-  if (o.pay_mode !== 'prepaid') fail('هذا الطلب ليس مدفوعاً مقدماً', 409);
+  if (o.pay_mode !== 'prepaid') fail('هذا الطلب ليس بالدفع المباشر للتاجر', 409);
   if (o.pay_confirmed) return { order: ord(o) };
   if (['cancelled', 'returned', 'return_sent', 'rejected'].includes(o.status)) fail('لا يمكن تأكيد الدفع لهذا الطلب', 409);
   const now = Date.now();
   const u = await db.update('orders', 'id', o.id, { pay_confirmed: 1, pay_confirmed_by: who, pay_confirmed_at: now, updated_at: now });
-  notifyAdmins({ kind: 'order_status', orderId: o.id, orderNo: o.num, title: `تأكيد دفع الطلب #${o.num}`, body: `${who === 'merchant' ? 'التاجر' : 'السائق'} أكّد أن الطلب مدفوع مقدماً` });
+  notifyAdmins({ kind: 'order_status', orderId: o.id, orderNo: o.num, title: `تأكيد دفع الطلب #${o.num}`, body: `${who === 'merchant' ? 'التاجر' : 'السائق'} أكّد أن السائق دفع مبلغ الطلب للتاجر` });
   return { order: ord(u) };
 }
 route('POST', '/api/merchant/orders/:id/pay-confirm', MERCHANT, (c) => confirmPay(c, 'merchant', 'merchant_id'));

@@ -490,9 +490,9 @@ function payBox(o) {
   if (o.payMode !== 'prepaid') return '';
   const closed = ['cancelled', 'returned', 'return_sent', 'rejected'].includes(o.status);
   const who = o.payConfirmedBy === 'merchant' ? 'التاجر' : 'السائق';
-  const stt = o.payConfirmed ? `<span class="pill green">مدفوع مقدماً ✓ أكّده ${who}</span>` : `<span class="pill amber">مدفوع مقدماً — بانتظار تأكيد الدفع</span>`;
-  const btn = !o.payConfirmed && !closed && (S.user.role === 'driver' || S.user.role === 'merchant') ? `<button class="btn sm" data-act="pay-confirm" data-id="${o.id}">${S.user.role === 'driver' ? 'تم الدفع' : 'تأكيد استلام الدفع'}</button>` : '';
-  const need = S.user.role === 'driver' ? `<p class="hint" style="margin-top:6px">لا تحصّل سعر المنتج من الزبون، المطلوب منه أجرة التوصيل فقط: <b>${money(o.deliveryPrice)}</b></p>` : '';
+  const stt = o.payConfirmed ? `<span class="pill green">تم دفع مبلغ الطلب للتاجر ✓ أكّده ${who}</span>` : `<span class="pill amber">دفع المبلغ للتاجر — بانتظار التأكيد</span>`;
+  const btn = !o.payConfirmed && !closed && (S.user.role === 'driver' || S.user.role === 'merchant') ? `<button class="btn sm" data-act="pay-confirm" data-id="${o.id}">${S.user.role === 'driver' ? 'دفعت للتاجر' : 'استلمت المبلغ من السائق'}</button>` : '';
+  const need = S.user.role === 'driver' ? `<p class="hint" style="margin-top:6px">ادفع للتاجر <b>${money(o.productPrice)}</b> عند الاستلام، ثم حصّل من الزبون المبلغ كاملاً: <b>${money(o.total)}</b></p>` : `<p class="hint" style="margin-top:6px">تأخذ <b>${money(o.productPrice)}</b> من السائق مباشرة عند تسليمه الطلب.</p>`;
   return `<div class="notice" style="display:flex;flex-direction:column;gap:8px"><div class="row between" style="gap:8px;flex-wrap:wrap">${stt}${btn}</div>${need}</div>`;
 }
 
@@ -522,7 +522,7 @@ function driverOrderCard(o) {
   return orderCard(o, {
     corner: chatBtn(o), noteBtn: !!o.note,
     status: st, rows: customerRows(o) + ocRow('phone', 'هاتف المتجر', telLink(o.merchantPhone)),
-    after: payBox(o) + (o.status === 'picking_up' && o.payMode === 'prepaid' ? `<div class="notice">الزبون دفع سعر المنتج مقدماً: لا تدفع للتاجر شيئاً، ثم اضغط على الحالة واختر «تم الاستلام من التاجر».</div>` : o.status === 'picking_up' ? (!o.productPrice ? `<div class="notice">طلب توصيل فقط: لا يوجد مبلغ للدفع للتاجر. حصّل أجرة التوصيل ${money(o.deliveryPrice)} من الزبون، ثم اضغط على الحالة واختر «تم الاستلام من التاجر».</div>` : `<div class="notice">ادفع للتاجر ${money(o.productPrice)} عند الاستلام، وبعدها اضغط على الحالة واختر «تم الاستلام من التاجر».</div>`) : ''),
+    after: payBox(o) + (o.status === 'picking_up' && o.payMode === 'prepaid' ? `<div class="notice">ادفع للتاجر ${money(o.productPrice)} مباشرة عند الاستلام واضغط «دفعت للتاجر»، ثم اختر «تم الاستلام من التاجر». ستحصّل من الزبون المبلغ كاملاً ${money(o.total)}.</div>` : o.status === 'picking_up' ? (!o.productPrice ? `<div class="notice">طلب توصيل فقط: لا يوجد مبلغ للدفع للتاجر. حصّل أجرة التوصيل ${money(o.deliveryPrice)} من الزبون، ثم اضغط على الحالة واختر «تم الاستلام من التاجر».</div>` : `<div class="notice">ادفع للتاجر ${money(o.productPrice)} عند الاستلام، وبعدها اضغط على الحالة واختر «تم الاستلام من التاجر».</div>`) : ''),
     actions: `${receiptsOn() ? `<button class="btn ghost sm" data-act="receipt" data-id="${o.id}">وصل</button>` : ''}<a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a><a class="btn ghost sm" href="${supportLink(o)}" target="_blank" rel="noopener">واتساب الدعم</a>${wazeLinks(o)}`
   });
 }
@@ -1426,7 +1426,7 @@ const SHEETS = {
       <div class="field"><span class="lbl">نوع التوصيل</span><div class="seg" id="o-veh"><button type="button" data-act="veh" data-v="bike" aria-pressed="${f.vehicle === 'bike'}">${ico('bike')} دراجة</button><button type="button" data-act="veh" data-v="car" aria-pressed="${f.vehicle === 'car'}">${ico('car')} سيارة</button></div></div>
       <div class="field"><span class="lbl">سعر التوصيل</span><div class="seg" id="o-zone"></div><span class="hint" id="o-zhint">منطقة متجرك: ${esc(S.user.area)}. يتحدد السعر تلقائياً حسب منطقة الزبون وتقدر تغيّره.</span></div>
       ${field('o-price', 'سعر المنتج (د.ع)', `<input class="in" id="o-price" name="productPrice" data-in="no" inputmode="numeric" placeholder="مثال: 30000 (اكتب 0 للتوصيل فقط)" value="${esc(f.productPrice)}" required>`)}
-      <div class="field"><span class="lbl">طريقة الدفع</span><div class="seg" id="o-pay"><button type="button" data-act="paymode" data-v="cod" aria-pressed="${f.payMode !== 'prepaid'}">${ico('wallet')} عند التسليم</button><button type="button" data-act="paymode" data-v="prepaid" aria-pressed="${f.payMode === 'prepaid'}">${ico('check')} مدفوع مقدماً</button></div><span class="hint" id="o-payhint"></span></div>
+      <div class="field"><span class="lbl">طريقة الدفع</span><div class="seg" id="o-pay"><button type="button" data-act="paymode" data-v="cod" aria-pressed="${f.payMode !== 'prepaid'}">${ico('wallet')} عادي</button><button type="button" data-act="paymode" data-v="prepaid" aria-pressed="${f.payMode === 'prepaid'}">${ico('check')} دفع مباشر للتاجر</button></div><span class="hint" id="o-payhint"></span></div>
       ${field('o-note', 'ملاحظة للسائق (اختياري)', `<textarea class="in" id="o-note" name="note" data-in="no" maxlength="200">${esc(f.note)}</textarea>`)}
       <div class="row between" style="border-top:1px dashed var(--line);padding-top:12px"><b>السعر الإجمالي</b><b id="o-total" style="font-size:20px"></b></div>
       <p class="hint">السائق يدفع لك سعر المنتج عند الاستلام، ويحصّل الإجمالي من الزبون. إذا كان توصيلاً فقط اكتب 0 ويُحسب أجر التوصيل فقط.</p>
@@ -1582,7 +1582,7 @@ function updateOrderForm() {
   $('#o-total').innerHTML = money(price + p(f.zone));
   const pre = f.payMode === 'prepaid';
   document.querySelectorAll('#o-pay button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === (pre ? 'prepaid' : 'cod'))));
-  const ph = $('#o-payhint'); if (ph) ph.textContent = pre ? `الزبون دفع سعر المنتج مقدماً: السائق لا يدفع لك ولا يحصّل منه إلا أجرة التوصيل (${money(p(f.zone))}).` : 'السائق يدفع لك سعر المنتج عند الاستلام ويحصّل الإجمالي من الزبون.';
+  const ph = $('#o-payhint'); if (ph) ph.textContent = pre ? 'التاجر يأخذ مبلغ الطلب من السائق مباشرة ويسلّمه الطلب، ثم يؤكد أحدكما الدفع. السائق يحصّل من الزبون المبلغ كاملاً (المنتج + التوصيل).' : 'يُحاسَب مبلغ الطلب بالطريقة المعتادة.';
   $('#o-qty').textContent = f.qty;
   document.querySelectorAll('#o-veh button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === f.vehicle)));
 }
