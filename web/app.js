@@ -492,7 +492,7 @@ function payBox(o) {
   const who = o.payConfirmedBy === 'merchant' ? 'التاجر' : 'السائق';
   const stt = o.payConfirmed ? `<span class="pill green">تم دفع مبلغ الطلب للتاجر ✓ أكّده ${who}</span>` : `<span class="pill amber">دفع المبلغ للتاجر — بانتظار التأكيد</span>`;
   const btn = !o.payConfirmed && !closed && (S.user.role === 'driver' || S.user.role === 'merchant') ? `<button class="btn sm" data-act="pay-confirm" data-id="${o.id}">${S.user.role === 'driver' ? 'دفعت للتاجر' : 'استلمت المبلغ من السائق'}</button>` : '';
-  const need = S.user.role === 'driver' ? `<p class="hint" style="margin-top:6px">ادفع للتاجر <b>${money(o.productPrice)}</b> عند الاستلام، ثم حصّل من الزبون المبلغ كاملاً: <b>${money(o.total)}</b></p>` : `<p class="hint" style="margin-top:6px">تأخذ <b>${money(o.productPrice)}</b> من السائق مباشرة عند تسليمه الطلب.</p>`;
+  const need = '';
   return `<div class="notice" style="display:flex;flex-direction:column;gap:8px"><div class="row between" style="gap:8px;flex-wrap:wrap">${stt}${btn}</div>${need}</div>`;
 }
 
@@ -522,7 +522,7 @@ function driverOrderCard(o) {
   return orderCard(o, {
     corner: chatBtn(o), noteBtn: !!o.note,
     status: st, rows: customerRows(o) + ocRow('phone', 'هاتف المتجر', telLink(o.merchantPhone)),
-    after: payBox(o) + (o.status === 'picking_up' && o.payMode === 'prepaid' ? `<div class="notice">ادفع للتاجر ${money(o.productPrice)} مباشرة عند الاستلام واضغط «دفعت للتاجر»، ثم اختر «تم الاستلام من التاجر». ستحصّل من الزبون المبلغ كاملاً ${money(o.total)}.</div>` : o.status === 'picking_up' ? (!o.productPrice ? `<div class="notice">طلب توصيل فقط: لا يوجد مبلغ للدفع للتاجر. حصّل أجرة التوصيل ${money(o.deliveryPrice)} من الزبون، ثم اضغط على الحالة واختر «تم الاستلام من التاجر».</div>` : `<div class="notice">ادفع للتاجر ${money(o.productPrice)} عند الاستلام، وبعدها اضغط على الحالة واختر «تم الاستلام من التاجر».</div>`) : ''),
+    after: payBox(o) + (o.status === 'picking_up' && o.payMode === 'prepaid' ? '' : o.status === 'picking_up' ? (!o.productPrice ? `<div class="notice">طلب توصيل فقط: لا يوجد مبلغ للدفع للتاجر. حصّل أجرة التوصيل ${money(o.deliveryPrice)} من الزبون، ثم اضغط على الحالة واختر «تم الاستلام من التاجر».</div>` : `<div class="notice">ادفع للتاجر ${money(o.productPrice)} عند الاستلام، وبعدها اضغط على الحالة واختر «تم الاستلام من التاجر».</div>`) : ''),
     actions: `${receiptsOn() ? `<button class="btn ghost sm" data-act="receipt" data-id="${o.id}">وصل</button>` : ''}<a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a><a class="btn ghost sm" href="${supportLink(o)}" target="_blank" rel="noopener">واتساب الدعم</a>${wazeLinks(o)}`
   });
 }
