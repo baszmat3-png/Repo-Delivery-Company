@@ -949,3 +949,5 @@ html:has(body.au-on),body.au-on{background:#0a0a0c}
 .rk bdi{flex:1;font-weight:700}
 .ar{padding:10px 4px}.ar-t{display:flex;justify-content:space-between;margin-bottom:6px}.ar-t small{color:var(--muted)}
 .ar-b{height:8px;border-radius:9px;background:var(--line);overflow:hidden}.ar-b i{display:block;height:100%;background:#f0b90b;border-radius:9px}
+
+.od-big .od-paid,.od .od-big .od-paid{font-size:19px;font-weight:800;letter-spacing:0}

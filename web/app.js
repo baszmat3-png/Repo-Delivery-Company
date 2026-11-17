@@ -490,7 +490,7 @@ function ocDesignPicker() {
 const customerRows = (o) => ocRow('phone', 'رقم الزبون', telLink(o.customerPhone)) + ocRow('cash', 'المطلوب من الزبون', money(o.total)) + ocRow('box', 'المنتج', `${esc(o.product)} × ${o.qty} · ${vehName(o.vehicle)}`);
 
 /* الدفع المقدم: شارة وتأكيد (التاجر أو السائق) */
-const prcTxt = (o) => (Number(o.productPrice) ? num(o.productPrice) : 'واصل حساب');
+const prcTxt = (o) => (Number(o.productPrice) ? num(o.productPrice) : '<span class="od-paid">واصل حساب</span>');
 function payBox(o) {
   if (o.payMode !== 'prepaid' || !directPayOn()) return '';
   const closed = ['cancelled', 'returned', 'return_sent', 'rejected'].includes(o.status);
