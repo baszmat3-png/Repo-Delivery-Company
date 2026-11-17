@@ -799,3 +799,48 @@ html,body{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%}
 .ad-dots{position:absolute;inset-inline:0;bottom:8px;display:flex;justify-content:center;gap:5px;pointer-events:none}
 .ad-dots i{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.55);transition:.2s}
 .ad-dots i.on{width:16px;border-radius:4px;background:#fff}
+
+/* ===== واجهة الدخول والتسجيل (أسود وذهبي) ===== */
+html:has(body.au-on),body.au-on{background:#0a0a0c}
+.au{position:relative;width:100vw;margin-inline:calc(50% - 50vw);min-height:100dvh;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;background:#0a0a0c;color:#f4efe2;overflow:hidden;font-family:'Cairo','IBM Plex Sans Arabic',sans-serif;padding:0 18px calc(24px + env(safe-area-inset-bottom,0px))}
+.au::before{content:"";position:absolute;inset:0;background-image:radial-gradient(rgba(232,193,74,.13) 1px,transparent 1.2px);background-size:22px 22px;opacity:.5;pointer-events:none}
+.au-art{position:absolute;top:60px;left:50%;transform:translateX(-50%);width:min(520px,118vw);height:auto;opacity:.55;pointer-events:none;filter:drop-shadow(0 0 10px rgba(232,193,74,.35))}
+.au-reg .au-art{top:auto;bottom:-20px;opacity:.16;filter:none}
+.au-top{position:relative;width:100%;max-width:520px;display:flex;justify-content:flex-start;padding-top:calc(16px + env(safe-area-inset-top,0px))}
+.au-wa{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border:1px solid rgba(232,193,74,.35);border-radius:999px;background:rgba(255,255,255,.04);color:#f4efe2;text-decoration:none;font-size:14px;font-weight:600}
+.au-wa .ic{width:24px;height:24px;color:#25d366}
+.au-brand{position:relative;text-align:center;margin:6px 0 150px}
+.au-brand h1{margin:0;font-size:52px;font-weight:900;line-height:1.1;color:#e8c14a;letter-spacing:1px}
+.au-brand p{margin:2px 0 14px;font-size:16px}
+.au-chips{display:inline-flex;align-items:center;gap:12px;padding:8px 20px;border:1px solid rgba(232,193,74,.28);border-radius:999px;background:rgba(255,255,255,.04);font-size:14px;color:#cfc8b4}
+.au-chips i{width:5px;height:5px;border-radius:50%;background:#e8c14a}
+.au-card,.au-form{position:relative;width:100%;max-width:520px;box-sizing:border-box;display:flex;flex-direction:column;gap:8px;text-align:right}
+.au-card{padding:22px 20px 24px;border:1px solid rgba(232,193,74,.22);border-radius:28px;background:rgba(14,14,17,.88);backdrop-filter:blur(6px)}
+.au h2{margin:0;font-size:28px;font-weight:900;color:#fff}
+.au-sub{margin:0 0 8px;font-size:14px;color:#b9b2a0}
+.au-lbl{margin-top:6px;font-size:14px;font-weight:600;color:#e9e3d2}
+.au-in{display:flex;align-items:center;gap:10px;min-height:54px;padding:0 14px;border:1px solid rgba(255,255,255,.14);border-radius:18px;background:rgba(255,255,255,.04)}
+.au-in:focus-within{border-color:#e8c14a;box-shadow:0 0 0 3px rgba(232,193,74,.18)}
+.au-in .ic{width:22px;height:22px;flex:none;color:#e8c14a}
+.au-in input{flex:1;min-width:0;background:none;border:0;outline:0;color:#fff;font:inherit;font-size:16px;text-align:right}
+.au-in input::placeholder{color:#8f8a7b}
+.au-btn{min-height:54px;margin-top:10px;border:0;border-radius:18px;background:linear-gradient(180deg,#e8c14a,#c9a02e);color:#1a1405;font:inherit;font-size:18px;font-weight:900;cursor:pointer}
+.au-btn:disabled{opacity:.6}
+.au-ghost{display:flex;align-items:center;justify-content:center;gap:10px;min-height:52px;border:1px solid rgba(232,193,74,.6);border-radius:18px;background:transparent;color:#e8c14a;font:inherit;font-size:17px;font-weight:800;cursor:pointer}
+.au-ghost .ic{width:22px;height:22px}
+.au-or{display:flex;align-items:center;gap:12px;margin:6px 0;color:#8f8a7b;font-size:13px}
+.au-or::before,.au-or::after{content:"";flex:1;border-top:1px solid rgba(255,255,255,.14)}
+.au-hd{position:relative;width:100%;max-width:520px;display:flex;align-items:center;justify-content:space-between;padding-top:calc(18px + env(safe-area-inset-top,0px))}
+.au-logo{font-size:26px;font-weight:900;color:#e8c14a;margin-inline:auto}
+.au-back{width:44px;height:44px;border:1px solid rgba(232,193,74,.3);border-radius:50%;background:rgba(255,255,255,.04);color:#e8c14a;display:grid;place-items:center;cursor:pointer}
+.au-back .ic{width:20px;height:20px}
+.au-form{margin-top:18px}
+.au-seg{display:flex;gap:10px}
+.au-seg button{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;min-height:52px;border:1px solid rgba(255,255,255,.14);border-radius:16px;background:rgba(255,255,255,.04);color:#e9e3d2;font:inherit;font-size:16px;font-weight:700;cursor:pointer}
+.au-seg button[aria-pressed="true"]{border-color:#e8c14a;background:rgba(232,193,74,.12);color:#e8c14a}
+.au-seg .ic{width:22px;height:22px}
+.au-note{display:flex;align-items:flex-start;gap:10px;margin-top:10px;padding:12px 14px;border:1px solid rgba(232,193,74,.3);border-radius:16px;background:rgba(232,193,74,.06);font-size:13px;color:#d9d2bd}
+.au-note .ic{width:20px;height:20px;flex:none;color:#e8c14a}
+.au-has{text-align:center;margin:10px 0 0;font-size:14px;color:#b9b2a0}
+.au-link{background:none;border:0;padding:0;font:inherit;font-weight:800;color:#e8c14a;cursor:pointer}
+.au .hint{min-height:0;margin:0;font-size:13px}

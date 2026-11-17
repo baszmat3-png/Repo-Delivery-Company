@@ -100,6 +100,7 @@ const IC = {
   bell: '<path d="M6 17V11a6 6 0 0112 0v6l1.5 2h-15z"/><path d="M10 21h4"/>',
   wa: '<path d="M4 20l1.3-4.2A8 8 0 1112 20a8 8 0 01-3.8-1z"/><path d="M9 9c.5 3 2.5 5 6 6l1-1.5-2-1-1 .8c-1-.5-1.8-1.3-2.3-2.3l.8-1-1-2z"/>',
   dl: '<path d="M12 4v11M7 11l5 5 5-5M5 20h14"/>',
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.01"/>',
   support: '<path d="M4 13v-1a8 8 0 0116 0v1"/><rect x="3" y="13" width="4" height="6" rx="1.5"/><rect x="17" y="13" width="4" height="6" rx="1.5"/>'
 };
 const ico = (n) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${IC[n] || ''}</svg>`;
@@ -282,8 +283,10 @@ function logout() {
 function render() {
   const app = $('#app');
   document.body.classList.toggle('lock', !!S.sheet);
-  app.innerHTML = S.user ? shell() : loginView();
-  renderSheet();
+  const regPage = !S.user && S.sheet && S.sheet.type === 'register';
+  app.innerHTML = S.user ? shell() : regPage ? regView(S.sheet) : loginView();
+  if (regPage) { const r = $('#sheet-root'); r.hidden = true; r.innerHTML = ''; } else renderSheet();
+  document.body.classList.toggle('au-on', !S.user);
 }
 
 function shell() {
@@ -324,19 +327,50 @@ function loginView() {
       <p class="hint" id="l-err" style="color:var(--red)" role="alert"></p>
       <button class="btn block" type="submit" id="l-btn">دخول</button>
     </form></div></div>`;
-  return `<div class="lg">
-  <div class="lg-hero"><img src="hero.jpg" alt="ريوو للتوصيل اسرع — أسرع توصيل في بغداد"></div>
-  <form class="lg-card" data-form="login" autocomplete="on">
-    <h1>تسجيل الدخول</h1><p class="lg-sub">مرحباً بك في ريو</p>
-    <div class="lg-in">${ico('phone')}<input id="l-phone" name="phone" inputmode="tel" autocomplete="username" placeholder="رقم الجوال" aria-label="رقم الجوال" required></div>
-    <div class="lg-in">${ico('lock')}<input id="l-pass" name="password" type="password" autocomplete="current-password" placeholder="كلمة المرور" aria-label="كلمة المرور" required><button type="button" class="eye" data-act="eye" aria-label="إظهار كلمة المرور">${ico('eye')}</button></div>
-    <label class="lg-rem"><input type="checkbox" name="remember" checked> تذكرني</label>
-    <p class="hint" id="l-err" style="color:var(--red)" role="alert"></p>
-    <button class="btn block" type="submit" id="l-btn">دخول ←</button>
-    <div class="lg-or"><span>أو</span></div>
-    <button type="button" class="lg-reg" data-act="register" data-role="merchant">${ico('store')} تسجيل كتاجر</button>
-    <button type="button" class="lg-reg" data-act="register" data-role="driver">${ico('user')} تسجيل كسائق</button>
-    <p class="lg-new">ليس لديك حساب؟ <button type="button" class="lg-link" data-act="register" data-role="driver">إنشاء حساب جديد</button></p>
+  const sp = (S.pubSupport || '');
+  return `<div class="au">${auArt()}
+  <div class="au-top">${sp ? `<a class="au-wa" href="https://wa.me/${waNumber(sp)}" target="_blank" rel="noopener">${ico('wa')}<span>تواصل معنا</span></a>` : '<span></span>'}</div>
+  <div class="au-brand"><h1>ريوو</h1><p>للتوصيل الأسرع في بغداد</p><div class="au-chips"><span>أسرع</span><i></i><span>كاش</span><i></i><span>أذكى</span></div></div>
+  <form class="au-card" data-form="login" autocomplete="on">
+    <h2>تسجيل الدخول</h2><p class="au-sub">أدخل بياناتك للمتابعة</p>
+    <label class="au-lbl" for="l-phone">رقم الهاتف</label>
+    <div class="au-in">${ico('phone')}<input id="l-phone" name="phone" inputmode="tel" autocomplete="username" placeholder="07XX XXX XXXX" aria-label="رقم الهاتف" required></div>
+    <label class="au-lbl" for="l-pass">كلمة المرور</label>
+    <div class="au-in">${ico('lock')}<input id="l-pass" name="password" type="password" autocomplete="current-password" placeholder="••••••••" aria-label="كلمة المرور" required></div>
+    <p class="hint" id="l-err" style="color:#ff8a80" role="alert"></p>
+    <button class="au-btn" type="submit" id="l-btn">تسجيل الدخول</button>
+    <div class="au-or"><span>أو</span></div>
+    <button type="button" class="au-ghost" data-act="register" data-role="merchant">${ico('store')} تسجيل كتاجر</button>
+    <button type="button" class="au-ghost" data-act="register" data-role="driver">${ico('bike')} تسجيل كسائق</button>
+  </form></div>`;
+}
+
+/* خلفية خريطة ذهبية خفيفة */
+function auArt() {
+  return `<svg class="au-art" viewBox="0 0 400 520" aria-hidden="true"><g fill="none" stroke="#e8c14a" stroke-linecap="round"><path stroke-width="2.4" opacity=".85" d="M150 40 C90 70 60 130 75 200 C85 250 60 300 90 360 C120 420 200 470 270 440 C330 410 340 340 320 280 C305 230 335 180 300 120 C275 70 215 20 150 40Z"/><path stroke-width="1.2" opacity=".5" d="M175 60 C230 120 190 190 215 260 C235 310 190 350 150 330"/><path stroke-width="1" opacity=".4" stroke-dasharray="4 5" d="M80 215 C150 235 230 215 330 295"/><path stroke-width="1" opacity=".35" d="M95 330 C170 300 250 330 325 300"/><path stroke-width="1" opacity=".3" d="M140 95 L215 170 L300 135"/><circle cx="212" cy="262" r="26" stroke-width="1" opacity=".4"/><circle cx="212" cy="262" r="46" stroke-width=".8" opacity=".25" stroke-dasharray="3 5"/></g><g fill="#e8c14a"><circle cx="150" cy="40" r="3.2"/><circle cx="300" cy="120" r="3.2"/><circle cx="75" cy="200" r="3.2"/><circle cx="330" cy="295" r="3.2"/><circle cx="212" cy="262" r="5"/><circle cx="270" cy="440" r="2.6" opacity=".7"/></g></svg>`;
+}
+
+/* صفحة إنشاء الحساب (بدون تسجيل دخول) */
+function regView(s) {
+  const m = s.role === 'merchant';
+  const inp = (icn, id, name, ph, extra = '') => `<div class="au-in">${ico(icn)}<input id="${id}" name="${name}" placeholder="${ph}" aria-label="${ph}" ${extra}></div>`;
+  return `<div class="au au-reg">${auArt()}
+  <div class="au-hd"><button type="button" class="au-back" data-act="close-sheet" aria-label="رجوع">${ico('chev')}</button><b class="au-logo">ريوو</b></div>
+  <form class="au-form" data-form="register">
+    <h2>${m ? 'إنشاء حساب تاجر' : 'إنشاء حساب مندوب'}</h2><p class="au-sub">${m ? 'أدخل بيانات متجرك للبدء' : 'أدخل بياناتك للانضمام كمندوب توصيل'}</p>
+    <label class="au-lbl" for="r-name">${m ? 'اسم المتجر' : 'اسمك الثلاثي'}</label>
+    ${inp(m ? 'store' : 'user', 'r-name', 'name', m ? 'اسم متجرك' : 'الاسم الأول والثاني والثالث', 'required')}
+    <label class="au-lbl" for="r-phone">رقم الهاتف</label>
+    ${inp('phone', 'r-phone', 'phone', '07XX XXX XXXX', 'inputmode="tel" required')}
+    <label class="au-lbl" for="r-pass">${m ? 'كلمة المرور' : 'كلمة السر'}</label>
+    ${inp('lock', 'r-pass', 'password', '••••••••', 'type="password" minlength="6" autocomplete="new-password" required')}
+    ${m ? `<label class="au-lbl" for="r-area">منطقة المتجر</label>${inp('pin', 'r-area', 'area', 'مثال: الكرادة', 'required')}
+    <label class="au-lbl" for="r-map">موقع المتجر على الخريطة</label>${inp('pin', 'r-map', 'mapUrl', 'رابط خرائط كوكل: maps.app.goo.gl/...', 'dir="ltr"')}`
+    : `<span class="au-lbl">نوع المركبة</span><div class="au-seg"><button type="button" data-act="nu-veh" data-v="car" aria-pressed="${s.vehicle === 'car'}">${ico('car')} سيارة</button><button type="button" data-act="nu-veh" data-v="bike" aria-pressed="${(s.vehicle || 'bike') === 'bike'}">${ico('bike')} دراجة</button></div>`}
+    <div class="au-note">${ico('info')}<span>بعد التسجيل تراجع الإدارة طلبك وتفعّل حسابك، ثم تستطيع الدخول.</span></div>
+    <p class="hint" id="r-err" style="color:#ff8a80" role="alert"></p>
+    <button class="au-btn" type="submit">إنشاء الحساب</button>
+    <p class="au-has">لديك حساب؟ <button type="button" class="au-link" data-act="close-sheet">تسجيل الدخول</button></p>
   </form></div>`;
 }
 
@@ -1862,6 +1896,7 @@ async function boot() {
     } catch { /* يظهر تسجيل الدخول */ }
   }
   render();
+  if (!ADMIN_ONLY) api('GET', '/api/settings').then((r) => { const sp = (r.settings && r.settings.support) || ''; if (sp && sp !== S.pubSupport) { S.pubSupport = sp; if (!S.user && !S.sheet && !document.activeElement.matches('input')) render(); } }).catch(() => {});
 }
 boot();
 if ('serviceWorker' in navigator && location.protocol.startsWith('http') && location.hostname !== 'localhost') navigator.serviceWorker.register('sw.js').catch(() => {});
