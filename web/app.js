@@ -40,6 +40,7 @@ async function syncCfg() {
     const r = await api('GET', '/api/settings');
     const st = r.settings || {};
     let ch = applyCfg(st);
+    if (S.data && S.data.settings && String(S.data.settings.directPay) !== String(st.directPay)) { S.data.settings.directPay = st.directPay; ch = true; }
     if (S.data && S.data.settings && String(S.data.settings.receipts) !== String(st.receipts)) { S.data.settings.receipts = st.receipts; ch = true; }
     if (!ch) return;
     const a = document.activeElement;
@@ -48,6 +49,7 @@ async function syncCfg() {
   } catch { /* ignore */ }
 }
 /* تشغيل/إيقاف الوصولات من الإدارة: يخفي زر «وصل» عن التاجر والسائق فقط */
+const directPayOn = () => !S.data || !S.data.settings || ![0, false, '0'].includes(S.data.settings.directPay);
 const receiptsOn = () => !S.user || S.user.role === 'admin' || !S.data || !S.data.settings || ![0, false, '0'].includes(S.data.settings.receipts);
 const rsizeSeg = () => `<div class="seg" role="group" aria-label="حجم الوصل" style="display:flex;justify-content:center;width:max-content;max-width:100%;margin:0 auto 10px">${Object.keys(RSIZES).map((k) => `<button type="button" data-act="rsize" data-k="${k}" aria-pressed="${RSIZE === k}">${RSIZES[k][0]}</button>`).join('')}</div>`;
 const pad = (n) => String(n).padStart(2, '0');
@@ -487,7 +489,7 @@ const customerRows = (o) => ocRow('phone', 'رقم الزبون', telLink(o.cust
 
 /* الدفع المقدم: شارة وتأكيد (التاجر أو السائق) */
 function payBox(o) {
-  if (o.payMode !== 'prepaid') return '';
+  if (o.payMode !== 'prepaid' || !directPayOn()) return '';
   const closed = ['cancelled', 'returned', 'return_sent', 'rejected'].includes(o.status);
   const who = o.payConfirmedBy === 'merchant' ? 'التاجر' : 'السائق';
   const stt = o.payConfirmed ? `<span class="pill green">تم دفع مبلغ الطلب للتاجر ✓ أكّده ${who}</span>` : `<span class="pill amber">دفع المبلغ للتاجر — بانتظار التأكيد</span>`;
@@ -522,7 +524,7 @@ function driverOrderCard(o) {
   return orderCard(o, {
     corner: chatBtn(o), noteBtn: !!o.note,
     status: st, rows: customerRows(o) + ocRow('phone', 'هاتف المتجر', telLink(o.merchantPhone)),
-    after: payBox(o) + (o.status === 'picking_up' && o.payMode === 'prepaid' ? '' : o.status === 'picking_up' ? (!o.productPrice ? `<div class="notice">طلب توصيل فقط: لا يوجد مبلغ للدفع للتاجر. حصّل أجرة التوصيل ${money(o.deliveryPrice)} من الزبون، ثم اضغط على الحالة واختر «تم الاستلام من التاجر».</div>` : `<div class="notice">ادفع للتاجر ${money(o.productPrice)} عند الاستلام، وبعدها اضغط على الحالة واختر «تم الاستلام من التاجر».</div>`) : ''),
+    after: payBox(o) + (o.status === 'picking_up' && o.payMode === 'prepaid' && directPayOn() ? '' : o.status === 'picking_up' ? (!o.productPrice ? `<div class="notice">طلب توصيل فقط: لا يوجد مبلغ للدفع للتاجر. حصّل أجرة التوصيل ${money(o.deliveryPrice)} من الزبون، ثم اضغط على الحالة واختر «تم الاستلام من التاجر».</div>` : `<div class="notice">ادفع للتاجر ${money(o.productPrice)} عند الاستلام، وبعدها اضغط على الحالة واختر «تم الاستلام من التاجر».</div>`) : ''),
     actions: `${receiptsOn() ? `<button class="btn ghost sm" data-act="receipt" data-id="${o.id}">وصل</button>` : ''}<a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a><a class="btn ghost sm" href="${supportLink(o)}" target="_blank" rel="noopener">واتساب الدعم</a>${wazeLinks(o)}`
   });
 }
@@ -782,6 +784,7 @@ VIEWS['admin:settings'] = () => {
       <div class="kpis" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">${f('bikeSame', 'دراجة · نفس المنطقة')}${f('bikeOther', 'دراجة · منطقة ثانية')}${f('carSame', 'سيارة · نفس المنطقة')}${f('carOther', 'سيارة · منطقة ثانية')}</div></div>
     <div class="card stack"><h2 style="font-size:18px">رسوم التطبيق على السائق</h2><p class="hint">تُخصم من محفظة السائق عند قبول كل طلب.</p>
       <div class="kpis" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">${f('feeSame', 'نفس المنطقة')}${f('feeOther', 'منطقة ثانية')}</div></div>
+    <div class="card stack"><h2 style="font-size:18px">الدفع المباشر للتاجر</h2><label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="s-directpay" name="directPay" ${s.directPay !== 0 ? 'checked' : ''} style="width:22px;height:22px"><span><b>تفعيل «دفع مباشر للتاجر» وتأكيد الدفع</b><span class="hint" style="display:block">عند الإيقاف يختفي خيار طريقة الدفع من نموذج الطلب وتختفي شارة وأزرار تأكيد الدفع من حسابات التجار والسائقين، وتصبح كل الطلبات «عادي».</span></span></label></div>
     <div class="card stack"><h2 style="font-size:18px">الوصولات</h2><label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="s-receipts" name="receipts" ${s.receipts !== 0 ? 'checked' : ''} style="width:22px;height:22px"><span><b>تفعيل الوصولات</b><span class="hint" style="display:block">عند الإيقاف يختفي زر «وصل» من حسابات التجار والسائقين. تبقى متاحة لك كمدير.</span></span></label></div>
     <div class="card stack"><h2 style="font-size:18px">الدعم</h2><div class="field"><label for="s-support">رقم الدعم (يظهر للتجار والسائقين)</label><input class="in mono" id="s-support" name="support" inputmode="tel" value="${esc(s.support)}" placeholder="07XX XXX XXXX"></div></div>
     <button class="btn" type="submit" style="align-self:flex-start">حفظ الإعدادات</button></form>
@@ -1426,7 +1429,7 @@ const SHEETS = {
       <div class="field"><span class="lbl">نوع التوصيل</span><div class="seg" id="o-veh"><button type="button" data-act="veh" data-v="bike" aria-pressed="${f.vehicle === 'bike'}">${ico('bike')} دراجة</button><button type="button" data-act="veh" data-v="car" aria-pressed="${f.vehicle === 'car'}">${ico('car')} سيارة</button></div></div>
       <div class="field"><span class="lbl">سعر التوصيل</span><div class="seg" id="o-zone"></div><span class="hint" id="o-zhint">منطقة متجرك: ${esc(S.user.area)}. يتحدد السعر تلقائياً حسب منطقة الزبون وتقدر تغيّره.</span></div>
       ${field('o-price', 'سعر المنتج (د.ع)', `<input class="in" id="o-price" name="productPrice" data-in="no" inputmode="numeric" placeholder="مثال: 30000 (اكتب 0 للتوصيل فقط)" value="${esc(f.productPrice)}" required>`)}
-      <div class="field"><span class="lbl">طريقة الدفع</span><div class="seg" id="o-pay"><button type="button" data-act="paymode" data-v="cod" aria-pressed="${f.payMode !== 'prepaid'}">${ico('wallet')} عادي</button><button type="button" data-act="paymode" data-v="prepaid" aria-pressed="${f.payMode === 'prepaid'}">${ico('check')} دفع مباشر للتاجر</button></div><span class="hint" id="o-payhint"></span></div>
+      ${directPayOn() ? `<div class="field"><span class="lbl">طريقة الدفع</span><div class="seg" id="o-pay"><button type="button" data-act="paymode" data-v="cod" aria-pressed="${f.payMode !== 'prepaid'}">${ico('wallet')} عادي</button><button type="button" data-act="paymode" data-v="prepaid" aria-pressed="${f.payMode === 'prepaid'}">${ico('check')} دفع مباشر للتاجر</button></div><span class="hint" id="o-payhint"></span></div>`: ''}
       ${field('o-note', 'ملاحظة للسائق (اختياري)', `<textarea class="in" id="o-note" name="note" data-in="no" maxlength="200">${esc(f.note)}</textarea>`)}
       <div class="row between" style="border-top:1px dashed var(--line);padding-top:12px"><b>السعر الإجمالي</b><b id="o-total" style="font-size:20px"></b></div>
       <p class="hint">السائق يدفع لك سعر المنتج عند الاستلام، ويحصّل الإجمالي من الزبون. إذا كان توصيلاً فقط اكتب 0 ويُحسب أجر التوصيل فقط.</p>
@@ -1580,7 +1583,7 @@ function updateOrderForm() {
   $('#o-zone').innerHTML = ['same', 'other'].map((z) => `<button type="button" data-act="zone" data-z="${z}" aria-pressed="${f.zone === z}">${money(p(z))}<small>${z === 'same' ? 'نفس المنطقة' : 'منطقة ثانية'}</small></button>`).join('');
   const price = Number(digits(f.productPrice).replace(/[,\s]/g, '')) || 0;
   $('#o-total').innerHTML = money(price + p(f.zone));
-  const pre = f.payMode === 'prepaid';
+  const pre = f.payMode === 'prepaid' && directPayOn();
   document.querySelectorAll('#o-pay button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === (pre ? 'prepaid' : 'cod'))));
   const ph = $('#o-payhint'); if (ph) ph.textContent = pre ? 'التاجر يأخذ مبلغ الطلب من السائق مباشرة ويسلّمه الطلب، ثم يؤكد أحدكما الدفع. السائق يحصّل من الزبون المبلغ كاملاً (المنتج + التوصيل).' : 'يُحاسَب مبلغ الطلب بالطريقة المعتادة.';
   $('#o-qty').textContent = f.qty;
@@ -1824,7 +1827,7 @@ const FORMS = {
   },
   async 'new-order'(f) {
     const form = S.sheet.form;
-    const body = { customerArea: form.customerArea, customerPhone: form.customerPhone, product: form.product, qty: form.qty, vehicle: form.vehicle, zone: form.zone, productPrice: form.productPrice, payMode: form.payMode, note: form.note };
+    const body = { customerArea: form.customerArea, customerPhone: form.customerPhone, product: form.product, qty: form.qty, vehicle: form.vehicle, zone: form.zone, productPrice: form.productPrice, payMode: directPayOn() ? form.payMode : 'cod', note: form.note };
     await api('POST', '/api/merchant/orders', body);
     toast('أُرسل الطلب للسائقين');
     closeSheet(); go('stats');
@@ -1872,6 +1875,7 @@ const FORMS = {
     const body = {};
     for (const k of ['bikeSame', 'bikeOther', 'carSame', 'carOther', 'feeSame', 'feeOther', 'support']) body[k] = f[k].value;
     body.receipts = f.receipts.checked;
+    body.directPay = f.directPay.checked;
     await api('PUT', '/api/admin/settings', body);
     toast('تم حفظ الإعدادات'); refresh(true);
   }
