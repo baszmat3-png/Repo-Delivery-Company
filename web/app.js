@@ -346,7 +346,30 @@ function loginView() {
 
 /* خلفية خريطة ذهبية خفيفة */
 function auArt() {
-  return `<svg class="au-art" viewBox="0 0 400 520" aria-hidden="true"><g fill="none" stroke="#e8c14a" stroke-linecap="round"><path stroke-width="2.4" opacity=".85" d="M150 40 C90 70 60 130 75 200 C85 250 60 300 90 360 C120 420 200 470 270 440 C330 410 340 340 320 280 C305 230 335 180 300 120 C275 70 215 20 150 40Z"/><path stroke-width="1.2" opacity=".5" d="M175 60 C230 120 190 190 215 260 C235 310 190 350 150 330"/><path stroke-width="1" opacity=".4" stroke-dasharray="4 5" d="M80 215 C150 235 230 215 330 295"/><path stroke-width="1" opacity=".35" d="M95 330 C170 300 250 330 325 300"/><path stroke-width="1" opacity=".3" d="M140 95 L215 170 L300 135"/><circle cx="212" cy="262" r="26" stroke-width="1" opacity=".4"/><circle cx="212" cy="262" r="46" stroke-width=".8" opacity=".25" stroke-dasharray="3 5"/></g><g fill="#e8c14a"><circle cx="150" cy="40" r="3.2"/><circle cx="300" cy="120" r="3.2"/><circle cx="75" cy="200" r="3.2"/><circle cx="330" cy="295" r="3.2"/><circle cx="212" cy="262" r="5"/><circle cx="270" cy="440" r="2.6" opacity=".7"/></g></svg>`;
+  const O = 'M555 338C520 300 470 296 440 302C390 312 350 318 323 338C250 370 190 440 184 559C176 640 185 760 194 799C205 860 250 940 268 1021C290 1080 400 1125 480 1118C560 1110 650 1040 702 910C740 820 760 740 748 670C742 600 750 500 739 430C725 385 690 350 640 343C610 338 580 336 555 338Z';
+  const R = 'M497 300C500 340 535 380 543 430C550 480 520 530 470 565C425 598 410 630 430 655C450 685 480 705 480 716C520 735 548 760 545 790C540 830 500 860 470 870';
+  const big = [[323, 338], [555, 338], [739, 430], [748, 670], [184, 559], [194, 799], [268, 1021], [702, 910]].map((d) => `<circle cx="${d[0]}" cy="${d[1]}" r="5.5"/>`).join('');
+  const small = [[342, 735], [416, 519], [537, 578], [407, 402], [540, 402], [628, 692], [468, 948]].map((d) => `<circle cx="${d[0]}" cy="${d[1]}" r="3.6" opacity=".8"/>`).join('');
+  return `<svg class="au-art" viewBox="150 285 640 850" aria-hidden="true"><defs>
+  <clipPath id="auc"><path d="${O}"/></clipPath>
+  <radialGradient id="aug" cx="480" cy="520" r="330" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#e8c14a" stop-opacity=".3"/><stop offset="1" stop-color="#e8c14a" stop-opacity="0"/></radialGradient>
+  <pattern id="aup" width="30" height="30" patternUnits="userSpaceOnUse"><path d="M30 0H0V30" fill="none" stroke="#e8c14a" stroke-opacity=".16" stroke-width="1"/></pattern>
+  <linearGradient id="aum" x1="0" y1="285" x2="0" y2="1135" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff"/><stop offset=".5" stop-color="#fff"/><stop offset=".62" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity=".4"/></linearGradient>
+  <mask id="aumk"><rect x="150" y="285" width="640" height="850" fill="url(#aum)"/></mask>
+  <filter id="aub" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="7"/></filter></defs>
+  <g mask="url(#aumk)">
+  <g clip-path="url(#auc)"><rect x="150" y="285" width="640" height="850" fill="url(#aug)"/><rect x="150" y="285" width="640" height="850" fill="url(#aup)"/></g>
+  <g fill="none" stroke="#e8c14a" stroke-linecap="round" stroke-linejoin="round">
+  <path d="${O}" stroke-width="9" opacity=".35" filter="url(#aub)"/>
+  <path d="${O}" stroke-width="4"/>
+  <path d="${R}" stroke-width="9" opacity=".3" filter="url(#aub)"/>
+  <path d="${R}" stroke-width="4.2"/>
+  <g stroke-width="1.6" opacity=".85"><path d="M323 338L480 716"/><path d="M555 338C520 450 490 600 480 716"/><path d="M480 716L748 670"/><path d="M480 716L194 799"/><path d="M550 775L743 625"/></g>
+  <g stroke-width="1.4" stroke-dasharray="7 7" opacity=".75"><path d="M184 559L480 716"/><path d="M739 430L480 716"/></g>
+  <g stroke-width="1.1" opacity=".55"><path d="M212 597C300 570 380 500 400 420"/><path d="M565 670C600 580 650 530 730 485"/><path d="M240 855C300 840 380 830 440 800"/><path d="M440 900C460 960 520 1010 560 1090"/><path d="M430 905C470 930 520 960 545 1000"/><path d="M380 530C395 490 410 450 440 400"/></g>
+  <g stroke-width="5" opacity=".9"><path d="M480 515L530 470"/><path d="M415 690L465 648"/></g>
+  <circle cx="480" cy="716" r="24" stroke-width="1.4"/><circle cx="480" cy="716" r="46" stroke-width="1" opacity=".6"/><circle cx="480" cy="716" r="88" stroke-width="1" stroke-dasharray="4 6" opacity=".45"/></g>
+  <g fill="#e8c14a">${big}${small}</g><circle cx="480" cy="716" r="22" fill="#f3dc8c" opacity=".35" filter="url(#aub)"/><circle cx="480" cy="716" r="9" fill="#f6e3a0"/></g></svg>`;
 }
 
 /* صفحة إنشاء الحساب (بدون تسجيل دخول) */

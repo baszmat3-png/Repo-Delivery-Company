@@ -857,3 +857,14 @@ html:has(body.au-on),body.au-on{background:#0a0a0c}
 .au-pick[aria-pressed="true"] .au-pk{background:#e8c14a;border-color:#e8c14a}
 .au-pk .ic{width:18px;height:18px;stroke-width:3}
 .au-foot{display:flex;flex-direction:column;position:relative;width:100%;max-width:520px;margin-top:auto;padding-top:40px}
+
+/* مطابقة التصميم: موضع الخريطة وترتيب الرأس */
+.au-art{top:122px;width:min(266px,64vw);filter:none;opacity:1}
+.au-reg .au-art{top:44%;bottom:auto;width:92vw;opacity:.2}
+.au-back .ic{transform:scaleX(-1)}
+.au-top{position:absolute;top:calc(52px + env(safe-area-inset-top,0px));left:14px;width:auto;padding:0;z-index:2}
+.au{padding-top:calc(52px + env(safe-area-inset-top,0px))}
+.au-reg{padding-top:0}
+.au-brand{z-index:1;margin:0 0 118px}
+.au-brand h1{font-size:46px}
+.au-card{z-index:1;background:rgba(14,14,17,.7)}
