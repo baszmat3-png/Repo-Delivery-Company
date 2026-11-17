@@ -1429,7 +1429,6 @@ const SHEETS = {
       <div class="field"><span class="lbl">نوع التوصيل</span><div class="seg" id="o-veh"><button type="button" data-act="veh" data-v="bike" aria-pressed="${f.vehicle === 'bike'}">${ico('bike')} دراجة</button><button type="button" data-act="veh" data-v="car" aria-pressed="${f.vehicle === 'car'}">${ico('car')} سيارة</button></div></div>
       <div class="field"><span class="lbl">سعر التوصيل</span><div class="seg" id="o-zone"></div><span class="hint" id="o-zhint">منطقة متجرك: ${esc(S.user.area)}. يتحدد السعر تلقائياً حسب منطقة الزبون وتقدر تغيّره.</span></div>
       ${field('o-price', 'سعر المنتج (د.ع)', `<input class="in" id="o-price" name="productPrice" data-in="no" placeholder="مثال: 30000 — أو اكتب «واصل» / 0 إن كان الحساب واصلاً" value="${esc(f.productPrice)}" required><button type="button" class="btn ghost sm" style="margin-top:8px" data-act="price-paid">واصل حساب — السائق يأخذ التوصيل فقط</button>`)}
-      ${directPayOn() ? `<div class="field"><span class="lbl">طريقة الدفع</span><div class="seg" id="o-pay"><button type="button" data-act="paymode" data-v="cod" aria-pressed="${f.payMode !== 'prepaid'}">${ico('wallet')} عادي</button><button type="button" data-act="paymode" data-v="prepaid" aria-pressed="${f.payMode === 'prepaid'}">${ico('check')} دفع مباشر للتاجر</button></div><span class="hint" id="o-payhint"></span></div>`: ''}
       ${field('o-note', 'ملاحظة للسائق (اختياري)', `<textarea class="in" id="o-note" name="note" data-in="no" maxlength="200">${esc(f.note)}</textarea>`)}
       <div class="row between" style="border-top:1px dashed var(--line);padding-top:12px"><b>السعر الإجمالي</b><b id="o-total" style="font-size:20px"></b></div>
       <p class="hint">السائق يدفع لك سعر المنتج عند الاستلام، ويحصّل الإجمالي من الزبون. إذا كان توصيلاً فقط اكتب 0 ويُحسب أجر التوصيل فقط.</p>
@@ -1585,7 +1584,7 @@ function updateOrderForm() {
   $('#o-total').innerHTML = money(price + p(f.zone));
   const pre = f.payMode === 'prepaid' && directPayOn();
   document.querySelectorAll('#o-pay button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === (pre ? 'prepaid' : 'cod'))));
-  const ph = $('#o-payhint'); if (ph) ph.textContent = pre ? 'التاجر يأخذ مبلغ الطلب من السائق مباشرة ويسلّمه الطلب، ثم يؤكد أحدكما الدفع. السائق يحصّل من الزبون المبلغ كاملاً (المنتج + التوصيل).' : 'يُحاسَب مبلغ الطلب بالطريقة المعتادة.';
+  const ph = $('#o-payhint'); if (ph && 0) ph.textContent = pre ? 'التاجر يأخذ مبلغ الطلب من السائق مباشرة ويسلّمه الطلب، ثم يؤكد أحدكما الدفع. السائق يحصّل من الزبون المبلغ كاملاً (المنتج + التوصيل).' : 'يُحاسَب مبلغ الطلب بالطريقة المعتادة.';
   $('#o-qty').textContent = f.qty;
   document.querySelectorAll('#o-veh button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === f.vehicle)));
 }
