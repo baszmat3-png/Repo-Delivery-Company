@@ -41,6 +41,12 @@ jobs:
         with:
           node-version: '22'
 
+      - name: ضبط عنوان الخادم
+        run: |
+          API_URL="${{ vars.RIO_API_URL }}"
+          if [ -z "$API_URL" ]; then API_URL="https://repo-delivery-company2.onrender.com"; fi
+          echo "window.RIO_API = \"$API_URL\";" > web/config.js
+
       - name: Install Dependencies & Build Capacitor Web Assets
         run: |
           npm install --legacy-peer-deps
