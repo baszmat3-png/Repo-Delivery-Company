@@ -375,7 +375,7 @@ route('POST', '/api/merchant/orders', MERCHANT, async (c) => {
   const product = clean(b.product, 80);
   const qty = Math.min(99, Math.max(1, int(b.qty) || 1));
   const vehicle = b.vehicle === 'car' ? 'car' : 'bike';
-  const productPrice = int(b.productPrice);
+  const productPrice = /واصل/.test(String(b.productPrice || '')) ? 0 : int(b.productPrice);
   const payMode = b.payMode === 'prepaid' && Number((await getSettings()).directPay) === 1 ? 'prepaid' : 'cod';
   if (!customerArea) fail('اكتب منطقة الزبون');
   if (!validPhone(customerPhone)) fail('رقم الزبون يجب أن يبدأ بـ 07 ويتكوّن من 11 رقماً');

@@ -429,7 +429,7 @@ function ocClassic(o, opt = {}) {
   return `<article class="oc">
     <div class="oc-top"><div class="oc-no">رقم الطلب : <bdi>#${o.no}</bdi><small>${ago(o.createdAt)}</small></div>${corner ? `<div class="oc-corner">${corner}</div>` : ''}</div>
     ${ocRow('store', 'اسم المتجر', esc(o.merchantName))}
-    <div class="oc-r"><span class="oc-i"><span class="oc-d">$</span></span><span class="oc-l">سعر الطلب:</span><span class="oc-v">${dinar(o.productPrice)}</span><span class="oc-grp"><span class="oc-plus">+</span><span class="oc-l">التوصيل:</span><span class="oc-v">${dinar(o.deliveryPrice)}</span></span></div>
+    <div class="oc-r"><span class="oc-i"><span class="oc-d">$</span></span><span class="oc-l">سعر الطلب:</span><span class="oc-v">${Number(o.productPrice) ? dinar(o.productPrice) : 'واصل حساب'}</span><span class="oc-grp"><span class="oc-plus">+</span><span class="oc-l">التوصيل:</span><span class="oc-v">${dinar(o.deliveryPrice)}</span></span></div>
     ${ocRow('pin', 'عنوان المتجر', `<span class="oc-chip">${esc(o.merchantArea || '—')}</span>`)}
     ${ocRow('pin', 'عنوان الزبون', `<span class="oc-chip">${esc(o.customerArea)}</span>`)}
     ${rows ? `<hr class="oc-sep">${rows}` : ''}${opt.after || ''}
@@ -454,10 +454,10 @@ function odCard(o, opt = {}, d = 'bold') {
   const stat = opt.status ? `<div class="od-st"><span class="od-sv">${opt.status}</span><span class="od-sl">الحالة</span></div>` : '';
   const store = `<div class="od-store"><span class="od-av">${initial}</span><span class="od-sn"><small>اسم المتجر</small><b>${esc(o.merchantName)}</b></span></div>`;
   const price = d === 'sun'
-    ? `<div class="od-pr"><div class="od-pb"><small>سعر الطلب</small><div><b class="od-big">${num(o.productPrice)}</b> <em>دينار</em></div></div><div class="od-db"><small>التوصيل</small><div><b>${num(o.deliveryPrice)}</b> <em>دينار</em></div></div></div>`
+    ? `<div class="od-pr"><div class="od-pb"><small>سعر الطلب</small><div><b class="od-big">${prcTxt(o)}</b> ${Number(o.productPrice) ? '<em>دينار</em>' : ''}</div></div><div class="od-db"><small>التوصيل</small><div><b>${num(o.deliveryPrice)}</b> <em>دينار</em></div></div></div>`
     : d === 'night'
-      ? `<div class="od-pr"><div class="od-pm"><small class="od-pl">سعر الطلب</small><b class="od-big">${num(o.productPrice)}</b><em>دينار</em></div>${delivery}</div>`
-      : `<div class="od-pr"><small class="od-pl">سعر الطلب</small><div class="od-pm"><span class="od-pv"><b class="od-big">${num(o.productPrice)}</b><em>دينار</em></span></div>${d === 'green' ? '' : delivery}${d === 'green' ? delivery : ''}</div>`;
+      ? `<div class="od-pr"><div class="od-pm"><small class="od-pl">سعر الطلب</small><b class="od-big">${prcTxt(o)}</b>${Number(o.productPrice) ? '<em>دينار</em>' : ''}</div>${delivery}</div>`
+      : `<div class="od-pr"><small class="od-pl">سعر الطلب</small><div class="od-pm"><span class="od-pv"><b class="od-big">${prcTxt(o)}</b>${Number(o.productPrice) ? '<em>دينار</em>' : ''}</span></div>${d === 'green' ? '' : delivery}${d === 'green' ? delivery : ''}</div>`;
   const addr = `<div class="od-ad"><div class="od-ab"><small>عنوان المتجر</small><b>${esc(o.merchantArea || '—')}</b></div><span class="od-arrow" aria-hidden="true"></span><div class="od-ab"><small>عنوان الزبون</small><b>${esc(o.customerArea)}</b></div></div>`;
   const toggle = hasDet ? `<button type="button" class="od-tg" data-act="det" data-id="${o.id}" aria-expanded="${open}">${open ? '▴ إخفاء التفاصيل' : '▾ عرض التفاصيل'}</button>` : '';
   const det = hasDet && open ? `<div class="od-det">${opt.rows || ''}</div>${opt.actions ? `<div class="od-links">${opt.actions}</div>` : ''}` : '';
@@ -488,6 +488,7 @@ function ocDesignPicker() {
 const customerRows = (o) => ocRow('phone', 'رقم الزبون', telLink(o.customerPhone)) + ocRow('cash', 'المطلوب من الزبون', money(o.total)) + ocRow('box', 'المنتج', `${esc(o.product)} × ${o.qty} · ${vehName(o.vehicle)}`);
 
 /* الدفع المقدم: شارة وتأكيد (التاجر أو السائق) */
+const prcTxt = (o) => (Number(o.productPrice) ? num(o.productPrice) : 'واصل حساب');
 function payBox(o) {
   if (o.payMode !== 'prepaid' || !directPayOn()) return '';
   const closed = ['cancelled', 'returned', 'return_sent', 'rejected'].includes(o.status);
@@ -524,7 +525,7 @@ function driverOrderCard(o) {
   return orderCard(o, {
     corner: chatBtn(o), noteBtn: !!o.note,
     status: st, rows: customerRows(o) + ocRow('phone', 'هاتف المتجر', telLink(o.merchantPhone)),
-    after: payBox(o) + (o.status === 'picking_up' && o.payMode === 'prepaid' && directPayOn() ? '' : o.status === 'picking_up' ? (!o.productPrice ? `<div class="notice">طلب توصيل فقط: لا يوجد مبلغ للدفع للتاجر. حصّل أجرة التوصيل ${money(o.deliveryPrice)} من الزبون، ثم اضغط على الحالة واختر «تم الاستلام من التاجر».</div>` : `<div class="notice">ادفع للتاجر ${money(o.productPrice)} عند الاستلام، وبعدها اضغط على الحالة واختر «تم الاستلام من التاجر».</div>`) : ''),
+    after: payBox(o) + (o.status === 'picking_up' && o.payMode === 'prepaid' && directPayOn() ? '' : o.status === 'picking_up' ? (!o.productPrice ? `<div class="notice">واصل حساب: لا تدفع للتاجر شيئاً. حصّل من الزبون أجرة التوصيل فقط ${money(o.deliveryPrice)}، ثم اضغط على الحالة واختر «تم الاستلام من التاجر».</div>` : `<div class="notice">ادفع للتاجر ${money(o.productPrice)} عند الاستلام، وبعدها اضغط على الحالة واختر «تم الاستلام من التاجر».</div>`) : ''),
     actions: `${receiptsOn() ? `<button class="btn ghost sm" data-act="receipt" data-id="${o.id}">وصل</button>` : ''}<a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a><a class="btn ghost sm" href="${supportLink(o)}" target="_blank" rel="noopener">واتساب الدعم</a>${wazeLinks(o)}`
   });
 }
@@ -1427,7 +1428,7 @@ const SHEETS = {
       <div class="field"><span class="lbl">العدد</span><div class="stepper"><button type="button" data-act="qty" data-d="1" aria-label="زيادة">+</button><b id="o-qty">${f.qty}</b><button type="button" data-act="qty" data-d="-1" aria-label="إنقاص">−</button></div></div>
       <div class="field"><span class="lbl">نوع التوصيل</span><div class="seg" id="o-veh"><button type="button" data-act="veh" data-v="bike" aria-pressed="${f.vehicle === 'bike'}">${ico('bike')} دراجة</button><button type="button" data-act="veh" data-v="car" aria-pressed="${f.vehicle === 'car'}">${ico('car')} سيارة</button></div></div>
       <div class="field"><span class="lbl">سعر التوصيل</span><div class="seg" id="o-zone"></div><span class="hint" id="o-zhint">منطقة متجرك: ${esc(S.user.area)}. يتحدد السعر تلقائياً حسب منطقة الزبون وتقدر تغيّره.</span></div>
-      ${field('o-price', 'سعر المنتج (د.ع)', `<input class="in" id="o-price" name="productPrice" data-in="no" inputmode="numeric" placeholder="مثال: 30000 (اكتب 0 للتوصيل فقط)" value="${esc(f.productPrice)}" required>`)}
+      ${field('o-price', 'سعر المنتج (د.ع)', `<input class="in" id="o-price" name="productPrice" data-in="no" placeholder="مثال: 30000 — أو اكتب «واصل» / 0 إن كان الحساب واصلاً" value="${esc(f.productPrice)}" required><button type="button" class="btn ghost sm" style="margin-top:8px" data-act="price-paid">واصل حساب — السائق يأخذ التوصيل فقط</button>`)}
       ${directPayOn() ? `<div class="field"><span class="lbl">طريقة الدفع</span><div class="seg" id="o-pay"><button type="button" data-act="paymode" data-v="cod" aria-pressed="${f.payMode !== 'prepaid'}">${ico('wallet')} عادي</button><button type="button" data-act="paymode" data-v="prepaid" aria-pressed="${f.payMode === 'prepaid'}">${ico('check')} دفع مباشر للتاجر</button></div><span class="hint" id="o-payhint"></span></div>`: ''}
       ${field('o-note', 'ملاحظة للسائق (اختياري)', `<textarea class="in" id="o-note" name="note" data-in="no" maxlength="200">${esc(f.note)}</textarea>`)}
       <div class="row between" style="border-top:1px dashed var(--line);padding-top:12px"><b>السعر الإجمالي</b><b id="o-total" style="font-size:20px"></b></div>
@@ -1671,6 +1672,7 @@ const ACTIONS = {
   menu: (el) => { S.menu = null; openSheet({ type: 'status', id: Number(el.dataset.id) }); },
   qty: (el) => { const f = S.sheet.form; f.qty = Math.min(99, Math.max(1, f.qty + Number(el.dataset.d))); updateOrderForm(); },
   veh: (el) => { S.sheet.form.vehicle = el.dataset.v; updateOrderForm(); },
+  'price-paid': () => { S.sheet.form.productPrice = 'واصل حساب'; const i = $('#o-price'); if (i) i.value = 'واصل حساب'; updateOrderForm(); },
   paymode: (el) => { S.sheet.form.payMode = el.dataset.v; updateOrderForm(); },
   'pay-confirm': async (el) => {
     const role = S.user.role === 'driver' ? 'driver' : 'merchant';
