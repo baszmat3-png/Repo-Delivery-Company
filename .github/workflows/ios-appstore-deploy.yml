@@ -10,7 +10,7 @@ on:
       app_version:
         description: 'App Version (CFBundleShortVersionString)'
         required: false
-        default: '1.0.0'
+        default: '1.0.1'
       build_number:
         description: 'Build Number (CFBundleVersion) - اتركه فارغاً ليُحسب تلقائياً'
         required: false
