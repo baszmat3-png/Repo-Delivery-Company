@@ -12,9 +12,9 @@ on:
         required: false
         default: '1.0.0'
       build_number:
-        description: 'Build Number (CFBundleVersion)'
+        description: 'Build Number (CFBundleVersion) - اتركه فارغاً ليُحسب تلقائياً'
         required: false
-        default: '9'
+        default: ''
 
 jobs:
   build-and-upload-ios:
@@ -23,7 +23,7 @@ jobs:
     env:
       BUNDLE_ID: ${{ github.event.inputs.bundle_id || 'com.rioiraq.delivery' }}
       APP_VERSION: ${{ github.event.inputs.app_version || '1.0.0' }}
-      BUILD_NUMBER: ${{ github.event.inputs.build_number || '9' }}
+      BUILD_NUMBER: ${{ github.event.inputs.build_number || github.run_number }}
       SCHEME_NAME: 'App'
       APP_STORE_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
       APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
