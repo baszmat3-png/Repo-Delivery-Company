@@ -131,7 +131,7 @@ let lastSig = '';
 let chatTimer = null;
 
 const TABS = {
-  merchant: [['stats', 'الإحصائيات', 'stats'], ['orders', 'الطلبات', 'orders'], ['me', 'حسابي', 'user']],
+  merchant: [['orders', 'الطلبات', 'orders'], ['home', 'الرئيسية', 'home'], ['stats', 'الإحصائيات', 'stats'], ['me', 'حسابي', 'user']],
   driver: [['home', 'الرئيسية', 'home'], ['orders', 'الطلبات', 'orders'], ['wallet', 'المحفظة', 'wallet'], ['me', 'الملف الشخصي', 'user']],
   admin: [['overview', 'نظرة عامة', 'grid'], ['orders', 'الطلبات', 'orders'], ['merchants', 'التجار', 'store'], ['drivers', 'السائقون', 'users'], ['cards', 'كروت الشحن', 'card'], ['settings', 'الإعدادات', 'settings']]
 };
@@ -170,7 +170,7 @@ async function act(fn, okMsg) {
 }
 
 /* ============ تحميل البيانات ============ */
-function defaultTab() { return TABS[S.user.role][0][0]; }
+function defaultTab() { return S.user.role === 'merchant' ? 'home' : TABS[S.user.role][0][0]; }
 
 async function fetchData() {
   const role = S.user.role;
@@ -210,7 +210,7 @@ async function refresh(manual) {
 }
 
 function go(tab) {
-  S.tab = tab; S.data = null; S.error = ''; S.menu = null; S.armed = null; lastSig = '';
+  S.opage = null; S.tab = tab; S.data = null; S.error = ''; S.menu = null; S.armed = null; lastSig = '';
   if (location.hash !== '#/' + tab) history.replaceState(null, '', '#/' + tab);
   render();
   window.scrollTo(0, 0);
@@ -298,15 +298,17 @@ function shell() {
     if (S.data && role === 'driver' && id === 'home' && S.data.available) return S.data.available.length;
     return 0;
   };
-  const nav = tabs.map(([id, label, ic]) => {
+  const nav = tabs.map(([id, label, ic], i) => {
     const b = badge(id);
-    return `<button data-act="tab" data-tab="${id}" ${S.tab === id ? 'aria-current="page"' : ''}>${ico(ic)}<span>${label}</span>${b ? `<span class="badge">${b}</span>` : ''}</button>`;
+    const fabBtn = role === 'merchant' && i === 2 ? `<button class="navfab" data-act="new-order" aria-label="إنشاء طلب">${ico('plus')}</button>` : '';
+    return `${fabBtn}<button data-act="tab" data-tab="${id}" ${S.tab === id ? 'aria-current="page"' : ''}>${ico(ic)}<span>${label}</span>${b ? `<span class="badge">${b}</span>` : ''}</button>`;
   }).join('');
+  if (S.opage) { const oo = findOrder(S.opage); if (oo) return orderPage(oo); S.opage = null; }
   const un = unreadCount();
   const bell = role === 'admin' ? '' : `<button class="bell" id="bell" data-act="notifs" aria-label="الإشعارات">${ico('bell')}<span class="badge" id="bell-n" ${un ? '' : 'hidden'}>${un}</span></button>`;
-  const fab = role === 'merchant' && S.tab !== 'me' ? `<button class="btn fab" data-act="new-order">${ico('plus')} إنشاء طلب</button>` : '';
+  const fab = '';
   return `<header class="topbar"><div class="grp">${logo()}<span class="rolechip">${ico(ROLE_ICON[role])}${ROLE_NAME[role]}</span></div><div class="grp">${bell}</div></header>
-<div class="shell"><nav class="nav" aria-label="التنقل">${nav}</nav><main class="main"><div class="col ${role === 'admin' ? 'wide' : ''}"><div id="nbanner">${nbannerHtml()}</div>${view()}</div></main></div>${fab}`;
+<div class="shell"><nav class="nav ${role}" aria-label="التنقل">${nav}</nav><main class="main"><div class="col ${role === 'admin' ? 'wide' : ''}"><div id="nbanner">${nbannerHtml()}</div>${view()}</div></main></div>${fab}`;
 }
 
 function view() {
@@ -499,36 +501,39 @@ function payBox(o) {
   return `<div class="notice" style="display:flex;flex-direction:column;gap:8px"><div class="row between" style="gap:8px;flex-wrap:wrap">${stt}${btn}</div>${need}</div>`;
 }
 
-function merchantOrderCard(o, withCancel) {
+function merchantOpts(o, withCancel) {
   const armed = S.armed === 'c' + o.id;
-  return orderCard(o, {
+  return {
     corner: o.driverId ? chatBtn(o) : '', noteBtn: !!o.note,
     status: pill(o.status), rows: customerRows(o) + (o.driverName ? ocRow('user', 'السائق', esc(o.driverName)) : ''),
     after: payBox(o) + (o.status === 'return_sent' ? `<div class="notice">السائق ${esc(o.driverName || '')} أعلن أنه أرجع الطلب إليك. أكّد الاستلام عند وصول البضاعة.</div>` : ''),
     actions: `<a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a>${wazeLinks(o)}${o.status === 'return_sent' ? `<button class="btn sm" data-act="ask-recv" data-id="${o.id}">تأكيد استلام المرتجع</button><button class="btn ghost sm" data-act="not-recv" data-id="${o.id}">لم أستلمه</button>` : ''}${withCancel && o.status === 'pending' ? `<button class="btn danger sm ${armed ? 'arm' : ''}" data-act="cancel" data-id="${o.id}">${armed ? 'اضغط للتأكيد' : 'إلغاء الطلب'}</button>` : ''}`
-  });
+  };
 }
+const merchantOrderCard = (o, withCancel) => orderCard(o, merchantOpts(o, withCancel));
 
-function availOrderCard(o, s, receiving) {
-  return orderCard(o, {
+function availOpts(o, s, receiving) {
+  return {
     corner: `<button class="oc-cb g" data-act="accept" data-id="${o.id}"><span>قبول الطلب</span>${ico('check')}</button><button class="oc-cb r" data-act="note" data-id="${o.id}"><span>ملاحظة</span><span class="oc-ex">!</span></button>`,
     /* قبل قبول الطلب: لا موقع متجر (Waze) ولا تفاصيل منتج، فقط السعر والتوصيل والعنوانين نصاً */
     after: OCD === 'classic' ? `<p class="hint" style="margin-top:12px">رسوم التطبيق عند القبول ${money(o.feeQuote ?? (o.sameArea ? s.feeSame : s.feeOther))}</p>` : ''
-  });
+  };
 }
+const availOrderCard = (o, s, receiving) => orderCard(o, availOpts(o, s, receiving));
 
-function driverOrderCard(o) {
+function driverOpts(o) {
   const open = S.menu === o.id;
   const locked = ['delivered', 'return_sent', 'returned'].includes(o.status);
   const m = '';
   const st = locked ? pill(o.status) : `<span class="menuwrap"><button class="pill ${ST[o.status]?.[1] || ''}" data-act="menu" data-id="${o.id}" aria-haspopup="menu" aria-expanded="${open}">${esc(ST[o.status]?.[0] || o.status)} <span aria-hidden="true">▾</span></button>${m}</span>`;
-  return orderCard(o, {
+  return {
     corner: chatBtn(o), noteBtn: !!o.note,
     status: st, rows: customerRows(o) + ocRow('phone', 'هاتف المتجر', telLink(o.merchantPhone)),
     after: payBox(o) + (o.status === 'picking_up' && o.payMode === 'prepaid' && directPayOn() ? '' : o.status === 'picking_up' ? (!o.productPrice ? `<div class="notice">واصل حساب: لا تدفع للتاجر شيئاً. حصّل من الزبون أجرة التوصيل فقط ${money(o.deliveryPrice)}، ثم اضغط على الحالة واختر «تم الاستلام من التاجر».</div>` : `<div class="notice">ادفع للتاجر ${money(o.productPrice)} عند الاستلام، وبعدها اضغط على الحالة واختر «تم الاستلام من التاجر».</div>`) : ''),
     actions: `${receiptsOn() ? `<button class="btn ghost sm" data-act="receipt" data-id="${o.id}">وصل</button>` : ''}<a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a><a class="btn ghost sm" href="${supportLink(o)}" target="_blank" rel="noopener">واتساب الدعم</a>${wazeLinks(o)}`
-  });
+  };
 }
+const driverOrderCard = (o) => orderCard(o, driverOpts(o));
 
 /* المدير داخل التطبيق: نفس البطاقة مع التحكم بالحالة */
 function adminOrderCard(o) {
@@ -576,11 +581,108 @@ if (!adTimer) adTimer = setInterval(adTick, 4500);
 ['gesturestart', 'gesturechange', 'gestureend'].forEach((n) => document.addEventListener(n, (e) => e.preventDefault()));
 document.addEventListener('touchmove', (e) => { if (e.touches && e.touches.length > 1) e.preventDefault(); }, { passive: false });
 
+/* ============ التصميم الجديد: صفوف الطلبات وصفحة التفاصيل والإحصائيات ============ */
+const STAGE_LBL = ['انتظار سائق', 'تم القبول', 'تم الاستلام', 'تم التسليم'];
+function stageOf(o) {
+  const s = o.status;
+  if (s === 'pending') return [1, 'ok'];
+  if (s === 'picking_up') return [2, 'ok'];
+  if (s === 'on_the_way') return [3, 'ok'];
+  if (s === 'delivered') return [4, 'ok'];
+  if (s === 'cancelled') return [0, 'bad'];
+  if (['returned', 'partial', 'return_sent'].includes(s)) return [3, 'blue'];
+  return [3, 'bad'];
+}
+function segBar(o) {
+  const [n, k] = stageOf(o);
+  return `<div class="seg4 ${k}">${[0, 1, 2, 3].map((i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</div>`;
+}
+const pTxt = (o) => (Number(o.productPrice) ? `<b class="num">${nf.format(Math.round(o.productPrice))}</b><small>د.ع</small>` : `<b class="paid">واصل حساب</b>`);
+function ordRow(o, extra = '') {
+  return `<div class="orow" data-act="open-order" data-id="${o.id}" role="button" tabindex="0">
+    <div class="orow-t"><div class="orow-a"><small>منطقة الزبون</small><b>${esc(o.customerArea)}</b></div><div class="orow-p">${pTxt(o)}</div></div>
+    ${segBar(o)}
+    <div class="orow-b"><span class="chev">${ico('chev')}</span>${extra}<bdi class="orow-n">#${o.no}</bdi>${pill(o.status)}</div>
+  </div>`;
+}
+const dRow = (icn, label, val, sub = '') => `<div class="dr"><span class="dr-i">${icn}</span><div class="dr-t"><small>${label}</small><b>${val}</b>${sub ? `<em>${sub}</em>` : ''}</div></div>`;
+function orderPage(o) {
+  const driver = S.user.role === 'driver';
+  const opt = driver ? (o.status === 'pending' ? availOpts(o, S.data.settings || {}, true) : driverOpts(o)) : merchantOpts(o, true);
+  const [n, k] = stageOf(o);
+  const stepsH = STAGE_LBL.map((l, i) => `<div class="stp ${i < n ? 'on' : ''} ${i + 1 < n ? 'ln' : ''}"><span class="stp-c">${i < n ? ico('check') : ''}</span><small>${l}</small></div>`).join('');
+  const total = Number(o.total) || 0;
+  const priceSub = Number(o.productPrice) ? `${nf.format(Math.round(o.productPrice))} للطلب + ${nf.format(Math.round(o.deliveryPrice))} توصيل` : `واصل حساب + ${nf.format(Math.round(o.deliveryPrice))} توصيل`;
+  const who = driver ? dRow(ico('store'), 'المتجر', esc(o.merchantName || '')) : (o.driverName ? dRow(ico('user'), 'السائق', esc(o.driverName)) : '');
+  const acts = (opt.corner || '') + (opt.noteBtn ? noteBtn(o) : '');
+  const statusTxt = opt.status && driver && o.status !== 'pending' ? `<div class="opg-st">${opt.status}</div>` : '';
+  return `<div class="opage">
+    <div class="op-h"><button class="op-back" data-act="close-order" aria-label="رجوع">${ico('chev')}</button><div><h1>تفاصيل الطلب</h1><p>طلب رقم #${o.no}</p></div></div>
+    <div class="card op-card"><div class="op-state k-${k}">الحالة: <b>${esc(ST[o.status]?.[0] || o.status)}</b></div><div class="stps">${stepsH}</div>${statusTxt}</div>
+    <div class="card op-card">
+      ${dRow(ico('pin'), 'منطقة الزبون', esc(o.customerArea))}
+      ${dRow(ico('phone'), 'رقم الزبون', telLink(o.customerPhone))}
+      ${dRow(ico('orders'), 'عدد قطع المنتج', `${esc(o.product || '')} · ${o.qty} قطع`)}
+      ${dRow(ico('wallet'), 'السعر الإجمالي مع التوصيل', money(total), priceSub)}
+      ${who}
+      ${o.note ? dRow(ico('chat'), 'ملاحظات للمندوب', esc(o.note)) : ''}
+    </div>
+    ${opt.after ? `<div class="stack op-x">${opt.after}</div>` : ''}
+    ${acts ? `<div class="op-acts">${acts}</div>` : ''}
+    ${opt.actions ? `<div class="op-acts wrap">${opt.actions}</div>` : ''}
+  </div>`;
+}
+
+/* ----- إحصائيات التاجر ----- */
+const MONTHS_AR = ['كانون ٢', 'شباط', 'آذار', 'نيسان', 'أيار', 'حزيران', 'تموز', 'آب', 'أيلول', 'تشرين ١', 'تشرين ٢', 'كانون ١'];
+const DAYS_AR = ['سبت', 'أحد', 'اثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة'];
+function statRange(p) {
+  const d = new Date(); d.setHours(0, 0, 0, 0);
+  if (p === 'day') return d.getTime();
+  if (p === 'week') { const back = (d.getDay() + 1) % 7; return d.getTime() - back * 86400000; }
+  return new Date(d.getFullYear(), 0, 1).getTime();
+}
+const maskPhone = (p) => { const s = String(p || '').replace(/\D/g, ''); return s.length >= 7 ? `${s.slice(0, 3)}X-XXX-${s.slice(-4)}` : s; };
+function topBy(list, keyFn) { const m = new Map(); list.forEach((x) => { const k = keyFn(x); if (k) m.set(k, (m.get(k) || 0) + 1); }); return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5); }
+function merchantStatsView() {
+  const p = S.statP || 'week';
+  const from = statRange(p);
+  const all = S.data.orders || [];
+  const o = all.filter((x) => x.createdAt >= from);
+  const done = o.filter((x) => ['delivered', 'partial'].includes(x.status));
+  const ret = o.filter((x) => ['returned', 'partial', 'return_sent', 'rejected'].includes(x.status));
+  const collected = done.reduce((s, x) => s + (Number(x.total) || 0), 0);
+  const fees = done.reduce((s, x) => s + (Number(x.deliveryPrice) || 0), 0);
+  let labels = [], vals = [], title = '';
+  if (p === 'day') { title = 'الطلبات حسب وقت اليوم'; labels = ['فجراً', 'صباحاً', 'ظهراً', 'مساءً']; vals = [0, 0, 0, 0]; o.forEach((x) => { vals[Math.min(3, Math.floor(new Date(x.createdAt).getHours() / 6))]++; }); }
+  else if (p === 'week') { title = 'الطلبات حسب أيام الأسبوع'; labels = DAYS_AR; vals = [0, 0, 0, 0, 0, 0, 0]; o.forEach((x) => { vals[(new Date(x.createdAt).getDay() + 1) % 7]++; }); }
+  else { title = 'الطلبات حسب أشهر السنة'; labels = MONTHS_AR; vals = new Array(12).fill(0); o.forEach((x) => { vals[new Date(x.createdAt).getMonth()]++; }); }
+  const mx = Math.max(1, ...vals);
+  const peak = vals.indexOf(Math.max(...vals));
+  const bars = vals.map((v, i) => `<div class="bar ${v && i === peak ? 'pk' : ''}"><em>${v || ''}</em><i style="height:${Math.max(v ? 8 : 3, Math.round((v / mx) * 100))}%"></i><small>${labels[i]}</small></div>`).join('');
+  const cust = topBy(o, (x) => x.customerPhone);
+  const areas = topBy(o, (x) => x.customerArea);
+  const amx = Math.max(1, ...areas.map((a) => a[1]));
+  const periodLbl = { day: 'اليوم', week: 'هذا الأسبوع', year: 'هذه السنة' }[p];
+  const tab = (id, l) => `<button data-act="stat-p" data-p="${id}" aria-pressed="${p === id}">${l}</button>`;
+  return `${head('الإحصائيات', 'ملخص طلبات متجرك')}
+  <div class="tabs stat-tabs">${tab('day', 'اليوم')}${tab('week', 'الأسبوع')}${tab('year', 'السنة')}</div>
+  <div class="gold"><small>المبالغ المستحصلة من الزبائن</small><b>${nf.format(Math.round(collected))}<span> د.ع</span></b><em>أجور التوصيل: ${nf.format(Math.round(fees))} د.ع</em></div>
+  <div class="card stat-card">
+    <div class="trio"><div class="t1"><small>الطلبات</small><b>${o.length}</b></div><div class="t2"><small>تم تسليمها</small><b>${done.length}</b></div><div class="t3"><small>الراجعة</small><b>${ret.length}</b></div></div>
+    <p class="muted" style="margin:14px 4px 4px">${periodLbl}</p>
+    <h3 class="stat-h">${title}</h3>
+    <div class="bars ${p}">${bars}</div>
+  </div>
+  <div class="card stat-card"><h3 class="stat-h">${ico('user')} أكثر الزبائن طلباً</h3>${cust.length ? cust.map(([k, c], i) => `<div class="rk"><span class="rk-n ${i === 0 ? 'f' : ''}">${i + 1}</span><bdi class="mono">${maskPhone(k)}</bdi><b>${c} طلب</b></div>`).join('') : '<p class="muted">لا توجد بيانات</p>'}</div>
+  <div class="card stat-card"><h3 class="stat-h">${ico('pin')} أكثر المناطق طلباً</h3>${areas.length ? areas.map(([k, c]) => `<div class="ar"><div class="ar-t"><b>${esc(k)}</b><small>${c} طلب</small></div><div class="ar-b"><i style="width:${Math.round((c / amx) * 100)}%"></i></div></div>`).join('') : '<p class="muted">لا توجد بيانات</p>'}</div>`;
+}
+
 const VIEWS = {
-  'merchant:stats'() {
+  'merchant:home'() {
     const o = S.data.orders;
     const pend = o.filter((x) => x.status === 'pending');
-    return `${head('الإحصائيات', esc(S.user.name))}
+    return `${head('الرئيسية', esc(S.user.name))}
     ${adsSlider()}
     <div class="tiles">
       ${tile('طلبات مسجلة', 'بانتظار سائق', pend.length, 'var(--amber)')}
@@ -588,11 +690,9 @@ const VIEWS = {
       ${tile('تم التسليم', '', countBy(o, ['delivered']), 'var(--green)')}
       ${tile('مشاكل', 'لا يرد / مشكلة / أخرى', countBy(o, ['no_answer', 'problem', 'other']), 'var(--red)')}
       ${tile('تم الإرجاع', '', countBy(o, ['returned', 'partial']), 'var(--blue)')}
-    </div>
-    <button class="btn ghost block" style="margin-top:14px" data-act="tab" data-tab="orders">عرض كل الطلبات (${o.length})</button>
-    <h2 class="sec">طلبات مسجلة (${pend.length})</h2>
-    <div class="stack">${pend.length ? pend.map((x) => merchantOrderCard(x, true)).join('') : emptyBox('لا توجد طلبات بانتظار سائق', 'اضغط «إنشاء طلب» لإرسال طلب جديد للسائقين.')}</div>`;
+    </div>`;
   },
+  'merchant:stats'() { return merchantStatsView(); },
   'merchant:orders'() {
     const o = S.data.orders;
     const f = S.filter;
@@ -601,7 +701,7 @@ const VIEWS = {
     const chip = (id, l) => `<button class="chip" data-act="filter" data-f="${id}" aria-pressed="${f === id}">${l}</button>`;
     return `${head('الطلبات', `${o.length} طلب`)}
     <div class="chips">${chip('all', 'الكل')}${chip('active', 'جارية')}${chip('done', 'تم التسليم')}${chip('issues', 'مشاكل ومرتجع')}</div>
-    <div class="stack">${list.length ? list.map((x) => merchantOrderCard(x, true)).join('') : emptyBox('لا توجد طلبات هنا')}</div>`;
+    <div class="stack">${list.length ? list.map((x) => ordRow(x)).join('') : emptyBox('لا توجد طلبات هنا')}</div>`;
   },
   'merchant:me'() { return profileView(S.data.me, S.data.settings); },
 
@@ -612,7 +712,7 @@ const VIEWS = {
     return `${head('الطلبات المتاحة', esc(S.user.name))}
     ${adsSlider()}
     ${!d.me.receiving ? `<div class="notice red" style="margin-bottom:12px">استقبال الطلبات متوقف. فعّله من «الملف الشخصي» لتتمكن من قبول الطلبات.</div>` : ''}
-    <div class="stack">${d.available.length ? d.available.map((o) => availOrderCard(o, s, d.me.receiving)).join('') : emptyBox('لا توجد طلبات متاحة الآن', 'ستظهر الطلبات الجديدة هنا فور رفعها من التجار.')}</div>`;
+    <div class="stack">${d.available.length ? d.available.map((o) => ordRow(o, d.me.receiving ? `<button class="orow-acc" data-act="accept" data-id="${o.id}">قبول الطلب</button>` : '')).join('') : emptyBox('لا توجد طلبات متاحة الآن', 'ستظهر الطلبات الجديدة هنا فور رفعها من التجار.')}</div>`;
   },
   'driver:orders'() {
     const all = S.data.orders;
@@ -622,7 +722,7 @@ const VIEWS = {
     const list = t === 'current' ? cur : prev;
     return `${head('الطلبات')}
     <div class="tabs" style="margin-bottom:14px"><button data-act="otab" data-t="current" aria-pressed="${t === 'current'}">الحالية (${cur.length})</button><button data-act="otab" data-t="prev" aria-pressed="${t === 'prev'}">السابقة (${prev.length})</button></div>
-    <div class="stack">${list.length ? list.map(driverOrderCard).join('') : emptyBox(t === 'current' ? 'لا توجد طلبات حالية' : 'لا توجد طلبات سابقة')}</div>`;
+    <div class="stack">${list.length ? list.map((x) => ordRow(x)).join('') : emptyBox(t === 'current' ? 'لا توجد طلبات حالية' : 'لا توجد طلبات سابقة')}</div>`;
   },
   'driver:wallet'() {
     const w = S.data.wallet;
@@ -1668,6 +1768,9 @@ const ACTIONS = {
   'add-user': (el) => openSheet({ type: 'add-user', role: el.dataset.role }),
   'edit-user': (el) => openSheet({ type: 'edit-user', id: Number(el.dataset.id) }),
   adjust: (el) => openSheet({ type: 'adjust', id: Number(el.dataset.id) }),
+  'open-order': (el) => { S.opage = Number(el.dataset.id); render(); window.scrollTo(0, 0); },
+  'close-order': () => { S.opage = null; render(); },
+  'stat-p': (el) => { S.statP = el.dataset.p; render(); },
   menu: (el) => { S.menu = null; openSheet({ type: 'status', id: Number(el.dataset.id) }); },
   qty: (el) => { const f = S.sheet.form; f.qty = Math.min(99, Math.max(1, f.qty + Number(el.dataset.d))); updateOrderForm(); },
   veh: (el) => { S.sheet.form.vehicle = el.dataset.v; updateOrderForm(); },
@@ -1830,7 +1933,7 @@ const FORMS = {
     const body = { customerArea: form.customerArea, customerPhone: form.customerPhone, product: form.product, qty: form.qty, vehicle: form.vehicle, zone: form.zone, productPrice: form.productPrice, payMode: directPayOn() ? form.payMode : 'cod', note: form.note };
     await api('POST', '/api/merchant/orders', body);
     toast('أُرسل الطلب للسائقين');
-    closeSheet(); go('stats');
+    closeSheet(); go('orders');
   },
   async charge(f) {
     const r = await api('POST', '/api/driver/charge', { number: f.number.value });
