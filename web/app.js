@@ -49,7 +49,7 @@ async function syncCfg() {
   } catch { /* ignore */ }
 }
 /* تشغيل/إيقاف الوصولات من الإدارة: يخفي زر «وصل» عن التاجر والسائق فقط */
-const directPayOn = () => !S.data || !S.data.settings || ![0, false, '0'].includes(S.data.settings.directPay);
+const directPayOn = () => !!(S.data && S.data.settings && [1, true, '1'].includes(S.data.settings.directPay));
 const receiptsOn = () => !S.user || S.user.role === 'admin' || !S.data || !S.data.settings || ![0, false, '0'].includes(S.data.settings.receipts);
 const rsizeSeg = () => `<div class="seg" role="group" aria-label="حجم الوصل" style="display:flex;justify-content:center;width:max-content;max-width:100%;margin:0 auto 10px">${Object.keys(RSIZES).map((k) => `<button type="button" data-act="rsize" data-k="${k}" aria-pressed="${RSIZE === k}">${RSIZES[k][0]}</button>`).join('')}</div>`;
 const pad = (n) => String(n).padStart(2, '0');
@@ -784,7 +784,7 @@ VIEWS['admin:settings'] = () => {
       <div class="kpis" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">${f('bikeSame', 'دراجة · نفس المنطقة')}${f('bikeOther', 'دراجة · منطقة ثانية')}${f('carSame', 'سيارة · نفس المنطقة')}${f('carOther', 'سيارة · منطقة ثانية')}</div></div>
     <div class="card stack"><h2 style="font-size:18px">رسوم التطبيق على السائق</h2><p class="hint">تُخصم من محفظة السائق عند قبول كل طلب.</p>
       <div class="kpis" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">${f('feeSame', 'نفس المنطقة')}${f('feeOther', 'منطقة ثانية')}</div></div>
-    <div class="card stack"><h2 style="font-size:18px">الدفع المباشر للتاجر</h2><label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="s-directpay" name="directPay" ${s.directPay !== 0 ? 'checked' : ''} style="width:22px;height:22px"><span><b>تفعيل «دفع مباشر للتاجر» وتأكيد الدفع</b><span class="hint" style="display:block">عند الإيقاف يختفي خيار طريقة الدفع من نموذج الطلب وتختفي شارة وأزرار تأكيد الدفع من حسابات التجار والسائقين، وتصبح كل الطلبات «عادي».</span></span></label></div>
+    <div class="card stack"><h2 style="font-size:18px">الدفع المباشر للتاجر</h2><label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="s-directpay" name="directPay" ${[1, true, '1'].includes(s.directPay) ? 'checked' : ''} style="width:22px;height:22px"><span><b>تفعيل «دفع مباشر للتاجر» وتأكيد الدفع</b><span class="hint" style="display:block">عند الإيقاف يختفي خيار طريقة الدفع من نموذج الطلب وتختفي شارة وأزرار تأكيد الدفع من حسابات التجار والسائقين، وتصبح كل الطلبات «عادي».</span></span></label></div>
     <div class="card stack"><h2 style="font-size:18px">الوصولات</h2><label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="s-receipts" name="receipts" ${s.receipts !== 0 ? 'checked' : ''} style="width:22px;height:22px"><span><b>تفعيل الوصولات</b><span class="hint" style="display:block">عند الإيقاف يختفي زر «وصل» من حسابات التجار والسائقين. تبقى متاحة لك كمدير.</span></span></label></div>
     <div class="card stack"><h2 style="font-size:18px">الدعم</h2><div class="field"><label for="s-support">رقم الدعم (يظهر للتجار والسائقين)</label><input class="in mono" id="s-support" name="support" inputmode="tel" value="${esc(s.support)}" placeholder="07XX XXX XXXX"></div></div>
     <button class="btn" type="submit" style="align-self:flex-start">حفظ الإعدادات</button></form>

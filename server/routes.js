@@ -34,7 +34,7 @@ const RETURNABLE = ['picking_up', 'on_the_way', 'rejected', 'no_answer', 'postpo
 const TROUBLE = ['no_answer', 'postponed', 'problem', 'other'];
 const DONE = ['delivered', 'partial'];
 
-const DEF_SETTINGS = { bikeSame: 3000, bikeOther: 5000, carSame: 5000, carOther: 8000, feeSame: 500, feeOther: 1000, lateMin: 45, support: '', receipts: 1, directPay: 1, ocDesign: 'green' };
+const DEF_SETTINGS = { bikeSame: 3000, bikeOther: 5000, carSame: 5000, carOther: 8000, feeSame: 500, feeOther: 1000, lateMin: 45, support: '', receipts: 1, directPay: 0, ocDesign: 'green' };
 /* تصاميم الوصولات (بطاقة الطلب): يختارها المدير وتُطبَّق فوراً على كل الحسابات */
 const OC_KEYS = ['classic', 'bold', 'green', 'ticket', 'sun', 'night'];
 
@@ -376,7 +376,7 @@ route('POST', '/api/merchant/orders', MERCHANT, async (c) => {
   const qty = Math.min(99, Math.max(1, int(b.qty) || 1));
   const vehicle = b.vehicle === 'car' ? 'car' : 'bike';
   const productPrice = int(b.productPrice);
-  const payMode = b.payMode === 'prepaid' && Number((await getSettings()).directPay) !== 0 ? 'prepaid' : 'cod';
+  const payMode = b.payMode === 'prepaid' && Number((await getSettings()).directPay) === 1 ? 'prepaid' : 'cod';
   if (!customerArea) fail('اكتب منطقة الزبون');
   if (!validPhone(customerPhone)) fail('رقم الزبون يجب أن يبدأ بـ 07 ويتكوّن من 11 رقماً');
   if (!product) fail('اكتب نوع المنتج');
@@ -1371,7 +1371,7 @@ async function confirmPay(c, who, where) {
   const r = await q(`SELECT * FROM orders WHERE id=$1 AND ${where}=$2`, [Number(c.params.id), c.user.id]);
   const o = r.rows[0];
   if (!o) fail('الطلب غير موجود', 404);
-  if (Number((await getSettings()).directPay) === 0) fail('ميزة الدفع المباشر للتاجر متوقفة حالياً', 409);
+  if (Number((await getSettings()).directPay) !== 1) fail('ميزة الدفع المباشر للتاجر متوقفة حالياً', 409);
   if (o.pay_mode !== 'prepaid') fail('هذا الطلب ليس بالدفع المباشر للتاجر', 409);
   if (o.pay_confirmed) return { order: ord(o) };
   if (['cancelled', 'returned', 'return_sent', 'rejected'].includes(o.status)) fail('لا يمكن تأكيد الدفع لهذا الطلب', 409);
