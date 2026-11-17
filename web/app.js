@@ -282,8 +282,8 @@ function logout() {
 /* ============ العرض العام ============ */
 function render() {
   const app = $('#app');
-  document.body.classList.toggle('lock', !!S.sheet);
   const regPage = !S.user && S.sheet && S.sheet.type === 'register';
+  document.body.classList.toggle('lock', !!S.sheet && !regPage);
   app.innerHTML = S.user ? shell() : regPage ? regView(S.sheet) : loginView();
   if (regPage) { const r = $('#sheet-root'); r.hidden = true; r.innerHTML = ''; } else renderSheet();
   document.body.classList.toggle('au-on', !S.user);
