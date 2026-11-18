@@ -983,8 +983,8 @@ route('POST', '/api/admin/reset-cards', ADMIN, async (c) => {
 
 route('POST', '/api/admin/reset', ADMIN, async (c) => {
   if (c.body.confirm !== true) fail('يجب تأكيد عملية الحذف');
-  const wantOrders = c.body.orders === true, wantDemo = c.body.demo === true;
-  if (!wantOrders && !wantDemo) fail('اختر ما تريد حذفه');
+  const wantOrders = c.body.orders === true, wantDemo = false; // الحسابات التجريبية محمية ولا تُحذف أبداً
+  if (!wantOrders) fail('اختر ما تريد حذفه');
   const cnt = async (sql, p = []) => Number((await q(sql, p)).rows[0].n) || 0;
   const out = { orders: 0, accounts: 0 };
   let demoIds = [];
@@ -1267,6 +1267,7 @@ const TD_DRIVERS = [
 TD_STORES.forEach((x) => DEMO_PHONES.push(x[0])); TD_DRIVERS.forEach((x) => DEMO_PHONES.push(x[0]));
 
 route('POST', '/api/admin/tracking/add-demo', ADMIN, async () => {
+  fail('تم إلغاء ميزة إضافة المندوبين التجريبيين', 410);
   const now = Date.now(), hash = await hashPassword('123456');
   const exist = async (phone) => (await q('SELECT * FROM users WHERE phone=$1', [phone])).rows[0];
   const stores = [];
