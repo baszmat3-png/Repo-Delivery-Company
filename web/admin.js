@@ -568,7 +568,7 @@ function odA(o, d, drv) {
 function ocard(o) {
   const drv = o.driverId ? D.drivers.find((x) => x.id === o.driverId) : null;
   const dz = ocDesign();
-  if (dz !== 'classic') return odA(o, dz, drv);
+  if (dz !== 'classic') return odA(o, dz === 'steps' ? 'green' : dz, drv);
   return `<article class="oc">
     <div class="oc-top"><div class="oc-no">رقم الطلب : <bdi>#${o.no}</bdi><small>${ago(o.createdAt)} · ${fdt(o.createdAt)}</small></div>${o.driverId ? `<div class="oc-corner"><button class="oc-cb g" data-a="chat" data-id="${o.id}"><span>محادثة</span>${ico('chat')}</button></div>` : ''}</div>
     ${ocRow('store', 'اسم المتجر', esc(o.merchantName))}

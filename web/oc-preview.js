@@ -8,7 +8,8 @@
     ['green', 'أخضر متدرّج', 'مع شريط تقدّم الطلب'],
     ['ticket', 'تذكرة', 'بشكل قسيمة'],
     ['sun', 'أصفر وبني', 'بطاقات ملوّنة'],
-    ['night', 'داكن', 'مسار التوصيل']
+    ['night', 'داكن', 'مسار التوصيل'],
+    ['steps', 'مراحل الطلب', 'تفاصيل داخل البطاقة']
   ];
   var P = {
     store: '<path d="M4 9l1.5-5h13L20 9"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/>',
@@ -64,7 +65,7 @@
       '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800;900&display=swap">' +
       '<link rel="stylesheet" href="style.css"><script src="theme.js"><\/script>' +
       '<style>html,body{margin:0;background:transparent!important;overflow:hidden;height:100%}.odp-box{height:100%;border-radius:0;background:transparent}.odp-in{top:6px;right:50%;margin-right:-180px;width:360px;transform-origin:top center;transform:scale(.55) translateX(0)}</style>' +
-      '</head><body><div class="odp-box"><div class="odp-in">' + (k === 'classic' ? classic() : alt(k)) + '</div></div></body></html>';
+      '</head><body><div class="odp-box"><div class="odp-in">' + (k === 'classic' ? classic() : alt(k === 'steps' ? 'green' : k)) + '</div></div></body></html>';
   }
   window.RioOC = { list: D, valid: function (k) { return D.some(function (d) { return d[0] === k; }); }, doc: doc };
 })();
