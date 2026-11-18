@@ -757,7 +757,7 @@ route('DELETE', '/api/admin/users/:id', ADM(['merchants', 'drivers'], 'edit'), a
   const r = await q(`SELECT * FROM users WHERE id=$1 AND role IN ('driver','merchant')`, [Number(c.params.id)]);
   const u = r.rows[0];
   if (!u) fail('المستخدم غير موجود', 404);
-  if (/تجريبي/.test(String(u.name || '')) || Object.values(REVIEW).includes(String(u.phone))) fail('هذا حساب تجريبي محمي ولا يمكن حذفه', 403);
+  if (/تجريبي|تحريبي|المراجعة/.test(String(u.name || '')) || ['07700000201', '07700000301'].includes(String(u.phone)) || Object.values(REVIEW).includes(String(u.phone))) fail('هذا حساب تجريبي محمي ولا يمكن حذفه', 403);
   need(c.user, u.role === 'merchant' ? 'merchants' : 'drivers', 'edit');
   const live = Number((await q(`SELECT COUNT(*) AS n FROM orders WHERE (merchant_id=$1 OR driver_id=$1) AND status IN ('pending','picking_up','on_the_way','return_sent')`, [u.id])).rows[0].n);
   if (live) fail('لا يمكن الحذف: لدى الحساب ' + live + ' طلب جارٍ. أنهِ الطلبات أو انقلها لسائق آخر أولاً', 409);
