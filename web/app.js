@@ -614,7 +614,7 @@ function orderPage(o) {
   const total = Number(o.total) || 0;
   const priceSub = Number(o.productPrice) ? `${nf.format(Math.round(o.productPrice))} للطلب + ${nf.format(Math.round(o.deliveryPrice))} توصيل` : `واصل حساب + ${nf.format(Math.round(o.deliveryPrice))} توصيل`;
   const who = driver ? dRow(ico('store'), 'المتجر', esc(o.merchantName || '')) : (o.driverName ? dRow(ico('user'), 'السائق', esc(o.driverName)) : '');
-  const acts = (opt.corner || '') + (opt.noteBtn ? noteBtn(o) : '');
+  const acts = driver && o.status === 'pending' && S.data.me && S.data.me.receiving ? `<button class="btn block" data-act="accept" data-id="${o.id}">${ico('check')} قبول الطلب</button>` : '';
   const statusTxt = opt.status && driver && o.status !== 'pending' ? `<div class="opg-st">${opt.status}</div>` : '';
   return `<div class="opage">
     <div class="op-h"><button class="op-back" data-act="close-order" aria-label="رجوع">${ico('chev')}</button><div><h1>تفاصيل الطلب</h1><p>طلب رقم #${o.no}</p></div></div>
