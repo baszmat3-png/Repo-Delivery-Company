@@ -23,11 +23,12 @@ const OC_DESIGNS = [
   ['green', 'أخضر متدرّج', 'مع شريط تقدّم الطلب'],
   ['ticket', 'تذكرة', 'بشكل قسيمة'],
   ['sun', 'أصفر وبني', 'بطاقات ملوّنة'],
-  ['night', 'داكن', 'مسار التوصيل']
+  ['night', 'داكن', 'مسار التوصيل'],
+  ['steps', 'مراحل الطلب', 'تفاصيل داخل البطاقة']
 ];
 const ocdValid = (k) => OC_DESIGNS.some((d) => d[0] === k);
 /* التصميم يحدده المدير من لوحة التحكم (يصل من الخادم)، وتُحفظ آخر قيمة هنا فقط لتفادي الوميض عند فتح التطبيق */
-let OCD = ocdValid(store.get('rio_ocd')) ? store.get('rio_ocd') : 'green';
+let OCD = ocdValid(store.get('rio_ocd')) ? store.get('rio_ocd') : 'steps';
 function applyCfg(st) {
   if (!st || !ocdValid(st.ocDesign) || st.ocDesign === OCD) return false;
   OCD = st.ocDesign; store.set('rio_ocd', OCD); S.det = {};
@@ -424,7 +425,8 @@ function navLinks(o, ll) {
   return out;
 }
 /* opt: corner (أزرار الزاوية العلوية)، status (الحالة)، rows (تفاصيل إضافية)، after (تنبيهات)، actions (الأزرار السفلية) */
-function orderCard(o, opt = {}) { return OCD === 'classic' ? ocClassic(o, opt) : odCard(o, opt, OCD); }
+const stepsOn = () => OCD === 'steps';
+function orderCard(o, opt = {}) { const d = OCD === 'steps' ? 'green' : OCD; return d === 'classic' ? ocClassic(o, opt) : odCard(o, opt, d); }
 function ocClassic(o, opt = {}) {
   const corner = (opt.corner || '') + (opt.noteBtn ? noteBtn(o) : '');
   const rows = (opt.status ? ocRow('status', 'الحالة', opt.status) : '') + (opt.rows || '');
@@ -475,6 +477,10 @@ function odCard(o, opt = {}, d = 'bold') {
 }
 /* معاينة مصغّرة داخل قسم «تصميم الوصولات» (غير تفاعلية) */
 function ocPreview(d) {
+  if (d === 'steps') {
+    const so = { id: 0, no: 1069, createdAt: Date.now() - 14 * 3600000, customerArea: 'حي اور', productPrice: 0, deliveryPrice: 5000, status: 'on_the_way' };
+    return ordRow(so).replace(/\sdata-act="[^"]*"/g, '').replace(/\sdata-id="[^"]*"/g, '');
+  }
   const o = { id: 0, no: 1069, createdAt: Date.now() - 14 * 3600000, merchantName: 'متجر الرافدين', productPrice: 1000000, deliveryPrice: 5000, merchantArea: 'الكرادة', customerArea: 'حي اور', status: 'delivered' };
   const opt = { status: pill('delivered'), corner: chatBtn(o), noteBtn: true, rows: d === 'classic' ? '' : ocRow('phone', 'رقم الزبون', '0782 118 9947') };
   const prev = S.det[0]; S.det[0] = false;
@@ -728,7 +734,7 @@ const VIEWS = {
     const chip = (id, l) => `<button class="chip" data-act="filter" data-f="${id}" aria-pressed="${f === id}">${l}</button>`;
     return `${head('الطلبات', `${o.length} طلب`)}
     <div class="chips">${chip('all', 'الكل')}${chip('active', 'جارية')}${chip('done', 'تم التسليم')}${chip('issues', 'مشاكل ومرتجع')}</div>
-    <div class="stack">${list.length ? list.map((x) => ordRow(x)).join('') : emptyBox('لا توجد طلبات هنا')}</div>`;
+    <div class="stack">${list.length ? list.map((x) => (stepsOn() ? ordRow(x) : merchantOrderCard(x, true))).join('') : emptyBox('لا توجد طلبات هنا')}</div>`;
   },
   'merchant:me'() { return profileView(S.data.me, S.data.settings); },
 
@@ -739,7 +745,7 @@ const VIEWS = {
     return `${head('الطلبات المتاحة', esc(S.user.name))}
     ${adsSlider()}
     ${!d.me.receiving ? `<div class="notice red" style="margin-bottom:12px">استقبال الطلبات متوقف. فعّله من «الملف الشخصي» لتتمكن من قبول الطلبات.</div>` : ''}
-    <div class="stack">${d.available.length ? d.available.map((o) => ordRow(o, d.me.receiving ? `<button class="orow-acc" data-act="accept" data-id="${o.id}">قبول الطلب</button>` : '')).join('') : emptyBox('لا توجد طلبات متاحة الآن', 'ستظهر الطلبات الجديدة هنا فور رفعها من التجار.')}</div>`;
+    <div class="stack">${d.available.length ? d.available.map((o) => (!stepsOn() ? availOrderCard(o, s, d.me.receiving) : ordRow(o, d.me.receiving ? `<button class="orow-acc" data-act="accept" data-id="${o.id}">قبول الطلب</button>` : ''))).join('') : emptyBox('لا توجد طلبات متاحة الآن', 'ستظهر الطلبات الجديدة هنا فور رفعها من التجار.')}</div>`;
   },
   'driver:orders'() {
     const all = S.data.orders;
@@ -749,7 +755,7 @@ const VIEWS = {
     const list = t === 'current' ? cur : prev;
     return `${head('الطلبات')}
     <div class="tabs" style="margin-bottom:14px"><button data-act="otab" data-t="current" aria-pressed="${t === 'current'}">الحالية (${cur.length})</button><button data-act="otab" data-t="prev" aria-pressed="${t === 'prev'}">السابقة (${prev.length})</button></div>
-    <div class="stack">${list.length ? list.map((x) => ordRow(x, '', true)).join('') : emptyBox(t === 'current' ? 'لا توجد طلبات حالية' : 'لا توجد طلبات سابقة')}</div>`;
+    <div class="stack">${list.length ? list.map((x) => (stepsOn() ? ordRow(x, '', true) : driverOrderCard(x))).join('') : emptyBox(t === 'current' ? 'لا توجد طلبات حالية' : 'لا توجد طلبات سابقة')}</div>`;
   },
   'driver:wallet'() {
     const w = S.data.wallet;
