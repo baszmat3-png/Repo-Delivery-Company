@@ -598,13 +598,18 @@ function segBar(o) {
   return `<div class="seg4 ${k}">${[0, 1, 2, 3].map((i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</div>`;
 }
 const pTxt = (o) => (Number(o.productPrice) ? `<b class="num">${nf.format(Math.round(o.productPrice))}</b><small>د.ع</small>` : `<b class="paid">واصل حساب</b>`);
+function stepper(o) {
+  const [n, k] = stageOf(o);
+  const h = STAGE_LBL.map((l, i) => `<div class="stp ${i < n ? 'on' : ''} ${i + 1 < n ? 'ln' : ''}"><span class="stp-c">${i < n ? ico('check') : ''}</span><small>${l}</small></div>`).join('');
+  return `<div class="orow-s"><div class="op-state k-${k}">الحالة: <b>${esc(ST[o.status]?.[0] || o.status)}</b></div><div class="stps">${h}</div></div>`;
+}
 function ordRow(o, extra = '', menu = false) {
   const locked = ['delivered', 'return_sent', 'returned', 'cancelled'].includes(o.status);
   const st = menu && !locked ? `<button type="button" class="pill ${ST[o.status]?.[1] || ''}" data-act="menu" data-id="${o.id}" aria-haspopup="menu">${esc(ST[o.status]?.[0] || o.status)} <span aria-hidden="true">▾</span></button>` : pill(o.status);
   const open = !!(S.exp && S.exp[o.id]);
   return `<div class="orow ${open ? 'open' : ''}">
     <div class="orow-t"><div class="orow-a"><small>منطقة الزبون</small><b>${esc(o.customerArea)}</b></div><div class="orow-pw"><span class="orow-d">+ توصيل ${nf.format(Math.round(o.deliveryPrice || 0))} د.ع</span><div class="orow-p">${pTxt(o)}</div></div></div>
-    ${segBar(o)}
+    ${stepper(o)}
     <div class="orow-b">${extra}<bdi class="orow-n">#${o.no}</bdi>${st}</div>
     <button type="button" class="orow-tg" data-act="toggle-order" data-id="${o.id}" aria-expanded="${open}">${open ? 'إخفاء التفاصيل ▴' : 'عرض التفاصيل ▾'}</button>
     ${open ? `<div class="orow-x">${orderExpand(o)}</div>` : ''}

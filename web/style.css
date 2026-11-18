@@ -958,3 +958,7 @@ html:has(body.au-on),body.au-on{background:#0a0a0c}
 .orow-tg{background:none;border:2px dashed var(--line);border-radius:16px;padding:12px;font-weight:700;color:var(--fg)}
 .orow-x{border-top:1px solid var(--line);padding-top:4px;display:flex;flex-direction:column}
 .orow-x .op-acts{margin-top:10px}
+
+.orow-s .op-state{font-size:17px;margin-bottom:12px}
+.orow-s .stp-c{width:38px;height:38px}.orow-s .stp:not(:last-child)::after{top:17px;inset-inline-start:calc(50% + 24px);width:calc(100% - 48px)}
+.orow-s .stp small{font-size:12px}
