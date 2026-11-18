@@ -601,11 +601,28 @@ const pTxt = (o) => (Number(o.productPrice) ? `<b class="num">${nf.format(Math.r
 function ordRow(o, extra = '', menu = false) {
   const locked = ['delivered', 'return_sent', 'returned', 'cancelled'].includes(o.status);
   const st = menu && !locked ? `<button type="button" class="pill ${ST[o.status]?.[1] || ''}" data-act="menu" data-id="${o.id}" aria-haspopup="menu">${esc(ST[o.status]?.[0] || o.status)} <span aria-hidden="true">▾</span></button>` : pill(o.status);
-  return `<div class="orow" data-act="open-order" data-id="${o.id}" role="button" tabindex="0">
-    <div class="orow-t"><div class="orow-a"><small>منطقة الزبون</small><b>${esc(o.customerArea)}</b></div><div class="orow-p">${pTxt(o)}</div></div>
+  const open = !!(S.exp && S.exp[o.id]);
+  return `<div class="orow ${open ? 'open' : ''}">
+    <div class="orow-t"><div class="orow-a"><small>منطقة الزبون</small><b>${esc(o.customerArea)}</b></div><div class="orow-pw"><span class="orow-d">+ توصيل ${nf.format(Math.round(o.deliveryPrice || 0))} د.ع</span><div class="orow-p">${pTxt(o)}</div></div></div>
     ${segBar(o)}
-    <div class="orow-b"><span class="chev">${ico('chev')}</span>${extra}<bdi class="orow-n">#${o.no}</bdi>${st}</div>
+    <div class="orow-b">${extra}<bdi class="orow-n">#${o.no}</bdi>${st}</div>
+    <button type="button" class="orow-tg" data-act="toggle-order" data-id="${o.id}" aria-expanded="${open}">${open ? 'إخفاء التفاصيل ▴' : 'عرض التفاصيل ▾'}</button>
+    ${open ? `<div class="orow-x">${orderExpand(o)}</div>` : ''}
   </div>`;
+}
+function orderExpand(o) {
+  const driver = S.user.role === 'driver';
+  const opt = driver ? (o.status === 'pending' ? availOpts(o, S.data.settings || {}, true) : driverOpts(o)) : merchantOpts(o, true);
+  const total = Number(o.total) || 0;
+  const priceSub = Number(o.productPrice) ? `${nf.format(Math.round(o.productPrice))} للطلب + ${nf.format(Math.round(o.deliveryPrice))} توصيل` : `واصل حساب + ${nf.format(Math.round(o.deliveryPrice))} توصيل`;
+  const who = driver ? dRow(ico('store'), 'المتجر', esc(o.merchantName || '')) : (o.driverName ? dRow(ico('user'), 'السائق', esc(o.driverName)) : '');
+  return `${dRow(ico('phone'), 'رقم الزبون', telLink(o.customerPhone))}
+    ${dRow(ico('orders'), 'عدد قطع المنتج', `${esc(o.product || '')} · ${o.qty} قطع`)}
+    ${dRow(ico('wallet'), 'السعر الإجمالي مع التوصيل', money(total), priceSub)}
+    ${who}
+    ${o.note ? dRow(ico('chat'), 'ملاحظات للمندوب', esc(o.note)) : ''}
+    ${opt.after ? `<div class="stack op-x">${opt.after}</div>` : ''}
+    <div class="op-acts wrap">${opt.actions || ''}</div>`;
 }
 const dRow = (icn, label, val, sub = '') => `<div class="dr"><span class="dr-i">${icn}</span><div class="dr-t"><small>${label}</small><b>${val}</b>${sub ? `<em>${sub}</em>` : ''}</div></div>`;
 function orderPage(o) {
@@ -1771,6 +1788,7 @@ const ACTIONS = {
   'add-user': (el) => openSheet({ type: 'add-user', role: el.dataset.role }),
   'edit-user': (el) => openSheet({ type: 'edit-user', id: Number(el.dataset.id) }),
   adjust: (el) => openSheet({ type: 'adjust', id: Number(el.dataset.id) }),
+  'toggle-order': (el) => { S.exp = S.exp || {}; const k = Number(el.dataset.id); S.exp[k] = !S.exp[k]; render(); },
   'open-order': (el) => { S.opage = Number(el.dataset.id); render(); window.scrollTo(0, 0); },
   'close-order': () => { S.opage = null; render(); },
   'stat-p': (el) => { S.statP = el.dataset.p; render(); },
