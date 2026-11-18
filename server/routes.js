@@ -706,6 +706,7 @@ route('PUT', '/api/admin/users/:id', ADM(['merchants', 'drivers'], 'edit'), asyn
   const u = r.rows[0];
   if (!u) fail('المستخدم غير موجود', 404);
   need(c.user, u.role === 'merchant' ? 'merchants' : 'drivers', 'edit');
+  if ((b.active !== undefined || b.verified !== undefined) && (/تجريبي|تحريبي|المراجعة/.test(String(u.name || '')) || ['07700000201', '07700000301'].includes(String(u.phone)) || Object.values(REVIEW).includes(String(u.phone)))) fail('هذا حساب تجريبي محمي: لا يمكن إيقافه أو تغيير توثيقه', 403);
   const patch = {};
   if (b.name !== undefined) { patch.name = clean(b.name, 60); if (patch.name.length < 2) fail('اكتب الاسم'); }
   if (b.phone !== undefined) {
