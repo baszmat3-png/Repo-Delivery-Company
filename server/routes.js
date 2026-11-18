@@ -357,7 +357,10 @@ const MERCHANT = { roles: ['merchant'] };
 
 route('GET', '/api/merchant/home', MERCHANT, async (c) => {
   const r = await q('SELECT * FROM orders WHERE merchant_id=$1 ORDER BY created_at DESC LIMIT 300', [c.user.id]);
-  return { me: pub(c.user), settings: await getSettings(), orders: r.rows.map(ord), adsVer: await adsVer('merchant') };
+  const dIds = [...new Set(r.rows.map((x) => x.driver_id).filter(Boolean))];
+  const dPh = {};
+  if (dIds.length) (await q(`SELECT id, phone FROM users WHERE id IN (${dIds.map((_, i) => '$' + (i + 1)).join(',')})`, dIds)).rows.forEach((x) => { dPh[x.id] = x.phone; });
+  return { me: pub(c.user), settings: await getSettings(), orders: r.rows.map((x) => ({ ...ord(x), driverPhone: dPh[x.driver_id] || '' })), adsVer: await adsVer('merchant') };
 });
 
 // تقرير التاجر لفترة محددة (للتصدير): كل طلبات الفترة بدون حد الـ 300

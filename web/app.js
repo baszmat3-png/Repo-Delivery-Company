@@ -397,7 +397,7 @@ const dinar = (n) => `<span class="num">${nf.format(Math.round(n || 0))}</span> 
 const OCI = { store: ico('store'), pin: ico('pin'), phone: ico('phone'), box: ico('orders'), cash: ico('wallet'), user: ico('user'), status: ico('orders') };
 const ocRow = (i, l, v, cls = '') => `<div class="oc-r ${cls}"><span class="oc-i">${OCI[i]}</span><span class="oc-l">${l}<i class="oc-c">:</i></span><span class="oc-v">${v}</span></div>`;
 const noteBtn = (o) => `<button class="oc-cb r" data-act="note" data-id="${o.id}"><span>ملاحظة</span><span class="oc-ex">!</span></button>`;
-const chatBtn = (o) => `<button class="oc-cb g" data-act="chat" data-id="${o.id}"><span>محادثة</span>${ico('chat')}</button>`;
+const chatBtn = () => '';
 function wazeLinks(o) {
   if (!o.merchantMap && !o.merchantArea) return '';
   return `<button type="button" class="btn soft sm" data-act="navmap" data-id="${o.id}">${ico('pin')} موقع المتجر</button>`;
@@ -507,14 +507,14 @@ function merchantOpts(o, withCancel) {
     corner: o.driverId ? chatBtn(o) : '', noteBtn: !!o.note,
     status: pill(o.status), rows: customerRows(o) + (o.driverName ? ocRow('user', 'السائق', esc(o.driverName)) : ''),
     after: payBox(o) + (o.status === 'return_sent' ? `<div class="notice">السائق ${esc(o.driverName || '')} أعلن أنه أرجع الطلب إليك. أكّد الاستلام عند وصول البضاعة.</div>` : ''),
-    actions: `<a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a>${wazeLinks(o)}${o.status === 'return_sent' ? `<button class="btn sm" data-act="ask-recv" data-id="${o.id}">تأكيد استلام المرتجع</button><button class="btn ghost sm" data-act="not-recv" data-id="${o.id}">لم أستلمه</button>` : ''}${withCancel && o.status === 'pending' ? `<button class="btn danger sm ${armed ? 'arm' : ''}" data-act="cancel" data-id="${o.id}">${armed ? 'اضغط للتأكيد' : 'إلغاء الطلب'}</button>` : ''}`
+    actions: `<a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">مراسلة الزبون</a>${o.driverPhone ? waTo(o.driverPhone, 'مراسلة السائق', `مرحباً ${o.driverName || ''}، بخصوص الطلب #${o.no}`) : ''}${wazeLinks(o)}${o.status === 'return_sent' ? `<button class="btn sm" data-act="ask-recv" data-id="${o.id}">تأكيد استلام المرتجع</button><button class="btn ghost sm" data-act="not-recv" data-id="${o.id}">لم أستلمه</button>` : ''}${withCancel && o.status === 'pending' ? `<button class="btn danger sm ${armed ? 'arm' : ''}" data-act="cancel" data-id="${o.id}">${armed ? 'اضغط للتأكيد' : 'إلغاء الطلب'}</button>` : ''}`
   };
 }
 const merchantOrderCard = (o, withCancel) => orderCard(o, merchantOpts(o, withCancel));
 
 function availOpts(o, s, receiving) {
   return {
-    corner: `<button class="oc-cb g" data-act="accept" data-id="${o.id}"><span>قبول الطلب</span>${ico('check')}</button><button class="oc-cb r" data-act="note" data-id="${o.id}"><span>ملاحظة</span><span class="oc-ex">!</span></button>`,
+    corner: `<button class="oc-cb g" data-act="accept" data-id="${o.id}"><span>قبول الطلب</span>${ico('check')}</button>${o.note ? `<button class="oc-cb r" data-act="note" data-id="${o.id}"><span>ملاحظة</span><span class="oc-ex">!</span></button>` : ''}`,
     /* قبل قبول الطلب: لا موقع متجر (Waze) ولا تفاصيل منتج، فقط السعر والتوصيل والعنوانين نصاً */
     after: OCD === 'classic' ? `<p class="hint" style="margin-top:12px">رسوم التطبيق عند القبول ${money(o.feeQuote ?? (o.sameArea ? s.feeSame : s.feeOther))}</p>` : ''
   };
@@ -530,7 +530,7 @@ function driverOpts(o) {
     corner: chatBtn(o), noteBtn: !!o.note,
     status: st, rows: customerRows(o) + ocRow('phone', 'هاتف المتجر', telLink(o.merchantPhone)),
     after: payBox(o) + (o.status === 'picking_up' && o.payMode === 'prepaid' && directPayOn() ? '' : o.status === 'picking_up' ? (!o.productPrice ? `<div class="notice">واصل حساب: لا تدفع للتاجر شيئاً. حصّل من الزبون أجرة التوصيل فقط ${money(o.deliveryPrice)}، ثم اضغط على الحالة واختر «تم الاستلام من التاجر».</div>` : `<div class="notice">ادفع للتاجر ${money(o.productPrice)} عند الاستلام، وبعدها اضغط على الحالة واختر «تم الاستلام من التاجر».</div>`) : ''),
-    actions: `${receiptsOn() ? `<button class="btn ghost sm" data-act="receipt" data-id="${o.id}">وصل</button>` : ''}<a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">واتساب الزبون</a><a class="btn ghost sm" href="${supportLink(o)}" target="_blank" rel="noopener">واتساب الدعم</a>${wazeLinks(o)}`
+    actions: `${receiptsOn() ? `<button class="btn ghost sm" data-act="receipt" data-id="${o.id}">وصل</button>` : ''}<a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">مراسلة الزبون</a>${o.merchantPhone ? waTo(o.merchantPhone, 'مراسلة التاجر', `مرحباً ${o.merchantName || ''}، بخصوص الطلب #${o.no}`) : ''}<a class="btn ghost sm" href="${supportLink(o)}" target="_blank" rel="noopener">واتساب الدعم</a>${wazeLinks(o)}`
   };
 }
 const driverOrderCard = (o) => orderCard(o, driverOpts(o));
@@ -923,6 +923,7 @@ function waNumber(phone) {
   if (d.startsWith('0')) return '964' + d.slice(1);
   return d;
 }
+const waTo = (phone, label, msg) => `<a class="btn wa sm" href="https://wa.me/${waNumber(phone)}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">${label}</a>`;
 function waLink(o) {
   const msg = tplText('cust_' + o.status, ordVars(o)) || tplText('cust_default', ordVars(o)) || `مرحباً، بخصوص طلبك رقم #${o.no} من ${o.merchantName}
 المبلغ المطلوب: ${mny(o.total)}`;
