@@ -582,16 +582,16 @@ if (!adTimer) adTimer = setInterval(adTick, 4500);
 document.addEventListener('touchmove', (e) => { if (e.touches && e.touches.length > 1) e.preventDefault(); }, { passive: false });
 
 /* ============ التصميم الجديد: صفوف الطلبات وصفحة التفاصيل والإحصائيات ============ */
-const STAGE_LBL = ['انتظار سائق', 'تم القبول', 'تم الاستلام', 'تم التسليم'];
+const STAGE_LBL = ['انتظار سائق', 'تم القبول', 'تم الاستلام', 'في الطريق للزبون', 'تم التسليم'];
 function stageOf(o) {
   const s = o.status;
   if (s === 'pending') return [1, 'ok'];
   if (s === 'picking_up') return [2, 'ok'];
-  if (s === 'on_the_way') return [3, 'ok'];
-  if (s === 'delivered') return [4, 'ok'];
+  if (s === 'on_the_way') return [4, 'ok'];
+  if (s === 'delivered') return [5, 'ok'];
   if (s === 'cancelled') return [0, 'bad'];
-  if (['returned', 'partial', 'return_sent'].includes(s)) return [3, 'blue'];
-  return [3, 'bad'];
+  if (['returned', 'partial', 'return_sent'].includes(s)) return [4, 'blue'];
+  return [4, 'bad'];
 }
 function segBar(o) {
   const [n, k] = stageOf(o);
@@ -599,9 +599,12 @@ function segBar(o) {
 }
 const pTxt = (o) => (Number(o.productPrice) ? `<b class="num">${nf.format(Math.round(o.productPrice))}</b><small>د.ع</small>` : `<b class="paid">واصل حساب</b>`);
 function stepper(o) {
-  const [n, k] = stageOf(o);
-  const h = STAGE_LBL.map((l, i) => `<div class="stp ${i < n ? 'on' : ''} ${i + 1 < n ? 'ln' : ''}"><span class="stp-c">${i < n ? ico('check') : ''}</span><small>${l}</small></div>`).join('');
-  return `<div class="orow-s"><div class="op-state k-${k}">الحالة: <b>${esc(ST[o.status]?.[0] || o.status)}</b></div><div class="stps">${h}</div></div>`;
+  const drv = S.user && S.user.role === 'driver';
+  const [n0, k] = stageOf(o);
+  const labels = drv ? STAGE_LBL.slice(1) : STAGE_LBL;
+  const n = drv ? Math.max(0, n0 - 1) : n0;
+  const h = labels.map((l, i) => `<div class="stp ${i < n ? 'on' : ''} ${i + 1 < n ? 'ln' : ''}"><span class="stp-c">${i < n ? ico('check') : ''}</span><small>${l}</small></div>`).join('');
+  return `<div class="orow-s"><div class="op-state k-${k}">الحالة: <b>${esc(ST[o.status]?.[0] || o.status)}</b></div><div class="stps" style="grid-template-columns:repeat(${labels.length},1fr)">${h}</div></div>`;
 }
 function ordRow(o, extra = '', menu = false) {
   const locked = ['delivered', 'return_sent', 'returned', 'cancelled'].includes(o.status);
