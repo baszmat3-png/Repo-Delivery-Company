@@ -507,7 +507,7 @@ function merchantOpts(o, withCancel) {
     corner: o.driverId ? chatBtn(o) : '', noteBtn: !!o.note,
     status: pill(o.status), rows: customerRows(o) + (o.driverName ? ocRow('user', 'السائق', esc(o.driverName)) : ''),
     after: payBox(o) + (o.status === 'return_sent' ? `<div class="notice">السائق ${esc(o.driverName || '')} أعلن أنه أرجع الطلب إليك. أكّد الاستلام عند وصول البضاعة.</div>` : ''),
-    actions: `<a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">مراسلة الزبون</a>${o.driverPhone ? waTo(o.driverPhone, 'مراسلة السائق', `مرحباً ${o.driverName || ''}، بخصوص الطلب #${o.no}`) : ''}${wazeLinks(o)}${o.status === 'return_sent' ? `<button class="btn sm" data-act="ask-recv" data-id="${o.id}">تأكيد استلام المرتجع</button><button class="btn ghost sm" data-act="not-recv" data-id="${o.id}">لم أستلمه</button>` : ''}${withCancel && o.status === 'pending' ? `<button class="btn danger sm ${armed ? 'arm' : ''}" data-act="cancel" data-id="${o.id}">${armed ? 'اضغط للتأكيد' : 'إلغاء الطلب'}</button>` : ''}`
+    actions: `<a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">مراسلة الزبون</a>${o.driverPhone ? waTo(o.driverPhone, 'مراسلة السائق', `مرحباً ${o.driverName || ''}، بخصوص الطلب #${o.no}`) : ''}${o.status === 'return_sent' ? `<button class="btn sm" data-act="ask-recv" data-id="${o.id}">تأكيد استلام المرتجع</button><button class="btn ghost sm" data-act="not-recv" data-id="${o.id}">لم أستلمه</button>` : ''}${withCancel && o.status === 'pending' ? `<button class="btn danger sm ${armed ? 'arm' : ''}" data-act="cancel" data-id="${o.id}">${armed ? 'اضغط للتأكيد' : 'إلغاء الطلب'}</button>` : ''}`
   };
 }
 const merchantOrderCard = (o, withCancel) => orderCard(o, merchantOpts(o, withCancel));
