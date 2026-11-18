@@ -598,11 +598,13 @@ function segBar(o) {
   return `<div class="seg4 ${k}">${[0, 1, 2, 3].map((i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</div>`;
 }
 const pTxt = (o) => (Number(o.productPrice) ? `<b class="num">${nf.format(Math.round(o.productPrice))}</b><small>د.ع</small>` : `<b class="paid">واصل حساب</b>`);
-function ordRow(o, extra = '') {
+function ordRow(o, extra = '', menu = false) {
+  const locked = ['delivered', 'return_sent', 'returned', 'cancelled'].includes(o.status);
+  const st = menu && !locked ? `<button type="button" class="pill ${ST[o.status]?.[1] || ''}" data-act="menu" data-id="${o.id}" aria-haspopup="menu">${esc(ST[o.status]?.[0] || o.status)} <span aria-hidden="true">▾</span></button>` : pill(o.status);
   return `<div class="orow" data-act="open-order" data-id="${o.id}" role="button" tabindex="0">
     <div class="orow-t"><div class="orow-a"><small>منطقة الزبون</small><b>${esc(o.customerArea)}</b></div><div class="orow-p">${pTxt(o)}</div></div>
     ${segBar(o)}
-    <div class="orow-b"><span class="chev">${ico('chev')}</span>${extra}<bdi class="orow-n">#${o.no}</bdi>${pill(o.status)}</div>
+    <div class="orow-b"><span class="chev">${ico('chev')}</span>${extra}<bdi class="orow-n">#${o.no}</bdi>${st}</div>
   </div>`;
 }
 const dRow = (icn, label, val, sub = '') => `<div class="dr"><span class="dr-i">${icn}</span><div class="dr-t"><small>${label}</small><b>${val}</b>${sub ? `<em>${sub}</em>` : ''}</div></div>`;
@@ -722,7 +724,7 @@ const VIEWS = {
     const list = t === 'current' ? cur : prev;
     return `${head('الطلبات')}
     <div class="tabs" style="margin-bottom:14px"><button data-act="otab" data-t="current" aria-pressed="${t === 'current'}">الحالية (${cur.length})</button><button data-act="otab" data-t="prev" aria-pressed="${t === 'prev'}">السابقة (${prev.length})</button></div>
-    <div class="stack">${list.length ? list.map((x) => ordRow(x)).join('') : emptyBox(t === 'current' ? 'لا توجد طلبات حالية' : 'لا توجد طلبات سابقة')}</div>`;
+    <div class="stack">${list.length ? list.map((x) => ordRow(x, '', true)).join('') : emptyBox(t === 'current' ? 'لا توجد طلبات حالية' : 'لا توجد طلبات سابقة')}</div>`;
   },
   'driver:wallet'() {
     const w = S.data.wallet;
