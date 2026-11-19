@@ -35,7 +35,7 @@ jobs:
         run: npx capacitor-assets generate --android
       - run: npx cap sync android
       - name: رقم الإصدار
-        run: sed -i "s/versionCode 1/versionCode $((${{ github.run_number }} + 100))/" android/app/build.gradle
+        run: sed -i "s/versionCode 1/versionCode $((${{ github.run_number }} + 1000))/" android/app/build.gradle
       - name: بناء AAB (غير موقّع — يُوقَّع محلياً بمفتاح الرفع الثابت)
         working-directory: android
         run: ./gradlew bundleRelease
