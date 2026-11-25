@@ -36,6 +36,8 @@ jobs:
           grep -q ACCESS_FINE_LOCATION $M || sed -i 's#<application#<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <application#' $M
           grep -q FOREGROUND_SERVICE_LOCATION $M || sed -i 's#<application#<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />\n    <application#' $M
           grep -q "android.hardware.location.gps" $M || sed -i 's#<application#<uses-feature android:name="android.hardware.location" android:required="false" />\n    <uses-feature android:name="android.hardware.location.gps" android:required="false" />\n    <uses-feature android:name="android.hardware.location.network" android:required="false" />\n    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />\n    <uses-feature android:name="android.hardware.telephony" android:required="false" />\n    <uses-feature android:name="android.hardware.camera" android:required="false" />\n    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />\n    <application#' $M
+          grep -q 'xmlns:tools' $M || sed -i 's#<manifest #<manifest xmlns:tools="http://schemas.android.com/tools" #' $M
+          sed -i 's#android:required="false" />#android:required="false" tools:replace="android:required" />#g' $M
           grep -q rio_orders $M || sed -i 's#</application>#    <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="rio_orders" />\n    </application>#' $M
       - name: أيقونات التطبيق
         run: npx capacitor-assets generate --android
