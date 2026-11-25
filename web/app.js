@@ -151,7 +151,9 @@ async function api(method, path, body) {
     });
   } catch { throw new Error('لا يوجد اتصال بالخادم، تحقق من الإنترنت'); }
   let j = {};
-  try { j = await r.json(); } catch { /* ignore */ }
+  let parsed = true;
+  try { j = await r.json(); } catch { parsed = false; }
+  if (!parsed && r.ok) throw new Error('ردّ الخادم غير صالح. تحقق من اتصال الإنترنت أو أعد المحاولة بعد قليل (قد يكون الخادم يستيقظ)');
   if (r.status === 401 && S.token && path !== '/api/login') { logout(); throw new Error(j.error || 'انتهت الجلسة، سجّل الدخول مرة أخرى'); }
   if (!r.ok) throw new Error(j.error || 'حدث خطأ غير متوقع');
   return j;
