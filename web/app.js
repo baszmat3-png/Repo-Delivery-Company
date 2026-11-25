@@ -151,9 +151,10 @@ async function api(method, path, body) {
     });
   } catch { throw new Error('لا يوجد اتصال بالخادم، تحقق من الإنترنت'); }
   let j = {};
-  let parsed = true;
-  try { j = await r.json(); } catch { parsed = false; }
-  if (!parsed && r.ok) throw new Error('ردّ الخادم غير صالح. تحقق من اتصال الإنترنت أو أعد المحاولة بعد قليل (قد يكون الخادم يستيقظ)');
+  let parsed = true, txt = '';
+  try { txt = await r.text(); } catch { /* ignore */ }
+  try { j = txt ? JSON.parse(txt) : {}; } catch { parsed = false; }
+  if (!parsed && r.ok) throw new Error(`ردّ الخادم غير صالح (${r.status}). أعد المحاولة بعد قليل (قد يكون الخادم يستيقظ)`);
   if (r.status === 401 && S.token && path !== '/api/login') { logout(); throw new Error(j.error || 'انتهت الجلسة، سجّل الدخول مرة أخرى'); }
   if (!r.ok) throw new Error(j.error || 'حدث خطأ غير متوقع');
   return j;
@@ -2098,6 +2099,8 @@ const FORMS = {
   },
   async login(f, err) {
     const r = await api('POST', '/api/login', { phone: f.phone.value, password: f.password.value });
+    if (r && r.token && !r.user) { const keep = S.token; S.token = r.token; try { r.user = (await api('GET', '/api/me')).user; } catch { /* ignore */ } S.token = keep; }
+    if (!r || !r.token || !r.user || !r.user.role) throw new Error(`تعذّر تسجيل الدخول: ردّ غير مكتمل من الخادم [${Object.keys(r || {}).join(',') || 'فارغ'}]`);
     if (toAdminPanel(r.user, r.token)) return;
     if (r.user.role === 'staff') throw new Error('حساب الإدارة يدخل من لوحة التحكم (صفحة admin.html)');
     if (ADMIN_ONLY && r.user.role !== 'admin') throw new Error('هذه اللوحة للمدير فقط');
