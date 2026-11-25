@@ -232,6 +232,13 @@ function liveRefresh() {
   if (S.sheet || S.menu || (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))) { S.dirty = true; return; }
   refresh();
 }
+/* المدير والإدارة: يفتحون لوحة التحكم الكاملة (قائمة جانبية + استلام الطلبات) بدل الواجهة المصغّرة */
+function toAdminPanel(u, token) {
+  if (ADMIN_ONLY || !u || !['admin', 'staff'].includes(u.role)) return false;
+  try { localStorage.setItem('rio_admin_token', token); localStorage.setItem('rio_admin_me', JSON.stringify(u)); } catch { return false; }
+  location.replace('admin.html');
+  return true;
+}
 function setUser(u) { S.user = u; geoStart(); connectLive(); setTimeout(syncCfg, 100); setTimeout(checkNotifs, 600); if (u && u.role !== 'admin') setTimeout(promptOnEntry, 500); }
 /* ===== إرسال موقع السائق للإدارة (أثناء فتح التطبيق) ===== */
 const GEO = { id: null, pos: null, sent: 0, bat: null };
@@ -2044,6 +2051,7 @@ const FORMS = {
   },
   async login(f, err) {
     const r = await api('POST', '/api/login', { phone: f.phone.value, password: f.password.value });
+    if (toAdminPanel(r.user, r.token)) return;
     if (r.user.role === 'staff') throw new Error('حساب الإدارة يدخل من لوحة التحكم (صفحة admin.html)');
     if (ADMIN_ONLY && r.user.role !== 'admin') throw new Error('هذه اللوحة للمدير فقط');
     S.token = r.token; if (f.remember && !f.remember.checked) { try { sessionStorage.setItem(TOKEN_KEY, r.token); } catch { /* ignore */ } store.del(TOKEN_KEY); } else store.set(TOKEN_KEY, r.token); setUser(r.user);
@@ -2146,6 +2154,7 @@ async function boot() {
   if (S.token) {
     try {
       const r = await api('GET', '/api/me');
+      if (toAdminPanel(r.user, S.token)) return;
       if (r.user.role === 'staff' || (ADMIN_ONLY && r.user.role !== 'admin')) throw new Error('not admin');
       setUser(r.user);
       const ok = TABS[r.user.role].some((t) => t[0] === wanted) || (wanted === 'notifs' && r.user.role !== 'admin');

@@ -100,7 +100,7 @@ async function load(silent) {
     jobs.push(api('GET', '/api/me'));
     jobs.push(P === 'staff' && isAdm() ? api('GET', '/api/admin/staff') : null);
     jobs.push(P === 'tracking' ? api('GET', '/api/admin/tracking') : null);
-    jobs.push(P === 'night' ? api('GET', '/api/admin/night') : null);
+    jobs.push(perm('orders') ? api('GET', '/api/admin/night').catch(() => null) : null);
     const [d, o, f, v, cd, st, me, sf, tk, ni] = await Promise.all(jobs);
     if (ni) NIGHT = ni;
     if (tk) trkSet(tk);
@@ -262,6 +262,7 @@ function draw() {
   const sy = window.scrollY;
   const badge = (id) => {
     if (!D) return '';
+    if (id === 'night' && NIGHT && NIGHT.registered) return `<span class="cnt">${NIGHT.registered}</span>`;
     if (id === 'orders' && D.staleOrders.length) return `<span class="cnt warn">${D.staleOrders.length}</span>`;
     if (id === 'drivers' && D.lateOrders.length) return `<span class="cnt warn">${D.lateOrders.length}</span>`;
     return '';
@@ -287,9 +288,11 @@ const nightPg = () => {
   if (!n) return empty('جارٍ التحميل…');
   const canEdit = perm('orders') === 'edit';
   const rows = n.stores.map((s) => `<tr><td><b>${esc(s.name)}</b><div class="hint">${esc(s.area || '')}</div></td><td>${nn(s.registered)}</td><td>${nn(s.received)}</td><td>${nn(s.registered - s.received)}</td><td>${mny(s.price)}</td><td>${s.drivers.length ? esc(s.drivers.join('، ')) : (s.requested ? '<span class="muted">بانتظار موافقة</span>' : '<span class="muted">لم يُطلب مندوب</span>')}</td></tr>`).join('');
-  return `<div class="kpis">${kpi('الطلبات المسجلة', nn(n.registered), '', mny(n.price))}${kpi('تم الاستلام', nn(n.received), 'green', mny(n.receivedPrice))}${kpi('المتبقي للاستلام', nn(n.remaining), 'amber', mny(n.remainingPrice))}</div>
-  <div class="card"><div class="ch">استلام الطلبات <small>امسح باركود QR الموجود على الطلب عند وصوله للمخزن</small></div>${canEdit ? '<button class="btn" data-a="night-scan">استلام طلبات باركود</button>' : '<p class="hint">صلاحية العرض فقط.</p>'}${n.inCustody.length ? `<div class="row" style="margin-top:12px;flex-wrap:wrap;gap:8px">${n.inCustody.map((d) => bdg(`${d.name}: ${d.n} طلب`, 'blue')).join('')}</div>` : ''}</div>
-  <div class="card"><div class="ch">حسب المتجر</div>${n.stores.length ? `<div class="tw"><table><thead><tr><th>المتجر</th><th>مسجّل</th><th>مستلم</th><th>متبقي</th><th>السعر</th><th>المندوب</th></tr></thead><tbody>${rows}</tbody></table></div>` : empty('لا توجد طلبات ليلية مسجلة')}</div>`;
+  const list = n.stores.map((s) => `<div class="row between" style="padding:12px 0;border-bottom:1px solid var(--line)"><div><b>${esc(s.name)}</b><div class="hint">${nn(s.received)} مستلمة · ${nn(s.registered)} مسجلة${s.drivers.length ? ' · ' + esc(s.drivers.join('، ')) : (s.requested ? ' · بانتظار موافقة مندوب' : '')}</div></div><b>${mny(s.price)}</b></div>`).join('');
+  return `<div class="kpis">${kpi('الطلبات المسجلة', nn(n.registered), 'amber', `من ${nn(n.stores.length)} متاجر`)}${kpi('الطلبات المستلمة', nn(n.received), 'green', 'في عهدة المندوبين')}</div>
+  <div class="card" style="background:linear-gradient(135deg,#f6d24a,#d9a520);color:#171200"><div class="row between"><div style="opacity:.85">سعر الطلبات</div><div style="text-align:end"><b style="font-size:26px">${mny(n.price)}</b><div class="hint" style="color:#3a2f00">المستلمة: ${nf(n.receivedPrice)} · المتبقية: ${nf(n.remainingPrice)}</div></div></div></div>
+  ${canEdit ? '<button class="btn" style="width:100%;min-height:52px;margin:12px 0;background:#2f55c4;color:#fff" data-a="night-scan">استلام طلبات باركود</button>' : '<p class="hint">صلاحية العرض فقط.</p>'}
+  <div class="card"><div class="ch">الطلبات المسجلة حسب المتجر <small>${nn(n.registered)} طلب</small></div>${n.stores.length ? list : empty('لا توجد طلبات ليلية مسجلة')}${n.inCustody.length ? `<div class="row" style="margin-top:12px;flex-wrap:wrap;gap:8px">${n.inCustody.map((d) => bdg(`${d.name}: ${d.n} طلب`, 'blue')).join('')}</div>` : ''}</div>`;
 };
 function page() {
   return ({ home, orders, night: nightPg, merchants, drivers, tracking, customers, finance, vouchers, cards, settings, staff })[P]();
