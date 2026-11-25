@@ -35,7 +35,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>لالتقاط صورتك الشخصية لحسابك في التطبيق.</string>
+	<string>لمسح باركود الطلبات عند استلامها، ولالتقاط صورتك الشخصية لحسابك في التطبيق.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>لاختيار صورتك الشخصية لحسابك في التطبيق.</string>
 	<key>UIApplicationSceneManifest</key>

@@ -1,6 +1,6 @@
 // خدمة: تخزّن ملفات الواجهة فقط (لا تخزّن API أبداً) + تستقبل إشعارات الدفع حتى والتطبيق مغلق.
-const CACHE = 'rio-v72';
-const FILES = ['./', 'style.css', 'app.js', 'dialog.js', 'theme.js', 'config.js', 'manifest.webmanifest', 'icons/icon-192.png', 'hero.jpg', 'logo.png', 'night-scan.js', 'vendor/qr.js'];
+const CACHE = 'rio-v73';
+const FILES = ['./', 'style.css', 'app.js', 'dialog.js', 'theme.js', 'config.js', 'manifest.webmanifest', 'icons/icon-192.png', 'hero.jpg', 'logo.png', 'night-scan.js', 'vendor/qr.js', 'vendor/jsQR.js'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).catch(() => {})); self.skipWaiting(); });
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));

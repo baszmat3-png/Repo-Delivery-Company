@@ -24,14 +24,39 @@
     catch (e) { msg(e && e.message ? e.message : 'تعذّر التنفيذ', false); }
     if (st) st.busy = false;
   }
+  /* jsQR: قارئ احتياطي بالجافاسكربت (للأيفون وأي متصفح بلا BarcodeDetector) */
+  function loadJsQR() {
+    if (window.jsQR) return Promise.resolve(true);
+    return new Promise(function (res) {
+      var sc = document.createElement('script');
+      sc.src = 'vendor/jsQR.js?v=1';
+      sc.onload = function () { res(!!window.jsQR); };
+      sc.onerror = function () { res(false); };
+      document.head.appendChild(sc);
+    });
+  }
+  function frameJsQR(v) {
+    var w = v.videoWidth, h = v.videoHeight;
+    if (!w || !h) return null;
+    var sc = Math.min(1, 720 / Math.max(w, h)), cw = Math.round(w * sc), ch = Math.round(h * sc);
+    var cv = st.cv || (st.cv = document.createElement('canvas'));
+    if (cv.width !== cw) cv.width = cw;
+    if (cv.height !== ch) cv.height = ch;
+    var cx = st.cx || (st.cx = cv.getContext('2d', { willReadFrequently: true }));
+    cx.drawImage(v, 0, 0, cw, ch);
+    var r = window.jsQR(cx.getImageData(0, 0, cw, ch).data, cw, ch, { inversionAttempts: 'attemptBoth' });
+    return r && r.data ? r.data : null;
+  }
   async function loop() {
-    var det = st && st.det;
-    while (st && !st.stop && det) {
+    while (st && !st.stop) {
       try {
         var v = st.el.querySelector('video');
-        if (v && v.readyState >= 2) { var r = await det.detect(v); if (r && r.length) submit(r[0].rawValue); }
-      } catch (e) { /* ignore frame */ }
-      await new Promise(function (r) { setTimeout(r, 350); });
+        if (v && v.readyState >= 2) {
+          if (st.det) { var r = await st.det.detect(v); if (r && r.length) submit(r[0].rawValue); }
+          else if (window.jsQR) { var t = frameJsQR(v); if (t) submit(t); }
+        }
+      } catch (e) { if (st && st.det) { st.det = null; } /* إن فشل القارئ المدمج نتحول لـ jsQR */ }
+      await new Promise(function (r) { setTimeout(r, st && st.det ? 350 : 220); });
     }
   }
   async function open(o) {
@@ -52,18 +77,26 @@
     var inp = el.querySelector('.rs-in');
     el.querySelector('.rs-go').onclick = function () { var v = inp.value; inp.value = ''; st.last = ''; submit(v); try { inp.focus(); } catch (e) { /* ignore */ } };
     inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') el.querySelector('.rs-go').click(); });
-    setTimeout(function () { try { inp.focus(); } catch (e) { /* ignore */ } }, 80);
+    var touch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+    if (!touch) setTimeout(function () { try { inp.focus(); } catch (e) { /* ignore */ } }, 80); /* جهاز قراءة باركود يدوي على الحاسبة */
     var cn = el.querySelector('.rs-cn');
     try {
-      if (!('BarcodeDetector' in window)) throw new Error('nodet');
-      st.det = new window.BarcodeDetector({ formats: ['qr_code'] });
-      st.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('nocam');
+      try {
+        if ('BarcodeDetector' in window) {
+          var fm = window.BarcodeDetector.getSupportedFormats ? await window.BarcodeDetector.getSupportedFormats() : ['qr_code'];
+          if (fm.indexOf('qr_code') >= 0) st.det = new window.BarcodeDetector({ formats: ['qr_code'] });
+        }
+      } catch (e) { st.det = null; }
+      if (!st.det && !(await loadJsQR())) throw new Error('nodec');
+      st.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
       var v = el.querySelector('video'); v.srcObject = st.stream; await v.play();
       el.querySelector('.rs-cam').style.display = 'block';
       cn.textContent = 'وجّه الكاميرا نحو رمز QR الموجود على الطلب';
       loop();
     } catch (e) {
-      cn.textContent = 'تعذّر تشغيل الكاميرا على هذا الجهاز، اكتب رقم الطلب يدوياً (الرقم الظاهر على الطلب).';
+      cn.textContent = (e && e.name === 'NotAllowedError') ? 'لم يُسمح باستخدام الكاميرا. فعّل إذن الكاميرا للتطبيق من الإعدادات، أو اكتب الرقم يدوياً.' : 'تعذّر تشغيل الكاميرا على هذا الجهاز، اكتب الرقم يدوياً.';
+      try { inp.focus(); } catch (e2) { /* ignore */ }
     }
   }
   window.RioScan = { open: open, close: close };
