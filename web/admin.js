@@ -804,27 +804,42 @@ function curDoc() {
   if (m.type === 'receipt') return { title: 'وصل #' + m.o.no, body: orderReceipt(m.o), cls: rcls(), name: `rio-receipt-${m.o.no}.png` };
   if (m.type === 'vprint') return { title: 'سند #' + m.v.no, body: thermal() ? voucherDoc80(m.v) : voucherDoc(m.v), cls: thermal() ? rcls() : 'sz' + RS, name: `rio-voucher-${m.v.no}.png` };
   if (m.type === 'stmt') return { title: 'كشف', body: thermal() ? stmtReceipt(m) : stmtA4(m), cls: thermal() ? rcls() : 'sz' + RS, name: `rio-statement-${fd(Date.now())}.png` };
-  if (m.type === 'stk') return { title: 'ملصقات ريوو', body: stickersDoc(m.codes, m.size), cls: m.size === 'a4' ? 'sza4' : 'sz80', name: `rio-stickers-${m.codes[0]}.png` };
+  if (m.type === 'stk') return { title: 'ملصقات ريوو', body: stickersDoc(m.codes, m.size), cls: m.size === 'a4' ? 'stka4' : 'stk80', name: `rio-stickers-${m.codes[0]}.png` };
   if (m.type === 'created') return { title: 'بيانات حساب', body: credDoc(m), cls: rcls(), name: `rio-account-${m.phone}.png` };
   if (m.type === 'pw') { const u = findU(m.id); return u ? { title: 'بيانات حساب', body: credDoc({ role: u.role === 'courier' ? 'courier' : D.drivers.includes(u) ? 'driver' : 'merchant', name: u.name, phone: u.phone, password: m.done, vehicle: u.vehicle, area: u.area }), cls: rcls(), name: `rio-account-${u.phone}.png` } : null; }
   return null;
 }
-/* ملصق الطلب الليلي (نفس تصميم الملصق المطبوع) مع باركود حقيقي ورقم فريد */
+/* ملصق الطلب الليلي — قياس 80mm عرض × 120mm طول (نفس التصميم المعتمد) مع باركود حقيقي ورقم فريد */
+const TRUCK = '<svg viewBox="0 0 64 40" width="9mm" height="5.6mm" aria-hidden="true"><path d="M2 6h34v24H2z" fill="#e8681a"/><path d="M36 13h14l10 10v7H36z" fill="#e8681a"/><path d="M40 16h8l6 6H40z" fill="#fff"/><circle cx="14" cy="32" r="5" fill="#1f3a8a"/><circle cx="48" cy="32" r="5" fill="#1f3a8a"/><circle cx="14" cy="32" r="2" fill="#fff"/><circle cx="48" cy="32" r="2" fill="#fff"/><path d="M8 12h14M6 18h12" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>';
 function stickersDoc(codes, size) {
   const sup = '07733390242 - 07772030408';
-  const one = (c) => `<div class="stk"><div class="stk-h">🚚 ريوو للتوصيل الاسرع</div><div class="stk-p">توصيل سريع وآمن لجميع مناطق بغداد</div><hr>
-    <div class="stk-b">امسح باركود لإضافة معلومات زبون</div>
-    <table class="stk-t">${['اسم التاجر:', 'محافظة الزبون:', 'منطقة الزبون:', 'السعر الإجمالي مع التوصيل:'].map((l) => `<tr><th>${l}</th><td></td></tr>`).join('')}</table>
-    <div class="stk-q"><div class="stk-qb">${window.RioQR ? window.RioQR.svg('RIOS:' + c, 150) : ''}</div><b>${c}</b></div><hr>
-    <div class="stk-f"><small>تواصل معنا</small><b>${esc(sup)}</b></div></div>`;
-  const css = `<style>.stk{border:2px solid #111;border-radius:12px;padding:10px 12px;font-family:Cairo,sans-serif;color:#111;break-inside:avoid;page-break-inside:avoid;background:#fff}
-  .stk-h{text-align:center;font-weight:900;font-size:19px}.stk-p{background:#222;color:#fff;border-radius:99px;text-align:center;font-size:11px;padding:3px 8px;margin:6px 0}
-  .stk hr{border:0;border-top:1.5px solid #111;margin:8px 0}.stk-b{border:1.5px solid #111;border-radius:10px;text-align:center;font-weight:800;padding:6px;margin-bottom:8px}
-  .stk-t{width:100%;border-collapse:collapse}.stk-t th,.stk-t td{border:1.5px solid #111;padding:9px 6px;font-size:12px;text-align:right;width:50%;background:#fff !important;color:#111 !important;font-weight:800}
-  .stk-q{display:flex;flex-direction:column;align-items:center;gap:2px;margin-top:10px}.stk-qb{border:2px dashed #111;border-radius:10px;padding:6px;line-height:0}.stk-q svg{width:116px;height:116px}.stk-q b{font-size:16px;letter-spacing:3px;direction:ltr}
-  .stk-f{text-align:center}.stk-f small{display:block;font-weight:700}.stk-f b{direction:ltr;display:inline-block}
-  .sz80 .stk{margin:0 0 4mm;page-break-after:always}.sza4 .grid{display:grid;grid-template-columns:1fr 1fr;gap:6mm}.sza4 .stk{padding:8px 10px}.sza4 .stk-t th,.sza4 .stk-t td{padding:6px}.sza4 .stk-q svg{width:100px;height:100px}</style>`;
-  return css + (size === 'a4' ? `<div class="grid">${codes.map(one).join('')}</div>` : codes.map(one).join(''));
+  const one = (c) => `<div class="stk"><div class="stk-h"><span>ريوو للتوصيل الاسرع</span>${TRUCK}</div>
+    <div class="stk-p">لخدمات اللوجستية السريعة ونقل البضائع داخل العراق</div><div class="stk-l o"></div>
+    <div class="stk-b">امسح باركود لأضافة معلومات زبون</div>
+    <table class="stk-t">${['اسم التاجر:', 'محافظة الزبون:', 'منطقة الزبون:', 'السعر الإجمالي مع التوصيل:'].map((l, i) => `<tr class="${i === 3 ? 'hl' : ''}"><th>${l}</th><td></td></tr>`).join('')}</table>
+    <div class="stk-q"><div class="stk-qb">${window.RioQR ? window.RioQR.svg('RIOS:' + c, 150) : ''}<small>${c}</small></div></div>
+    <div class="stk-l n"></div><div class="stk-f"><small>تواصل معنا</small><b>${sup}</b></div></div>`;
+  const css = `<style>
+  @page{size:${size === 'a4' ? 'A4' : '80mm 120mm'};margin:${size === 'a4' ? '8mm' : '0'}}
+  html,body{margin:0;padding:0;background:#fff}
+  .stk{width:80mm;height:120mm;box-sizing:border-box;padding:3.6mm 4mm 3mm;border:.7mm solid #1f3a8a;border-radius:5mm;display:flex;flex-direction:column;font-family:Cairo,Tahoma,sans-serif;color:#1f3a8a;background:#fff;overflow:hidden;break-inside:avoid;page-break-inside:avoid}
+  .stk-h{display:flex;align-items:center;justify-content:center;gap:2mm;font-weight:900;font-size:5.4mm;line-height:1.2}
+  .stk-p{align-self:center;background:#1f3a8a;color:#fff;border-radius:3mm;font-weight:800;font-size:2.55mm;padding:1.1mm 3.2mm;margin-top:1.6mm;white-space:nowrap}
+  .stk-l{height:.45mm;margin:2.6mm 0 2.8mm}.stk-l.o{background:#e8681a}.stk-l.n{background:#1f3a8a;margin:2.4mm 0 1.6mm}
+  .stk-b{border:.45mm solid #f2b36b;background:#fff4e6;border-radius:2.6mm;text-align:center;font-weight:900;font-size:3.7mm;color:#111;padding:1.8mm 1mm;margin-bottom:3mm}
+  .stk-t{width:100%;border-collapse:collapse;table-layout:fixed}
+  .stk-t th,.stk-t td{border:.35mm solid #cfd6e4;height:7.4mm;padding:0 2mm;font-size:3.05mm;font-weight:800;text-align:right;background:#fff !important;color:#1f3a8a !important}
+  .stk-t th{background:#f4f6fa !important;width:56%;white-space:nowrap}.stk-t tr.hl th{font-size:2.85mm;padding:0 1.6mm}
+  .stk-t tr.hl th,.stk-t tr.hl td{border-color:#e8681a}.stk-t tr.hl th{background:#fff1e3 !important;color:#d2601a !important}
+  .stk-q{flex:1;display:flex;align-items:center;justify-content:center;min-height:0}
+  .stk-qb{border:.45mm dashed #6b7a90;border-radius:3mm;background:#f6f8fb;padding:1.6mm 1.6mm .8mm;display:flex;flex-direction:column;align-items:center;line-height:1}
+  .stk-qb svg{width:25mm;height:25mm;display:block}.stk-qb small{font-size:2.9mm;font-weight:800;letter-spacing:.5mm;direction:ltr;color:#334;margin-top:.6mm}
+  .stk-f{text-align:center;line-height:1.25}.stk-f small{display:block;color:#e8681a;font-weight:800;font-size:3.1mm}.stk-f b{direction:ltr;display:inline-block;font-size:4.5mm;font-weight:900;color:#1f3a8a}
+  .one .stk{page-break-after:always;break-after:page}.one .stk:last-child{page-break-after:auto;break-after:auto}
+  .grid4{display:grid;grid-template-columns:80mm 80mm;gap:6mm 8mm;justify-content:center}
+  @media screen{body{padding:10px}.one{display:flex;flex-direction:column;align-items:center;gap:10px}}
+  </style>`;
+  return css + (size === 'a4' ? `<div class="grid4">${codes.map(one).join('')}</div>` : `<div class="one">${codes.map(one).join('')}</div>`);
 }
 function voucherDoc(v) {
   const k = v.kind === 'in' ? 'سند قبض' : 'سند صرف';
@@ -915,7 +930,7 @@ function modalHtml() {
     <div class="row" style="margin-top:12px;justify-content:center">${docBtns()}${vPhone(m.v) ? `<a class="btn w" target="_blank" rel="noopener" href="${wa(vPhone(m.v), `${m.v.kind === 'in' ? 'سند قبض' : 'سند صرف'} رقم #${m.v.no}\nالمبلغ: ${mny(m.v.amount)}\nالتاريخ: ${fd(m.v.at)}\nالتفاصيل: ${m.v.note || '—'}\nريوو للتوصيل اسرع`)}">واتساب</a>` : ''}</div>`, 1];
   if (m.type === 'stickers') {
     return ['طباعة ملصقات باركود', `<form data-f="stickers">${field('k-n', 'عدد الملصقات', '<input class="in" id="k-n" type="number" min="1" max="500" value="20" required>', 'كل ملصق له باركود ورقم فريد لا يتكرر، ويُستخدم لطلب واحد فقط.')}
-    <div class="field"><label>حجم الطباعة</label><div class="seg2"><label><input type="radio" name="k-sz" value="80" checked> طابعة ملصقات (80mm)</label> <label><input type="radio" name="k-sz" value="a4"> ورق A4 (6 بالصفحة)</label></div></div>
+    <div class="field"><label>حجم الطباعة</label><div class="seg2"><label><input type="radio" name="k-sz" value="80" checked> ملصق 80×120mm (طابعة ملصقات)</label> <label><input type="radio" name="k-sz" value="a4"> ورق A4 (4 ملصقات بالصفحة)</label></div></div>
     <div class="err" id="fe" role="alert"></div><button class="btn" style="width:100%">توليد الملصقات</button></form>`];
   }
   if (m.type === 'stk') {
