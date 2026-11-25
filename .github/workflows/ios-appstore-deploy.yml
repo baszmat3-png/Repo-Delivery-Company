@@ -33,6 +33,13 @@ jobs:
       PROVISION_B64: ${{ secrets.IOS_PROVISION_PROFILE_B64 }}
 
     steps:
+      - name: اختيار أحدث إصدار Xcode (SDK الأحدث مطلوب من Apple)
+        run: |
+          ls -d /Applications/Xcode*.app 2>/dev/null | sort -V
+          LATEST=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -n 1)
+          if [ -n "$LATEST" ]; then sudo xcode-select -s "$LATEST/Contents/Developer"; fi
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i "iOS" || true
       - name: Checkout Repository (main)
         uses: actions/checkout@v4
 
