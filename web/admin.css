@@ -339,3 +339,14 @@ tfoot td{font-weight:800;background:var(--soft2);position:sticky;bottom:0}
 .trk-tg button{white-space:nowrap}
 @media(max-width:700px){.trk-tg{top:8px;inset-inline-end:8px;gap:6px}.trk-tg button{padding:7px 10px;font-size:12px;border-radius:10px}.trk-mapwrap{height:68vh}}
 .trk-nokey{position:absolute;inset:0;z-index:400;display:grid;place-items:center;text-align:center;padding:30px;background:rgba(255,255,255,.92);color:#0f172a;font-weight:700;line-height:1.9}
+
+/* الجوال: الجداول العريضة (فريق الإدارة وغيرها) تُمرَّر أفقياً بدل أن تُقصّ، وأزرار الإجراءات لا تلتف */
+.tblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tblwrap table{min-width:560px}
+.tblwrap td.act .row{flex-wrap:nowrap;gap:6px}
+@media (max-width:899px){.main{overflow-x:hidden}.tblwrap{max-width:calc(100vw - 24px)}}
+@media (max-width:899px){
+  .tblwrap table.stf{min-width:0;display:block}.stf thead{display:none}.stf tbody,.stf tr,.stf td{display:block;width:100%}
+  .stf tr{padding:12px 0;border-bottom:1px solid var(--line)}.stf tr:last-child{border:0}.stf td{border:0;padding:4px 0}
+  .stf td.act .row{flex-wrap:wrap}
+}

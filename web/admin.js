@@ -471,7 +471,7 @@ setInterval(trkRefresh, 8000);
 const permBadges = (u) => PAGES_BASE.filter((x) => (u.perms || {})[x[0]]).map((x) => bdg(`${x[1]}${u.perms[x[0]] === 'edit' ? ' ✎' : ''}`, u.perms[x[0]] === 'edit' ? 'green' : 'gray')).join(' ') || '<span class="muted">بدون صلاحيات</span>';
 function staff() {
   return `<div class="row between" style="margin-bottom:12px"><p class="muted" style="margin:0">موظفون يدخلون لوحة التحكم بمستخدم وكلمة مرور، وترى كل واحد منهم الصفحات التي تسمح له بها فقط.</p><button class="btn" data-a="staff-add">${ico('plus')} إضافة موظف</button></div>
-  ${STAFF.length ? `<div class="card tblwrap"><table><thead><tr><th>الموظف</th><th>اسم المستخدم</th><th>الصلاحيات</th><th></th></tr></thead><tbody>${STAFF.map((u) => `<tr><td><b>${esc(u.name)}</b> ${u.active ? '' : bdg('موقوف', 'red')}</td><td class="num">${esc(u.username)}</td><td>${permBadges(u)}</td>
+  ${STAFF.length ? `<div class="card tblwrap"><table class="stf"><thead><tr><th>الموظف</th><th>اسم المستخدم</th><th>الصلاحيات</th><th></th></tr></thead><tbody>${STAFF.map((u) => `<tr><td><b>${esc(u.name)}</b> ${u.active ? '' : bdg('موقوف', 'red')}</td><td class="num">${esc(u.username)}</td><td>${permBadges(u)}</td>
   <td class="act"><div class="row"><button class="btn sm g" data-a="staff-edit" data-id="${u.id}">تعديل</button><button class="btn sm ${u.active ? 'g' : 'd'}" data-a="staff-toggle" data-id="${u.id}">${u.active ? 'إيقاف' : 'تفعيل'}</button><button class="btn sm d" data-a="staff-del" data-id="${u.id}">حذف</button></div></td></tr>`).join('')}</tbody></table></div>` : '<div class="card">لا يوجد موظفون بعد. اضغط «إضافة موظف».</div>'}`;
 }
 
@@ -1127,7 +1127,7 @@ The driver app asks for location permission (the driver's position is shared wit
     if (!window.RioScan) return;
     window.RioScan.open({ title: 'استلام طلبات بالباركود', onCode: async (code) => { const r = await api('POST', '/api/admin/night/scan', { code }); load(true); return `${r.already ? 'مستلم مسبقاً' : 'تم استلام'} الطلب #${r.order.no}`; } });
   },
-  page(el) { MENU = false; P = el.dataset.k; ls.set('rio_page', P); Q = ''; FS = 'all'; FM = 0; load(); },
+  page(el) { MENU = false; const ap = document.querySelector('.app'); if (ap) ap.classList.remove('open'); const mt = document.querySelector('.mbar b'); if (mt) mt.textContent = el.textContent.trim(); P = el.dataset.k; ls.set('rio_page', P); Q = ''; FS = 'all'; FM = 0; load(); },
   logout() { logout(); },
   theme(el) { RioTheme.set(el.dataset.t); draw(); },
   'batch-x'() { BATCH = null; draw(); },
