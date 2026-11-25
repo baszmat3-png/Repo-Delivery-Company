@@ -664,15 +664,15 @@ function courierList() {
   const q = norm(Q.trim());
   const custody = new Map(((NIGHT && NIGHT.inCustody) || []).map((x) => [x.name, x.n]));
   const l = COUR.filter((m) => !q || norm(m.name + ' ' + m.phone).includes(q));
-  return `<div class="tw tblwrap"><table class="stf"><thead><tr><th>المندوب</th><th>الهاتف</th><th class="n">في عهدته</th><th>الحالة</th><th></th></tr></thead><tbody>
-  ${l.map((m) => `<tr><td>${upImg(m, 30)}<b>${esc(m.name)}</b></td><td class="num">${esc(m.phone)}</td><td class="n"><b>${nn(custody.get(m.name) || 0)}</b> طلب</td><td>${m.active ? bdg('فعّال', 'green') : bdg('موقوف', 'red')}</td>
-  <td class="act"><div class="row"><button class="btn sm g" data-a="pw" data-id="${m.id}">كلمة سر</button><a class="btn sm w" target="_blank" rel="noopener" href="${wa(m.phone, 'مرحباً ' + m.name + '، ريوو للتوصيل اسرع')}">واتساب</a>${isDemoAcc(m) ? '' : `<button class="btn sm ${m.active ? 'g' : 'd'}" data-a="toggle" data-id="${m.id}">${m.active ? 'إيقاف' : 'تفعيل'}</button><button class="btn sm d" data-a="del-user" data-id="${m.id}">حذف</button>`}</div></td></tr>`).join('')}
+  return `<div class="tw tblwrap"><table class="stf"><thead><tr><th>المندوب</th><th>الهاتف</th><th class="n">في عهدته</th><th class="n">الرصيد</th><th>الحالة</th><th></th></tr></thead><tbody>
+  ${l.map((m) => `<tr><td>${upImg(m, 30)}<b>${esc(m.name)}</b></td><td class="num">${esc(m.phone)}</td><td class="n"><b>${nn(custody.get(m.name) || 0)}</b> طلب</td><td class="n"><b>${mm(m.balance || 0)}</b></td><td>${m.active ? bdg('فعّال', 'green') : bdg('موقوف', 'red')}</td>
+  <td class="act"><div class="row"><button class="btn sm" data-a="adjust" data-id="${m.id}">رصيد / تسوية</button><button class="btn sm g" data-a="pw" data-id="${m.id}">كلمة سر</button><a class="btn sm w" target="_blank" rel="noopener" href="${wa(m.phone, 'مرحباً ' + m.name + '، ريوو للتوصيل اسرع')}">واتساب</a>${isDemoAcc(m) ? '' : `<button class="btn sm ${m.active ? 'g' : 'd'}" data-a="toggle" data-id="${m.id}">${m.active ? 'إيقاف' : 'تفعيل'}</button><button class="btn sm d" data-a="del-user" data-id="${m.id}">حذف</button>`}</div></td></tr>`).join('')}
   </tbody></table></div>${l.length ? '' : empty('لا يوجد مندوبون. أضف مندوباً ليستلم الطلبات الليلية من المتاجر')}`;
 }
 function couriers() {
   const n = NIGHT || { inCustody: [], received: 0, atHq: 0 };
-  return `<div class="kpis">${kpi('عدد المندوبين', nn(COUR.length), 'y', nn(COUR.filter((x) => x.active).length) + ' فعّال')}${kpi('في عهدة المندوبين', nn(n.received || 0), 'b', 'طلب لم يصل المقر')}${kpi('في مقر الشركة', nn(n.atHq || 0), 'g', 'بانتظار السائقين')}</div>
-  <div class="card"><p class="hint" style="margin:0 0 12px">المندوب يستلم الطلبات الليلية من المتاجر بمسح الباركود ويوصلها لمقر الشركة، ولا تُخصم منه رسوم. حسابه منفصل عن السائقين ويدخل من نفس التطبيق برقم هاتفه.</p>
+  return `<div class="kpis">${kpi('عدد المندوبين', nn(COUR.length), 'y', nn(COUR.filter((x) => x.active).length) + ' فعّال')}${kpi('أرصدة المندوبين', mm(COUR.reduce((a, x) => a + (Number(x.balance) || 0), 0)), 'v', 'مستحقة لهم')}${kpi('في عهدة المندوبين', nn(n.received || 0), 'b', 'طلب لم يصل المقر')}${kpi('في مقر الشركة', nn(n.atHq || 0), 'g', 'بانتظار السائقين')}</div>
+  <div class="card"><p class="hint" style="margin:0 0 12px">المندوب يستلم الطلبات الليلية من المتاجر بمسح الباركود ويوصلها لمقر الشركة، ويُضاف لرصيده ${mm((SET && SET.courierFee) ?? 500)} عن كل طلب يستلمه (يُعدَّل من الإعدادات ← الاستلام الليلي). لتسليمه أرباحه استخدم «رصيد / تسوية» بمبلغ سالب. حسابه منفصل عن السائقين ويدخل من نفس التطبيق برقم هاتفه.</p>
   <div class="row between" style="margin-bottom:12px;flex-wrap:wrap;gap:8px"><input class="in" id="q" placeholder="بحث عن مندوب…" value="${esc(Q)}" style="min-width:200px"><button class="btn" data-a="add-user" data-r="courier">${ico('plus')} إضافة مندوب</button></div><div id="list">${courierList()}</div></div>`;
 }
 
@@ -759,7 +759,7 @@ function settings() {
     prices: () => `<form data-f="set-prices"><div class="card"><div class="ch">أسعار التوصيل للزبون <small>بالدينار العراقي</small></div><div class="frm">${f('bikeSame', 'دراجة · نفس المنطقة')}${f('bikeOther', 'دراجة · منطقة ثانية')}${f('carSame', 'سيارة · نفس المنطقة')}${f('carOther', 'سيارة · منطقة ثانية')}</div>${saveBar('حفظ الأسعار')}</div></form>`,
     fees: () => `<form data-f="set-fees"><div class="card"><div class="ch">تعديل الرسوم <small>رسوم التطبيق على السائق، تُخصم من محفظته عند قبول كل طلب</small></div><div class="frm">${f('feeSame', 'نفس المنطقة')}${f('feeOther', 'منطقة ثانية')}</div>${saveBar('حفظ الرسوم')}</div></form>`,
     qr: () => `<form data-f="set-qr"><div class="card"><div class="ch">استلام المندوب من المتجر بالـ QR <small>لكل طلب ليلي رمز QR ورمز استلام يظهران عند التاجر</small></div><label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="s-qr" ${Number(SET.qrPickup) === 1 ? 'checked' : ''} style="width:22px;height:22px"><span><b>إلزام المندوب بمسح الباركود</b><span class="hint" style="display:block">عند التفعيل لا يستلم المندوب الطلب من المتجر إلا بمسح رمز QR الخاص به (أو كتابة رمز الاستلام المكوّن من 4 أرقام). عند الإيقاف يستطيع المسح أو الضغط على «تم الاستلام» لكل طلب. السائقون لا يستخدمون الباركود.</span></span></label>${saveBar('حفظ')}</div></form>`,
-    night: () => `<form data-f="set-night"><div class="card"><div class="ch">الاستلام الليلي <small>تسجيل الطلبات مساءً واستلامها بالـ QR</small></div><label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="s-night" ${SET.nightPickup !== 0 ? 'checked' : ''} style="width:22px;height:22px"><span><b>تفعيل الاستلام الليلي</b><span class="hint" style="display:block">عند الإيقاف لا يستطيع التجار تسجيل طلبات ليلية جديدة (الطلبات المسجلة تبقى).</span></span></label><div class="field" style="margin-top:12px"><label for="s-ndel">أجرة توصيل الطلب الليلي (د.ع)</label><input class="in" id="s-ndel" inputmode="numeric" value="${esc(String(SET.nightDelivery ?? 5000))}"><span class="hint">التاجر يكتب السعر الإجمالي مع التوصيل، ويُحسب سعر المنتج = الإجمالي − هذه الأجرة.</span></div>${saveBar('حفظ')}</div></form>`,
+    night: () => `<form data-f="set-night"><div class="card"><div class="ch">الاستلام الليلي <small>تسجيل الطلبات مساءً واستلامها بالـ QR</small></div><label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="s-night" ${SET.nightPickup !== 0 ? 'checked' : ''} style="width:22px;height:22px"><span><b>تفعيل الاستلام الليلي</b><span class="hint" style="display:block">عند الإيقاف لا يستطيع التجار تسجيل طلبات ليلية جديدة (الطلبات المسجلة تبقى).</span></span></label><div class="field" style="margin-top:12px"><label for="s-ndel">أجرة توصيل الطلب الليلي (د.ع)</label><input class="in" id="s-ndel" inputmode="numeric" value="${esc(String(SET.nightDelivery ?? 5000))}"><span class="hint">التاجر يكتب السعر الإجمالي مع التوصيل، ويُحسب سعر المنتج = الإجمالي − هذه الأجرة.</span></div><div class="field" style="margin-top:12px"><label for="s-cfee">أجر المندوب عن كل طلب يستلمه (د.ع)</label><input class="in" id="s-cfee" inputmode="numeric" value="${esc(String(SET.courierFee ?? 500))}"><span class="hint">يُضاف تلقائياً لرصيد المندوب عند مسح الطلب واستلامه من المتجر.</span></div>${saveBar('حفظ')}</div></form>`,
     receipts: () => `<form data-f="set-receipts"><div class="card"><div class="ch">الوصولات <small>تحكم بظهور زر «وصل» في كل مكان</small></div><label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="s-receipts" ${SET.receipts !== 0 ? 'checked' : ''} style="width:22px;height:22px"><span><b>تفعيل الوصولات</b><span class="hint" style="display:block">عند الإيقاف يختفي زر «وصل» من حسابات التجار والسائقين ومن لوحة التحكم أيضاً.</span></span></label>${saveBar('حفظ')}</div></form>`,
     alerts: () => `${notifCard()}<form data-f="set-alerts"><div class="card"><div class="ch">التنبيهات والدعم</div><div class="frm">${f('lateMin', 'مدة التأخير بالدقائق (لتنبيه الطلبات المتأخرة)')}
       <div class="field"><label for="s-support">رقم الدعم (يظهر للتجار والسائقين)</label><input class="in" id="s-support" inputmode="tel" value="${esc(SET.support || '')}" placeholder="07XX XXX XXXX"></div></div>${saveBar('حفظ')}</div></form>`,
@@ -811,17 +811,17 @@ function curDoc() {
 }
 /* ملصق الطلب الليلي (نفس تصميم الملصق المطبوع) مع باركود حقيقي ورقم فريد */
 function stickersDoc(codes, size) {
-  const sup = String((SET && SET.support) || '07733390242 - 07772030408');
+  const sup = '07733390242 - 07772030408';
   const one = (c) => `<div class="stk"><div class="stk-h">🚚 ريوو للتوصيل الاسرع</div><div class="stk-p">توصيل سريع وآمن لجميع مناطق بغداد</div><hr>
     <div class="stk-b">امسح باركود لإضافة معلومات زبون</div>
     <table class="stk-t">${['اسم التاجر:', 'محافظة الزبون:', 'منطقة الزبون:', 'السعر الإجمالي مع التوصيل:'].map((l) => `<tr><th>${l}</th><td></td></tr>`).join('')}</table>
-    <div class="stk-q">${window.RioQR ? window.RioQR.svg('RIOS:' + c, 150) : ''}<b>${c}</b></div><hr>
+    <div class="stk-q"><div class="stk-qb">${window.RioQR ? window.RioQR.svg('RIOS:' + c, 150) : ''}</div><b>${c}</b></div><hr>
     <div class="stk-f"><small>تواصل معنا</small><b>${esc(sup)}</b></div></div>`;
   const css = `<style>.stk{border:2px solid #111;border-radius:12px;padding:10px 12px;font-family:Cairo,sans-serif;color:#111;break-inside:avoid;page-break-inside:avoid;background:#fff}
   .stk-h{text-align:center;font-weight:900;font-size:19px}.stk-p{background:#222;color:#fff;border-radius:99px;text-align:center;font-size:11px;padding:3px 8px;margin:6px 0}
   .stk hr{border:0;border-top:1.5px solid #111;margin:8px 0}.stk-b{border:1.5px solid #111;border-radius:10px;text-align:center;font-weight:800;padding:6px;margin-bottom:8px}
   .stk-t{width:100%;border-collapse:collapse}.stk-t th,.stk-t td{border:1.5px solid #111;padding:9px 6px;font-size:12px;text-align:right;width:50%;background:#fff !important;color:#111 !important;font-weight:800}
-  .stk-q{display:flex;flex-direction:column;align-items:center;gap:2px;margin-top:10px}.stk-q svg{width:120px;height:120px}.stk-q b{font-size:16px;letter-spacing:3px;direction:ltr}
+  .stk-q{display:flex;flex-direction:column;align-items:center;gap:2px;margin-top:10px}.stk-qb{border:2px dashed #111;border-radius:10px;padding:6px;line-height:0}.stk-q svg{width:116px;height:116px}.stk-q b{font-size:16px;letter-spacing:3px;direction:ltr}
   .stk-f{text-align:center}.stk-f small{display:block;font-weight:700}.stk-f b{direction:ltr;display:inline-block}
   .sz80 .stk{margin:0 0 4mm;page-break-after:always}.sza4 .grid{display:grid;grid-template-columns:1fr 1fr;gap:6mm}.sza4 .stk{padding:8px 10px}.sza4 .stk-t th,.sza4 .stk-t td{padding:6px}.sza4 .stk-q svg{width:100px;height:100px}</style>`;
   return css + (size === 'a4' ? `<div class="grid">${codes.map(one).join('')}</div>` : codes.map(one).join(''));
@@ -1366,7 +1366,7 @@ document.addEventListener('submit', async (e) => {
       else if (sec === 'fees') ['feeSame', 'feeOther'].forEach((x) => { body[x] = v('s-' + x).value; });
       else if (sec === 'alerts') { body.lateMin = v('s-lateMin').value; body.support = v('s-support').value; }
       else if (sec === 'receipts') body.receipts = v('s-receipts').checked;
-      else if (sec === 'night') { body.nightPickup = v('s-night').checked; body.nightDelivery = v('s-ndel').value; }
+      else if (sec === 'night') { body.nightPickup = v('s-night').checked; body.nightDelivery = v('s-ndel').value; body.courierFee = v('s-cfee').value; }
       else if (sec === 'qr') body.qrPickup = v('s-qr').checked;
       else if (sec === 'wa') { body.templates = {}; TPL_DEFS.forEach(([t]) => { body.templates[t] = v('t-' + t).value; }); }
       else if (sec === 'ocd') body.ocDesign = OCSEL || SET.ocDesign || 'classic';

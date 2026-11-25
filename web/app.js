@@ -858,10 +858,15 @@ VIEWS['courier:orders'] = () => {
 };
 VIEWS['courier:wallet'] = () => {
   const st = S.data.stats || {};
-  return `${head('المحفظة', 'عهدتك من الطلبات')}
-  <div class="balance"><div><small class="muted">قيمة الطلبات في عهدتك</small><strong>${money(st.custodyPrice || 0)}</strong><small class="muted">${st.custody || 0} طلب لم تُسلَّم للمقر بعد</small></div><span class="ico">${ico('wallet')}</span></div>
-  <div class="cst-g two" style="margin-top:12px"><div class="card"><small>استلمتها اليوم</small><b>${st.todayReceived || 0}</b></div><div class="card"><small>سلّمتها للمقر اليوم</small><b class="g">${st.todayHq || 0}</b></div></div>
-  <p class="hint">المندوب لا تُخصم منه رسوم. سلّم الطلبات ومبالغها لمقر الشركة.</p>`;
+  const w = S.data.wallet || { balance: 0, today: 0, week: 0, month: 0, txs: [] };
+  const fee = Number((S.data.settings || {}).courierFee) || 0;
+  const txs = w.txs.length ? `<div class="card">${w.txs.map((t) => `<div class="tx"><div><div>${esc(t.label || 'عملية')}${t.orderNo ? ` (طلب #${t.orderNo})` : ''}</div><small class="muted">${ago(t.at)}</small></div><b class="${t.amount < 0 ? 'neg' : 'pos'}">${t.amount > 0 ? '+' : ''}${nf.format(t.amount)}</b></div>`).join('')}</div>` : emptyBox('لا توجد عمليات بعد', 'يُضاف أجرك تلقائياً عند استلام كل طلب.');
+  return `${head('المحفظة', 'رصيدي وأرباحي')}
+  <div class="balance"><div><small class="muted">رصيدي</small><strong>${money(w.balance)}</strong><small class="muted">تحصل ${money(fee)} عن كل طلب تستلمه</small></div><span class="ico">${ico('wallet')}</span></div>
+  <div class="cst-g three" style="margin-top:12px"><div class="card"><small>أرباح اليوم</small><b class="g">${nf.format(w.today)}</b></div><div class="card"><small>هذا الأسبوع</small><b>${nf.format(w.week)}</b></div><div class="card"><small>هذا الشهر</small><b>${nf.format(w.month)}</b></div></div>
+  <div class="cst-g two" style="margin-top:10px"><div class="card"><small>استلمتها اليوم</small><b>${st.todayReceived || 0}</b></div><div class="card"><small>سلّمتها للمقر اليوم</small><b class="g">${st.todayHq || 0}</b></div></div>
+  ${st.custody ? `<div class="notice" style="margin-top:10px">في عهدتك ${st.custody} طلب بقيمة ${money(st.custodyPrice || 0)} لم تُسلَّم للمقر بعد.</div>` : ''}
+  <h2 class="sec">سجل العمليات</h2>${txs}`;
 };
 VIEWS['courier:me'] = () => profileView(S.data.me, S.data.settings);
 

@@ -1036,3 +1036,5 @@ html:has(body.au-on),body.au-on{background:#0a0a0c}
 .stk-ok{display:flex;align-items:center;gap:8px;padding:12px;border-radius:14px;background:var(--green-soft);color:var(--fg)}
 .stk-ok>svg{width:20px;height:20px;color:var(--green);flex:none}
 .stk-ok span{flex:1}
+.cst-g.three{grid-template-columns:repeat(3,1fr)}.cst-g.three>div.card{background:var(--surface);padding:12px}.cst-g.three b{font-size:18px}
+.tx b.pos{color:var(--green)}

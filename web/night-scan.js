@@ -50,8 +50,9 @@
     el.querySelector('.rs-x').onclick = close;
     el.addEventListener('click', function (e) { if (e.target === el) close(); });
     var inp = el.querySelector('.rs-in');
-    el.querySelector('.rs-go').onclick = function () { var v = inp.value; inp.value = ''; st.last = ''; submit(v); };
+    el.querySelector('.rs-go').onclick = function () { var v = inp.value; inp.value = ''; st.last = ''; submit(v); try { inp.focus(); } catch (e) { /* ignore */ } };
     inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') el.querySelector('.rs-go').click(); });
+    setTimeout(function () { try { inp.focus(); } catch (e) { /* ignore */ } }, 80);
     var cn = el.querySelector('.rs-cn');
     try {
       if (!('BarcodeDetector' in window)) throw new Error('nodet');

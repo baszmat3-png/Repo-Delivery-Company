@@ -34,7 +34,7 @@ const RETURNABLE = ['received', 'at_hq', 'picking_up', 'on_the_way', 'rejected',
 const TROUBLE = ['no_answer', 'postponed', 'problem', 'other'];
 const DONE = ['delivered', 'partial'];
 
-const DEF_SETTINGS = { bikeSame: 3000, bikeOther: 5000, carSame: 5000, carOther: 8000, feeSame: 500, feeOther: 1000, lateMin: 45, support: '', receipts: 1, directPay: 0, ocDesign: 'steps', nightPickup: 1, qrPickup: 0, nightDelivery: 5000 };
+const DEF_SETTINGS = { bikeSame: 3000, bikeOther: 5000, carSame: 5000, carOther: 8000, feeSame: 500, feeOther: 1000, lateMin: 45, support: '', receipts: 1, directPay: 0, ocDesign: 'steps', nightPickup: 1, qrPickup: 0, nightDelivery: 5000, courierFee: 500 };
 /* تصاميم الوصولات (بطاقة الطلب): يختارها المدير وتُطبَّق فوراً على كل الحسابات */
 const OC_KEYS = ['classic', 'bold', 'green', 'ticket', 'sun', 'night', 'steps'];
 
@@ -863,12 +863,15 @@ route('DELETE', '/api/admin/users/:id', ADM(['merchants', 'drivers', 'couriers']
   return { ok: true, removed: false };
 });
 
-route('POST', '/api/admin/users/:id/adjust', ADM('drivers', 'edit'), async (c) => {
+route('POST', '/api/admin/users/:id/adjust', ADM(['drivers', 'couriers'], 'edit'), async (c) => {
   const amount = int(c.body.amount);
   if (!Number.isFinite(amount) || amount === 0 || Math.abs(amount) > 100000000) fail('اكتب مبلغاً صحيحاً');
+  const who = (await q(`SELECT role FROM users WHERE id=$1 AND role IN ('driver','courier')`, [Number(c.params.id)])).rows[0];
+  if (!who) fail('المستخدم غير موجود', 404);
+  need(c.user, who.role === 'courier' ? 'couriers' : 'drivers', 'edit');
   const r = amount > 0
-    ? await q(`UPDATE users SET balance=balance+$1 WHERE id=$2 AND role='driver' RETURNING *`, [amount, Number(c.params.id)])
-    : await q(`UPDATE users SET balance=balance+$1 WHERE id=$2 AND role='driver' AND balance+$1>=0 RETURNING *`, [amount, Number(c.params.id)]);
+    ? await q(`UPDATE users SET balance=balance+$1 WHERE id=$2 AND role IN ('driver','courier') RETURNING *`, [amount, Number(c.params.id)])
+    : await q(`UPDATE users SET balance=balance+$1 WHERE id=$2 AND role IN ('driver','courier') AND balance+$1>=0 RETURNING *`, [amount, Number(c.params.id)]);
   if (!r.rows.length) fail('تعذّر تعديل الرصيد (تأكد من السائق ومن أن الرصيد يكفي)', 409);
   const lbl = clean(c.body.label, 80) || 'تعديل من الإدارة';
   await db.insert('txs', { driver_id: r.rows[0].id, amount, kind: 'admin', label: lbl, order_num: null, at: Date.now() });
@@ -972,6 +975,7 @@ route('PUT', '/api/admin/settings', ADM('settings', 'edit'), async (c) => {
     next.ocDesign = c.body.ocDesign;
   }
   if (c.body.receipts !== undefined) next.receipts = [true, 1, '1', 'true'].includes(c.body.receipts) ? 1 : 0;
+  if (c.body.courierFee !== undefined) { const v = int(c.body.courierFee); if (!Number.isFinite(v) || v < 0 || v > 1000000) fail('أجر المندوب غير صحيح'); next.courierFee = v; }
   if (c.body.nightDelivery !== undefined) { const v = int(c.body.nightDelivery); if (!Number.isFinite(v) || v < 0 || v > 1000000) fail('سعر توصيل الطلب الليلي غير صحيح'); next.nightDelivery = v; }
   if (c.body.qrPickup !== undefined) next.qrPickup = [true, 1, '1', 'true'].includes(c.body.qrPickup) ? 1 : 0;
   if (c.body.nightPickup !== undefined) next.nightPickup = [true, 1, '1', 'true'].includes(c.body.nightPickup) ? 1 : 0;
@@ -1522,6 +1526,11 @@ async function receiveNight(o, cur) {
     [now, cur.id, cur.name, pushLog(o, 'received', now), o.id]
   );
   if (!claim.rows.length) fail('تم استلام هذا الطلب مسبقاً', 409);
+  const earn = Math.max(0, Number((await getSettings()).courierFee) || 0); /* أجر المندوب عن كل طلب يستلمه */
+  if (earn > 0) {
+    await q('UPDATE users SET balance=balance+$1 WHERE id=$2', [earn, cur.id]);
+    await db.insert('txs', { driver_id: cur.id, amount: earn, kind: 'earn', label: 'أجر استلام طلب', order_num: o.num, at: now });
+  }
   await notify(o.merchant_id, { kind: 'order_status', orderId: o.id, orderNo: o.num, title: `تم استلام طلبك #${o.num}`, body: `استلمه المندوب ${cur.name} وسيُسلَّم لمقر الشركة ثم للزبون` });
   notifyAdmins({ kind: 'order_status', orderId: o.id, orderNo: o.num, title: `استلام ليلي #${o.num}`, body: `${o.merchant_name} ← المندوب ${cur.name}` });
   return claim.rows[0];
@@ -1575,9 +1584,14 @@ route('GET', '/api/courier/home', COURIER, async (c) => {
   const custody = rows.filter((o) => o.status === 'received');
   const todayRec = rows.filter((o) => (o.received_at || 0) >= day);
   const todayHq = rows.filter((o) => (o.hq_at || 0) >= day);
+  const me = (await q('SELECT * FROM users WHERE id=$1', [c.user.id])).rows[0] || c.user;
+  const tx = await q('SELECT * FROM txs WHERE driver_id=$1 ORDER BY at DESC LIMIT 60', [c.user.id]);
+  const earnSince = async (t) => Number((await q(`SELECT COALESCE(SUM(amount),0) AS n FROM txs WHERE driver_id=$1 AND kind='earn' AND at>=$2`, [c.user.id, t])).rows[0].n);
   return {
-    me: pub(c.user), settings: await getSettings(), stores: await nightStoresFor(c.user), orders: rows.map(ord),
-    stats: { custody: custody.length, custodyPrice: sumOf(custody, 'total'), todayReceived: todayRec.length, todayHq: todayHq.length, total: rows.length }
+    me: pub(me), settings: await getSettings(), stores: await nightStoresFor(c.user), orders: rows.map(ord),
+    stats: { custody: custody.length, custodyPrice: sumOf(custody, 'total'), todayReceived: todayRec.length, todayHq: todayHq.length, total: rows.length },
+    wallet: { balance: Number(me.balance) || 0, today: await earnSince(day), week: await earnSince(weekStart(Date.now())), month: await earnSince(monthStart(Date.now())),
+      txs: tx.rows.map((t) => ({ id: t.id, amount: t.amount, kind: t.kind, label: t.label, orderNo: t.order_num, at: t.at })) }
   };
 });
 
