@@ -979,3 +979,11 @@ html:has(body.au-on),body.au-on{background:#0a0a0c}
 .nst{display:flex;flex-direction:column;gap:12px}.nst-t{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}.nst-t small{display:block;color:var(--muted,#888)}
 .kindopt{display:flex;align-items:center;gap:14px;text-align:start;width:100%;padding:16px;border:1px solid var(--line);border-radius:16px;background:transparent;color:inherit;font:inherit;cursor:pointer}
 .kindopt .ki{font-size:30px}.kindopt b{display:block;font-size:16px;margin-bottom:2px}.kindopt small{color:var(--muted,#888);font-size:12.5px}
+
+/* قائمة المدير الجانبية داخل التطبيق */
+.drawer{position:fixed;top:0;bottom:0;inset-inline-end:0;width:min(86vw,340px);z-index:71;background:var(--surface);padding:18px 16px;display:flex;flex-direction:column;gap:6px;overflow:auto;box-shadow:-8px 0 30px rgba(0,0,0,.25)}
+.drawer-h{display:flex;justify-content:space-between;align-items:center;padding-bottom:12px;margin-bottom:6px;border-bottom:1px solid var(--line)}.drawer-h small{display:block;color:var(--muted)}
+.drawer-i{display:flex;align-items:center;gap:12px;padding:13px 14px;border:0;border-radius:14px;background:none;color:inherit;font:inherit;font-size:15px;text-align:start;cursor:pointer}
+.drawer-i[aria-current="page"]{background:var(--accent-soft);color:var(--accent-text);font-weight:700}
+@media (max-width:899px){.nav.admin{display:none}}
+@media (min-width:900px){.burger{display:none}}

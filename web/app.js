@@ -135,7 +135,7 @@ let chatTimer = null;
 const TABS = {
   merchant: [['orders', 'الطلبات', 'orders'], ['home', 'الرئيسية', 'home'], ['stats', 'الإحصائيات', 'stats'], ['me', 'حسابي', 'user']],
   driver: [['home', 'الرئيسية', 'home'], ['orders', 'الطلبات', 'orders'], ['wallet', 'المحفظة', 'wallet'], ['me', 'الملف الشخصي', 'user']],
-  admin: [['overview', 'نظرة عامة', 'grid'], ['orders', 'الطلبات', 'orders'], ['merchants', 'التجار', 'store'], ['drivers', 'السائقون', 'users'], ['cards', 'كروت الشحن', 'card'], ['settings', 'الإعدادات', 'settings']]
+  admin: [['overview', 'نظرة عامة', 'grid'], ['orders', 'الطلبات', 'orders'], ['night', 'استلام الطلبات', 'orders'], ['merchants', 'التجار', 'store'], ['drivers', 'السائقون', 'users'], ['cards', 'كروت الشحن', 'card'], ['settings', 'الإعدادات', 'settings']]
 };
 const ROLE_NAME = { merchant: 'تاجر', driver: 'سائق', admin: 'مدير' };
 const ROLE_ICON = { merchant: 'store', driver: 'pin', admin: 'grid' };
@@ -182,6 +182,7 @@ async function fetchData() {
   const t = S.tab;
   if (t === 'overview') return api('GET', '/api/admin/overview');
   if (t === 'orders') return api('GET', '/api/admin/orders' + (S.adminFilter !== 'all' ? '?status=' + S.adminFilter : ''));
+  if (t === 'night') return api('GET', '/api/admin/night');
   if (t === 'merchants') return api('GET', '/api/admin/users?role=merchant');
   if (t === 'drivers') return api('GET', '/api/admin/users?role=driver');
   if (t === 'cards') return api('GET', '/api/admin/cards');
@@ -231,13 +232,6 @@ function liveRefresh() {
   const a = document.activeElement;
   if (S.sheet || S.menu || (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))) { S.dirty = true; return; }
   refresh();
-}
-/* المدير والإدارة: يفتحون لوحة التحكم الكاملة (قائمة جانبية + استلام الطلبات) بدل الواجهة المصغّرة */
-function toAdminPanel(u, token) {
-  if (ADMIN_ONLY || !u || !['admin', 'staff'].includes(u.role)) return false;
-  try { localStorage.setItem('rio_admin_token', token); localStorage.setItem('rio_admin_me', JSON.stringify(u)); } catch { return false; }
-  location.replace('admin.html');
-  return true;
 }
 function setUser(u) { S.user = u; geoStart(); connectLive(); setTimeout(syncCfg, 100); setTimeout(checkNotifs, 600); if (u && u.role !== 'admin') setTimeout(promptOnEntry, 500); }
 /* ===== إرسال موقع السائق للإدارة (أثناء فتح التطبيق) ===== */
@@ -317,7 +311,9 @@ function shell() {
   const un = unreadCount();
   const bell = role === 'admin' ? '' : `<button class="bell" id="bell" data-act="notifs" aria-label="الإشعارات">${ico('bell')}<span class="badge" id="bell-n" ${un ? '' : 'hidden'}>${un}</span></button>`;
   const fab = '';
-  return `<header class="topbar"><div class="grp">${logo()}<span class="rolechip">${ico(ROLE_ICON[role])}${ROLE_NAME[role]}</span></div><div class="grp">${bell}</div></header>
+  const burger = role === 'admin' ? `<button class="bell burger" data-act="drawer" aria-label="القائمة">${ico('grid')}</button>` : '';
+  const drawer = role === 'admin' && S.drawer ? `<div class="scrim" data-act="drawer"></div><aside class="drawer" role="dialog" aria-label="القائمة"><div class="drawer-h"><div><b>لوحة الإدارة</b><small>ريوو للتوصيل أسرع</small></div><button class="x" data-act="drawer" aria-label="إغلاق">${ico('x')}</button></div>${tabs.map(([id, label, ic]) => `<button class="drawer-i" data-act="tab" data-tab="${id}" ${S.tab === id ? 'aria-current="page"' : ''}>${ico(ic)}<span>${label}</span></button>`).join('')}<button class="drawer-i" data-act="logout">${ico('user')}<span>تسجيل الخروج</span></button></aside>` : '';
+  return `${drawer}<header class="topbar"><div class="grp">${burger}${logo()}<span class="rolechip">${ico(ROLE_ICON[role])}${ROLE_NAME[role]}</span></div><div class="grp">${bell}</div></header>
 <div class="shell"><nav class="nav ${role}" aria-label="التنقل">${nav}</nav><main class="main"><div class="col ${role === 'admin' ? 'wide' : ''}"><div id="nbanner">${nbannerHtml()}</div>${view()}</div></main></div>${fab}`;
 }
 
@@ -898,6 +894,17 @@ VIEWS['admin:overview'] = () => {
   <div class="card"><div class="bars">${d.days.map((x) => `<div><em>${x.n || ''}</em><div class="b" style="height:${Math.max(3, Math.round(x.n / max * 110))}px"></div><span>${DAYS[new Date(x.t + OFF).getUTCDay()]}</span></div>`).join('')}</div></div>
   <h2 class="sec">تحتاج متابعة</h2>
   ${d.attention.length ? ordersTable(d.attention) : emptyBox('كل شيء يسير بشكل جيد', 'لا توجد طلبات متأخرة أو بها مشاكل.')}`;
+};
+
+VIEWS['admin:night'] = () => {
+  const n = S.data;
+  const rows = n.stores.map((x) => `<div class="row between" style="padding:12px 0;border-bottom:1px solid var(--line)"><div><b>${esc(x.name)}</b><small style="display:block;color:var(--muted)">${x.received} مستلمة · ${x.registered} مسجلة${x.drivers.length ? ' · ' + esc(x.drivers.join('، ')) : (x.requested ? ' · بانتظار موافقة مندوب' : '')}</small></div><b>${money(x.price)}</b></div>`).join('');
+  return `${head('استلام الطلبات', 'الطلبات المسجلة والمستلمة')}
+  <div class="kpis"><div class="kpi"><small>الطلبات المسجلة</small><strong style="color:var(--amber)">${n.registered}</strong><small>من ${n.stores.length} متاجر</small></div><div class="kpi"><small>الطلبات المستلمة</small><strong style="color:var(--green)">${n.received}</strong><small>في عهدة المندوبين</small></div></div>
+  <div class="card" style="background:linear-gradient(135deg,#f6d24a,#d9a520);color:#171200;margin:12px 0"><small>سعر الطلبات</small><div style="font-size:26px;font-weight:800">${money(n.price)}</div><small>المستلمة: ${nf.format(n.receivedPrice)} · المتبقية: ${nf.format(n.remainingPrice)}</small></div>
+  <button class="btn block" style="min-height:52px;background:#2f55c4;color:#fff" data-act="admin-night-scan">استلام طلبات باركود</button>
+  <h2 class="sec">الطلبات المسجلة حسب المتجر</h2>
+  <div class="card">${n.stores.length ? rows : emptyBox('لا توجد طلبات ليلية مسجلة')}</div>`;
 };
 
 function statusSelect(o) {
@@ -1830,7 +1837,12 @@ function stopChat() { if (chatTimer) { clearInterval(chatTimer); chatTimer = nul
 
 /* ============ الأحداث ============ */
 const ACTIONS = {
-  tab: (el) => go(el.dataset.tab),
+  tab: (el) => { S.drawer = false; go(el.dataset.tab); },
+  drawer: () => { S.drawer = !S.drawer; render(); },
+  'admin-night-scan': () => {
+    if (!window.RioScan) return toast('الماسح غير متاح', true);
+    window.RioScan.open({ title: 'استلام طلبات بالباركود', onCode: async (code) => { const r = await api('POST', '/api/admin/night/scan', { code }); refresh(true); return `${r.already ? 'مستلم مسبقاً' : 'تم استلام'} الطلب #${r.order.no}`; } });
+  },
   'tab-wallet': () => { go('wallet'); },
   logout: () => doLogout(),
   theme: (el) => { RioTheme.set(el.dataset.t); render(); },
@@ -2051,7 +2063,6 @@ const FORMS = {
   },
   async login(f, err) {
     const r = await api('POST', '/api/login', { phone: f.phone.value, password: f.password.value });
-    if (toAdminPanel(r.user, r.token)) return;
     if (r.user.role === 'staff') throw new Error('حساب الإدارة يدخل من لوحة التحكم (صفحة admin.html)');
     if (ADMIN_ONLY && r.user.role !== 'admin') throw new Error('هذه اللوحة للمدير فقط');
     S.token = r.token; if (f.remember && !f.remember.checked) { try { sessionStorage.setItem(TOKEN_KEY, r.token); } catch { /* ignore */ } store.del(TOKEN_KEY); } else store.set(TOKEN_KEY, r.token); setUser(r.user);
@@ -2154,7 +2165,6 @@ async function boot() {
   if (S.token) {
     try {
       const r = await api('GET', '/api/me');
-      if (toAdminPanel(r.user, S.token)) return;
       if (r.user.role === 'staff' || (ADMIN_ONLY && r.user.role !== 'admin')) throw new Error('not admin');
       setUser(r.user);
       const ok = TABS[r.user.role].some((t) => t[0] === wanted) || (wanted === 'notifs' && r.user.role !== 'admin');
