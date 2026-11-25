@@ -107,6 +107,7 @@ async function init() {
   await addColumn('orders', 'pick_driver_id', 'INTEGER');
   await addColumn('orders', 'pick_driver_name', "TEXT NOT NULL DEFAULT ''");
   await addColumn('orders', 'received_at', 'BIGINT');
+  await addColumn('orders', 'hq_at', 'BIGINT');
   await addColumn('users', 'perms', "TEXT NOT NULL DEFAULT ''");
   await addColumn('users', 'avatar', "TEXT NOT NULL DEFAULT ''");
   await addColumn('users', 'verified', 'INTEGER NOT NULL DEFAULT 0');

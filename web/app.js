@@ -92,6 +92,9 @@ const IC = {
   chev: '<path d="M15 5l-7 7 7 7"/>',
   pin: '<path d="M12 21s7-6 7-11a7 7 0 10-14 0c0 5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>',
   grid: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+  moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
+  qr: '<path d="M3 3h6v6H3zM15 3h6v6h-6zM3 15h6v6H3zM15 15h2v2h-2zM19 19h2v2h-2zM19 15h2M15 19h2"/>',
+  box: '<path d="M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8M12 13v8"/>',
   bike: '<circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-8h5l3 8M10 8H8M13 12h5"/>',
   car: '<path d="M3 15v-4l2-5h14l2 5v4z"/><circle cx="7.5" cy="15.5" r="1.8"/><circle cx="16.5" cy="15.5" r="1.8"/><path d="M5 11h14"/>',
   eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
@@ -112,13 +115,13 @@ const RIO_MARK = '<svg class="rl" width="170" height="108" viewBox="0 0 300 190"
 const logo = (cls = '') => `<img class="logo-img ${cls}" src="logo.png" alt="ريوو للتوصيل اسرع">`;
 
 const ST = {
-  registered: ['مسجّل — بانتظار الاستلام', 'amber'], received: ['تم الاستلام من التاجر', 'accent'],
+  registered: ['مسجّل — بانتظار الاستلام', 'amber'], received: ['استلمه المندوب', 'accent'], at_hq: ['في مقر الشركة', 'blue'],
   pending: ['بانتظار سائق', 'amber'], picking_up: ['قيد الاستلام من التاجر', 'accent'], on_the_way: ['في الطريق للزبون', 'accent'],
   delivered: ['تم التسليم', 'green'], rejected: ['مرفوض من زبون', 'red'], postponed: ['تأجيل', 'amber'], no_answer: ['لا يرد', 'red'], problem: ['مشكلة', 'red'], other: ['حالة أخرى', 'red'],
   returned: ['راجع — استلمه التاجر', 'blue'], return_sent: ['إرجاع للمتجر — بانتظار تأكيد التاجر', 'amber'], partial: ['راجع جزئي', 'blue'], cancelled: ['ملغي', '']
 };
 const DRIVER_ST = ['picking_up', 'on_the_way', 'delivered', 'rejected', 'no_answer', 'postponed'];
-const ST_OK = ['registered', 'received', 'pending', 'picking_up', 'on_the_way', 'delivered', 'rejected', 'no_answer', 'postponed', 'return_sent', 'returned', 'cancelled'];
+const ST_OK = ['registered', 'received', 'at_hq', 'pending', 'picking_up', 'on_the_way', 'delivered', 'rejected', 'no_answer', 'postponed', 'return_sent', 'returned', 'cancelled'];
 const RETURNABLE = ['received', 'picking_up', 'on_the_way', 'rejected', 'no_answer', 'postponed'];
 const stKeys = (cur) => Object.keys(ST).filter((k) => ST_OK.includes(k) || k === cur);
 const pill = (s) => `<span class="pill ${ST[s]?.[1] || ''}">${esc(ST[s]?.[0] || s)}</span>`;
@@ -135,10 +138,11 @@ let chatTimer = null;
 const TABS = {
   merchant: [['orders', 'الطلبات', 'orders'], ['home', 'الرئيسية', 'home'], ['stats', 'الإحصائيات', 'stats'], ['me', 'حسابي', 'user']],
   driver: [['home', 'الرئيسية', 'home'], ['orders', 'الطلبات', 'orders'], ['wallet', 'المحفظة', 'wallet'], ['me', 'الملف الشخصي', 'user']],
+  courier: [['home', 'الرئيسية', 'home'], ['orders', 'الطلبات', 'orders'], ['wallet', 'المحفظة', 'wallet'], ['me', 'حسابي', 'user']],
   admin: [['overview', 'نظرة عامة', 'grid'], ['orders', 'الطلبات', 'orders'], ['night', 'استلام الطلبات', 'orders'], ['merchants', 'التجار', 'store'], ['drivers', 'السائقون', 'users'], ['cards', 'كروت الشحن', 'card'], ['settings', 'الإعدادات', 'settings']]
 };
-const ROLE_NAME = { merchant: 'تاجر', driver: 'سائق', admin: 'مدير' };
-const ROLE_ICON = { merchant: 'store', driver: 'pin', admin: 'grid' };
+const ROLE_NAME = { merchant: 'تاجر', driver: 'سائق', courier: 'مندوب', admin: 'مدير' };
+const ROLE_ICON = { merchant: 'store', driver: 'pin', courier: 'bike', admin: 'grid' };
 
 /* ============ الاتصال بالخادم ============ */
 async function api(method, path, body) {
@@ -182,6 +186,7 @@ async function fetchData() {
   if (role !== 'admin' && S.tab === 'notifs') return api('GET', '/api/notifs?limit=40');
   if (role === 'merchant') return api('GET', '/api/merchant/home');
   if (role === 'driver') return api('GET', '/api/driver/home');
+  if (role === 'courier') return api('GET', '/api/courier/home');
   const t = S.tab;
   if (t === 'overview') return api('GET', '/api/admin/overview');
   if (t === 'orders') return api('GET', '/api/admin/orders' + (S.adminFilter !== 'all' ? '?status=' + S.adminFilter : ''));
@@ -308,7 +313,8 @@ function shell() {
   const role = S.user.role;
   const tabs = TABS[role];
   const badge = (id) => {
-    if (S.data && role === 'driver' && id === 'home' && S.data.available) return S.data.available.length;
+    if (S.data && role === 'driver' && id === 'home' && S.data.available) return S.data.available.length + ((S.data.company || []).length);
+    if (S.data && role === 'courier' && id === 'home' && S.data.stores) return S.data.stores.filter((g) => !g.approved).length;
     return 0;
   };
   const nav = tabs.map(([id, label, ic], i) => {
@@ -316,7 +322,6 @@ function shell() {
     const fabBtn = role === 'merchant' && i === 2 ? `<button class="navfab" data-act="new-order" aria-label="إنشاء طلب">${ico('plus')}</button>` : '';
     return `${fabBtn}<button data-act="tab" data-tab="${id}" ${S.tab === id ? 'aria-current="page"' : ''}>${ico(ic)}<span>${label}</span>${b ? `<span class="badge">${b}</span>` : ''}</button>`;
   }).join('');
-  if (S.nstore != null) { const gg = ((S.data && S.data.nightStores) || []).find((x) => x.merchantId === S.nstore); if (gg) return nightStorePage(gg); S.nstore = null; }
   if (S.opage) { const oo = findOrder(S.opage); if (oo) return orderPage(oo); S.opage = null; }
   const un = unreadCount();
   const bell = role === 'admin' ? '' : `<button class="bell" id="bell" data-act="notifs" aria-label="الإشعارات">${ico('bell')}<span class="badge" id="bell-n" ${un ? '' : 'hidden'}>${un}</span></button>`;
@@ -524,28 +529,9 @@ function payBox(o) {
 
 const nightOn = () => Number((S.data && S.data.settings && S.data.settings.nightPickup)) === 1;
 const qrOn = () => Number((S.data && S.data.settings && S.data.settings.qrPickup)) === 1;
-/* هل يحتاج الطلب مسح QR من المندوب لتأكيد الاستلام من المتجر؟ */
-const needPickQr = (o) => qrOn() && o.kind !== 'night' && o.status === 'picking_up';
-const qrBox = (o) => {
-  if (!o.pickCode || !window.RioQR) return '';
-  const night = o.kind === 'night' && o.status === 'registered';
-  const fast = qrOn() && o.kind !== 'night' && ['pending', 'picking_up'].includes(o.status);
-  if (!night && !fast) return '';
-  return `<div class="qrbox"><div class="qrimg">${window.RioQR.svg('RIO:' + o.no + ':' + o.pickCode, 150)}</div>${fast && o.pickPin ? `<div class="qrpin">رمز الاستلام: <b class="num">${o.pickPin}</b></div>` : ''}<small>أعطِ هذا الرمز للمندوب ليمسحه عند الاستلام · رقم الطلب <bdi>#${o.no}</bdi></small></div>`;
-};
-function openPickupScan() {
-  if (!window.RioScan) return toast('الماسح غير متاح', true);
-  window.RioScan.open({
-    title: 'تأكيد الاستلام من المتجر',
-    placeholder: 'أو اكتب رمز الاستلام (4 أرقام)',
-    onCode: async (code) => {
-      const r = await api('POST', '/api/driver/pickup/scan', { code });
-      refresh(true);
-      setTimeout(() => window.RioScan.close(), 1400);
-      return `تم تأكيد استلام الطلب #${r.order.no} — في الطريق للزبون`;
-    }
-  });
-}
+/* رمز QR للطلب الليلي (يمسحه المندوب عند الاستلام من التاجر) + رمز استلام من 4 أرقام بديل الكاميرا */
+const qrBox = (o) => (o.kind === 'night' && o.status === 'registered' && o.pickCode && window.RioQR
+  ? `<div class="qrbox"><div class="qrimg">${window.RioQR.svg('RIO:' + o.no + ':' + o.pickCode, 150)}</div>${o.pickPin ? `<div class="qrpin">رمز الاستلام: <b class="num">${o.pickPin}</b></div>` : ''}<small>أعطِ هذا الرمز للمندوب ليمسحه عند الاستلام · رقم الطلب <bdi>#${o.no}</bdi></small></div>` : '');
 function merchantOpts(o, withCancel) {
   const armed = S.armed === 'c' + o.id;
   return {
@@ -574,7 +560,7 @@ function driverOpts(o) {
   return {
     corner: chatBtn(o), noteBtn: !!o.note,
     status: st, rows: customerRows(o) + ocRow('phone', 'هاتف المتجر', telLink(o.merchantPhone)),
-    after: payBox(o) + (o.status === 'picking_up' && o.payMode === 'prepaid' && directPayOn() ? '' : o.status === 'picking_up' ? (!o.productPrice ? '' : `<div class="notice">ادفع للتاجر ${money(o.productPrice)} عند الاستلام، وبعدها ${needPickQr(o) ? 'امسح رمز QR من التاجر' : 'اضغط على الحالة واختر «تم الاستلام من التاجر»'}.</div>`) : '') + (needPickQr(o) ? `<button class="btn block" data-act="pickup-scan">${ico('check')} مسح QR لتأكيد الاستلام من المتجر</button>` : ''),
+    after: payBox(o) + (o.status === 'picking_up' && o.payMode === 'prepaid' && directPayOn() ? '' : o.status === 'picking_up' ? (o.kind === 'night' ? `<div class="notice">استلم الطلب من <b>مقر الشركة</b>، وبعدها اضغط على الحالة واختر «في الطريق للزبون».</div>` : (!o.productPrice ? '' : `<div class="notice">ادفع للتاجر ${money(o.productPrice)} عند الاستلام، وبعدها اضغط على الحالة واختر «تم الاستلام من التاجر».</div>`)) : ''),
     actions: `${receiptsOn() ? `<button class="btn ghost sm" data-act="receipt" data-id="${o.id}">وصل</button>` : ''}<a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">مراسلة الزبون</a>${o.merchantPhone ? waTo(o.merchantPhone, 'مراسلة التاجر', `مرحباً ${o.merchantName || ''}، بخصوص الطلب #${o.no}`) : ''}<a class="btn ghost sm" href="${supportLink(o)}" target="_blank" rel="noopener">واتساب الدعم</a>${wazeLinks(o)}`
   };
 }
@@ -628,12 +614,14 @@ document.addEventListener('touchmove', (e) => { if (e.touches && e.touches.lengt
 
 /* ============ التصميم الجديد: صفوف الطلبات وصفحة التفاصيل والإحصائيات ============ */
 const STAGE_LBL = ['انتظار سائق', 'تم القبول', 'تم الاستلام', 'في الطريق للزبون', 'تم التسليم'];
-const STAGE_NIGHT = ['مسجّل', 'موافقة مندوب', 'تم الاستلام', 'في الطريق للزبون', 'تم التسليم'];
+const STAGE_NIGHT = ['مسجّل', 'استلمه المندوب', 'في مقر الشركة', 'في الطريق للزبون', 'تم التسليم'];
 const stageLbl = (o) => (o && o.kind === 'night' ? STAGE_NIGHT : STAGE_LBL);
 function stageOf(o) {
   const s = o.status;
-  if (s === 'registered') return [o.pickDriverId ? 2 : 1, 'ok'];
-  if (s === 'received') return [3, 'ok'];
+  if (s === 'registered') return [1, 'ok'];
+  if (s === 'received') return [2, 'ok'];
+  if (s === 'at_hq') return [3, 'ok'];
+  if (s === 'picking_up' && o.kind === 'night') return [3, 'ok'];
   if (s === 'pending') return [1, 'ok'];
   if (s === 'picking_up') return [2, 'ok'];
   if (s === 'on_the_way') return [4, 'ok'];
@@ -792,11 +780,17 @@ const VIEWS = {
   'driver:home'() {
     const d = S.data;
     const s = d.settings;
-    return `${head('الطلبات المتاحة', esc(S.user.name))}
+    const comp = d.company || [];
+    const t = S.dTab === 'company' ? 'company' : 'avail';
+    const list = t === 'company' ? comp : d.available;
+    const acc = (o) => (!stepsOn() ? availOrderCard(o, s, d.me.receiving) : ordRow(o, d.me.receiving ? `<button class="orow-acc" data-act="accept" data-id="${o.id}">قبول الطلب</button>` : ''));
+    return `${head('الرئيسية', esc(S.user.name))}
     ${adsSlider()}
     ${!d.me.receiving ? `<div class="notice red" style="margin-bottom:12px">استقبال الطلبات متوقف. فعّله من «الملف الشخصي» لتتمكن من قبول الطلبات.</div>` : ''}
-    ${nightStoresSection()}
-    <div class="stack">${d.available.length ? d.available.map((o) => (!stepsOn() ? availOrderCard(o, s, d.me.receiving) : ordRow(o, d.me.receiving ? `<button class="orow-acc" data-act="accept" data-id="${o.id}">قبول الطلب</button>` : ''))).join('') : emptyBox('لا توجد طلبات متاحة الآن', 'ستظهر الطلبات الجديدة هنا فور رفعها من التجار.')}</div>`;
+    <div class="seg row-seg dseg" style="margin-bottom:14px"><button data-act="dtab" data-t="avail" aria-pressed="${t === 'avail'}">الطلبات المتاحة</button><button data-act="dtab" data-t="company" aria-pressed="${t === 'company'}">طلبات الشركة${comp.length ? ` (${comp.length})` : ''}</button></div>
+    <div class="row between" style="margin-bottom:8px"><h2 class="sec" style="margin:0">${t === 'company' ? 'طلبات الشركة' : 'الطلبات المتاحة'}</h2><span class="pill">${list.length} طلبات</span></div>
+    <div class="notice" style="margin-bottom:12px">${t === 'company' ? 'طلبات وصلت مقر الشركة. اقبل الطلب واستلمه من المقر لتوصيله للزبون.' : 'طلبات سريعة رفعها التجار، اقبل الطلب لتبدأ التوصيل.'}</div>
+    <div class="stack">${list.length ? list.map(acc).join('') : emptyBox(t === 'company' ? 'لا توجد طلبات في مقر الشركة حالياً' : 'لا توجد طلبات متاحة الآن', t === 'company' ? 'تظهر هنا الطلبات فور تأكيد وصولها لمقر الشركة.' : '')}</div>`;
   },
   'driver:orders'() {
     const all = S.data.orders;
@@ -835,7 +829,38 @@ const VIEWS = {
   }
 };
 
-VIEWS['merchant:notifs'] = VIEWS['driver:notifs'] = notifsView;
+VIEWS['merchant:notifs'] = VIEWS['driver:notifs'] = VIEWS['courier:notifs'] = notifsView;
+
+/* ===== واجهات المندوب ===== */
+VIEWS['courier:home'] = () => {
+  const d = S.data;
+  if (S.nstore != null) { const g = (d.stores || []).find((x) => x.merchantId === S.nstore); if (g) return courierStorePage(g); S.nstore = null; }
+  const l = d.stores || [];
+  return `${head('الرئيسية', 'طلبات الاستلام الليلي')}
+  <div class="row between" style="margin-bottom:10px"><h2 class="sec" style="margin:0">طلبات متاجر متاحة</h2><span class="pill">${l.length} متاجر</span></div>
+  <div class="nbanner2">${ico('moon')}<span>استلام الطلبات ليلاً وتوصيلها في اليوم التالي.</span></div>
+  <div class="stack">${l.length ? l.map(courierStoreCard).join('') : emptyBox('لا توجد متاجر بانتظار الاستلام', 'تظهر هنا المتاجر التي تطلب مندوباً لاستلام طلباتها.')}</div>`;
+};
+VIEWS['courier:orders'] = () => {
+  const all = S.data.orders || [];
+  const cur = all.filter((o) => o.status === 'received');
+  const prev = all.filter((o) => o.status !== 'received');
+  const t = S.cTab === 'prev' ? 'prev' : 'cur';
+  const list = t === 'cur' ? cur : prev;
+  const card = (o) => `<div class="card cdo2"><div class="row between"><b>#${o.no} · ${esc(o.merchantName)}</b>${pill(o.status)}</div><div class="row between"><small class="muted">${esc(o.customerArea)} · ${esc(o.product || '')}</small><b class="num">${money(o.total)}</b></div></div>`;
+  return `${head('الطلبات')}
+  <div class="tabs" style="margin-bottom:14px"><button data-act="ctab" data-t="cur" aria-pressed="${t === 'cur'}">في عهدتي (${cur.length})</button><button data-act="ctab" data-t="prev" aria-pressed="${t === 'prev'}">سُلّمت للمقر (${prev.length})</button></div>
+  ${t === 'cur' && cur.length ? '<div class="notice" style="margin-bottom:12px">سلّم هذه الطلبات لمقر الشركة، وتُؤكَّد بمسح الباركود هناك.</div>' : ''}
+  <div class="stack">${list.length ? list.map(card).join('') : emptyBox(t === 'cur' ? 'لا توجد طلبات في عهدتك' : 'لا توجد طلبات سابقة')}</div>`;
+};
+VIEWS['courier:wallet'] = () => {
+  const st = S.data.stats || {};
+  return `${head('المحفظة', 'عهدتك من الطلبات')}
+  <div class="balance"><div><small class="muted">قيمة الطلبات في عهدتك</small><strong>${money(st.custodyPrice || 0)}</strong><small class="muted">${st.custody || 0} طلب لم تُسلَّم للمقر بعد</small></div><span class="ico">${ico('wallet')}</span></div>
+  <div class="cst-g two" style="margin-top:12px"><div class="card"><small>استلمتها اليوم</small><b>${st.todayReceived || 0}</b></div><div class="card"><small>سلّمتها للمقر اليوم</small><b class="g">${st.todayHq || 0}</b></div></div>
+  <p class="hint">المندوب لا تُخصم منه رسوم. سلّم الطلبات ومبالغها لمقر الشركة.</p>`;
+};
+VIEWS['courier:me'] = () => profileView(S.data.me, S.data.settings);
 
 function li(ic, t, sub, a, extra = '') {
   return `<button class="list-item" data-act="${a}" ${extra}>${ico(ic)}<span class="grow"><b>${t}</b><small>${sub}</small></span><span class="chev">${ico('chev')}</span></button>`;
@@ -1355,7 +1380,7 @@ async function systemNotify(m) {
   } catch { /* بعض المتصفحات لا تدعم الإشعارات */ }
 }
 async function checkNotifs() {
-  if (!S.user || !['merchant', 'driver'].includes(S.user.role) || nBusy) return;
+  if (!S.user || !['merchant', 'driver', 'courier'].includes(S.user.role) || nBusy) return;
   nBusy = true;
   try {
     const last = store.get(nKey('nlast2'));
@@ -1615,8 +1640,10 @@ function renderSheet() {
 
 /* ----- الاستلام الليلي: ملخص التاجر ----- */
 function nightSummary(list) {
-  const reg = list.filter((x) => ['registered', 'received'].includes(x.status));
+  const reg = list.filter((x) => ['registered', 'received', 'at_hq'].includes(x.status));
   const wait = list.filter((x) => x.status === 'registered');
+  const withC = list.filter((x) => x.status === 'received');
+  const hq = list.filter((x) => x.status === 'at_hq');
   const total = reg.reduce((a, x) => a + (Number(x.total) || 0), 0);
   const asked = wait.length && wait.every((x) => x.pickReq);
   const drv = (wait.find((x) => x.pickDriverName) || {}).pickDriverName;
@@ -1625,48 +1652,45 @@ function nightSummary(list) {
     : `<button class="btn block" data-act="night-req">${ico('bike')} اطلب مندوب للاستلام</button>`;
   return `<div class="card nsum"><div class="nsum-h"><b>الطلبات المسجلة</b><span>${reg.length} طلب</span></div>
     <div class="nsum-p"><small>إجمالي سعر الطلبات</small><b>${nf.format(Math.round(total))} د.ع</b></div>
-    <div class="nsum-g"><div><small>بانتظار الاستلام</small><b>${wait.length}</b></div><div><small>تم الاستلام</small><b>${reg.length - wait.length}</b></div></div>${btn}</div>`;
+    <div class="nsum-g"><div><small>بانتظار الاستلام</small><b>${wait.length}</b></div><div><small>مع المندوب</small><b>${withC.length}</b></div><div><small>في مقر الشركة</small><b>${hq.length}</b></div></div>${btn}</div>`;
 }
 
-/* ----- الاستلام الليلي: المندوب ----- */
-function nightStoreCard(g) {
+/* ----- المندوب (حساب مستقل): استلام الطلبات الليلية من المتاجر وتوصيلها لمقر الشركة ----- */
+function courierStoreCard(g) {
   const total = g.count + g.received;
-  const acts = g.approved
-    ? `<button class="btn sm" data-act="night-scan">${ico('check')} استلام طلب QR</button><button class="btn ghost sm" data-act="night-store" data-id="${g.merchantId}">عرض التفاصيل</button>`
-    : `<button class="btn sm" data-act="night-approve" data-id="${g.merchantId}">موافقة على الاستلام</button><button class="btn ghost sm" data-act="night-store" data-id="${g.merchantId}">عرض التفاصيل</button>`;
-  return `<div class="card nst"><div class="nst-t"><div><b>${esc(g.name)}</b><small>${esc(g.area || '')}</small></div>${g.approved ? '<span class="pill green">تمت موافقتك</span>' : '<span class="pill amber">بانتظار موافقة</span>'}</div>
-    <div class="nst-g"><div><small>عدد الطلبات</small><b>${total}</b></div><div><small>سعر الطلبات المتبقية</small><b>${nf.format(Math.round(g.price))} د.ع</b></div><div><small>تم استلام</small><b>${g.received}</b></div></div>
-    <div class="op-acts wrap">${acts}</div></div>`;
+  const btn = g.approved
+    ? `<button class="btn block navy" data-act="night-store" data-id="${g.merchantId}">${ico('eye')} عرض التفاصيل</button>`
+    : `<button class="btn block" data-act="night-approve" data-id="${g.merchantId}">موافقة على الاستلام</button>`;
+  return `<div class="card cst"><div class="cst-t"><span class="cst-ic">${ico('store')}</span><div><b>${esc(g.name)}</b><small>${ico('pin')} ${esc(g.area || '')}</small></div></div>
+    <div class="cst-g"><div><small>عدد الطلبات</small><b>${total}</b></div><div><small>سعر الطلبات</small><b>${nf.format(Math.round(g.price + g.receivedPrice))} <small>د.ع</small></b></div></div>${btn}</div>`;
 }
-function nightStoresSection() {
-  const l = (S.data && S.data.nightStores) || [];
-  if (!l.length) return '';
-  return `<div class="nbanner"><b>🌙 استلام طلبات ليلاً</b><small>متاجر سجّلت طلبات وتنتظر مندوباً لاستلامها وتسليمها غداً</small></div><div class="stack" style="margin-bottom:14px">${l.map(nightStoreCard).join('')}</div>`;
-}
-function nightStorePage(g) {
+function courierStorePage(g) {
   const total = g.count + g.received;
-  const phone = g.approved ? telLink(g.phone) : `<bdi>${esc(g.phone)}</bdi>`;
-  const orders = g.approved && g.orders.length ? `<div class="card op-card"><div class="lbl" style="margin-bottom:6px"><b>الطلبات المتبقية للاستلام</b></div>${g.orders.map((x) => `<div class="dr"><div class="dr-t"><small>#${x.no} · ${esc(x.customerArea)}</small><b>${money(x.total)}</b></div></div>`).join('')}</div>` : '';
-  const act = g.approved ? `<button class="btn block" data-act="night-scan">${ico('check')} استلام طلب QR</button>` : `<button class="btn block" data-act="night-approve" data-id="${g.merchantId}">موافقة على الاستلام</button>`;
-  return `<div class="opage">
-    <div class="op-h"><button class="op-back" data-act="close-store" aria-label="رجوع">${ico('chev')}</button><div><h1>${esc(g.name)}</h1><p>تفاصيل المتجر</p></div></div>
-    <div class="card op-card">
-      ${dRow(ico('pin'), 'منطقة المتجر', esc(g.area || ''))}
-      ${dRow(ico('phone'), 'رقم المتجر', phone, g.approved ? '' : 'يظهر الرقم كاملاً بعد الموافقة')}
-      ${dRow(ico('orders'), 'عدد الطلبات', `${total} طلب`, `${g.received} مستلمة · ${g.count} متبقية`)}
-      ${dRow(ico('wallet'), 'سعر الطلبات المتبقية', money(g.price))}
-    </div>
-    ${g.approved && g.map ? `<div class="op-acts wrap"><a class="btn ghost sm" href="${esc(g.map)}" target="_blank" rel="noopener">${ico('pin')} موقع المتجر</a></div>` : ''}
-    ${orders}
-    <div class="op-acts">${act}</div>
-  </div>`;
+  const row = (ic, l, v, extra = '') => `<div class="cdr"><span class="cst-ic">${ico(ic)}</span><div class="cdr-b"><small>${l}</small><b>${v}</b></div>${extra}</div>`;
+  const qr = qrOn();
+  const orders = g.approved && g.orders.length ? `<h2 class="sec">الطلبات المتبقية للاستلام</h2><div class="card">${g.orders.map((x) => `<div class="cdo"><div><b>#${x.no}</b> <small class="muted">${esc(x.customerArea)}${x.product ? ' · ' + esc(x.product) : ''}</small></div><div class="row" style="gap:8px"><b class="num">${money(x.total)}</b>${qr ? '' : `<button class="btn sm" data-act="night-recv" data-id="${x.id}">تم الاستلام</button>`}</div></div>`).join('')}</div>` : '';
+  const act = g.approved
+    ? (g.count ? `<button class="btn block blue big" data-act="night-scan">${ico('qr')} استلام طلب QR</button>` : `<div class="notice green">استلمت كل طلبات هذا المتجر. سلّمها لمقر الشركة.</div>`)
+    : `<button class="btn block big" data-act="night-approve" data-id="${g.merchantId}">موافقة على الاستلام</button>`;
+  return `<div class="row between" style="margin-bottom:4px"><button class="op-back" data-act="close-store" aria-label="رجوع">${ico('chev')}</button></div>
+  ${head('تفاصيل المتجر', 'بيانات الاستلام')}
+  <div class="card cdc">
+    ${row('store', esc(g.name), g.approved ? telLink(g.phone) : `<bdi>${esc(g.phone)}</bdi>`, g.approved ? '' : '<small class="muted">يظهر الرقم بعد الموافقة</small>')}
+    ${row('pin', 'موقع المتجر', g.approved && g.map ? 'رابط خرائط كوكل' : esc(g.area || ''), g.approved && g.map ? `<a class="btn ghost sm outline" href="${esc(g.map)}" target="_blank" rel="noopener">افتح الخريطة</a>` : '')}
+    ${row('box', 'عدد الطلبات', `${total} طلبات`)}
+    ${row('wallet', 'سعر الطلبات', money(g.price + g.receivedPrice))}
+  </div>
+  <div class="cst-g two"><div class="card"><small>عدد الطلبات المستلمة</small><b class="g">${g.received}</b></div><div class="card"><small>عدد الطلبات الباقية</small><b class="o">${g.count}</b></div></div>
+  ${orders}
+  ${act}`;
 }
 function openNightScan() {
   if (!window.RioScan) return toast('الماسح غير متاح', true);
   window.RioScan.open({
     title: 'استلام طلب بالـ QR',
+    placeholder: 'أو اكتب رمز الاستلام (4 أرقام)',
     onCode: async (code) => {
-      const r = await api('POST', '/api/driver/night/scan', { code });
+      const r = await api('POST', '/api/courier/night/scan', { code });
       refresh(true);
       const p = r.progress || {};
       return `${r.already ? 'مستلم مسبقاً' : 'تم استلام'} الطلب #${r.order.no} · المتبقي ${p.remaining ?? 0} · المستلم ${p.received ?? 0}`;
@@ -1748,10 +1772,6 @@ const SHEETS = {
     const opt = (k, label) => `<button type="button" class="st-opt ${o.status === k ? 'on' : ''}" data-act="set-status" data-id="${o.id}" data-s="${k}"><span class="ck">${o.status === k ? ico('check') : ''}</span>${label}</button>`;
     const keys = ['on_the_way', 'postponed', 'no_answer', 'rejected', 'delivered'];
     const LBL = { on_the_way: 'في الطريق للزبون', postponed: 'تأجيل', no_answer: 'لا يرد', rejected: 'مرفوض', delivered: 'تم التسليم' };
-    if (needPickQr(o)) {
-      const retQ = `<button type="button" class="st-opt" data-act="ask-return" data-id="${o.id}"><span class="ck"></span><b>إرجاع للتاجر</b></button>`;
-      return [`حالة الطلب #${o.no}`, `<p class="hint" style="margin:0 0 10px">تأكيد الاستلام من المتجر يتم بمسح رمز QR الخاص بالطلب من التاجر.</p><button type="button" class="btn block" data-act="pickup-scan">${ico('check')} مسح QR لتأكيد الاستلام</button><div class="st-list" role="menu" style="margin-top:10px">${retQ}</div>`];
-    }
     const btns = keys.map((k) => opt(k, LBL[k])).join('');
     const ret = !['delivered', 'return_sent', 'returned'].includes(o.status) ? `<button type="button" class="st-opt" data-act="ask-return" data-id="${o.id}"><span class="ck"></span><b>إرجاع للتاجر</b></button>` : '';
     return [`حالة الطلب #${o.no}`, `<div class="st-list" role="menu">${btns}${ret}</div>`];
@@ -1787,7 +1807,7 @@ const SHEETS = {
   'edit-me'() {
     const me = S.user;
     return ['بياناتي', `<form class="stack" data-form="edit-me">
-      ${field('m-name', 'الاسم', `<input class="in" id="m-name" name="name" value="${esc(me.name)}" ${me.role === 'merchant' || me.role === 'driver' ? 'disabled' : 'required'}>`, me.role === 'merchant' || me.role === 'driver' ? 'لتغيير الاسم تواصل مع الإدارة.' : '')}
+      ${field('m-name', 'الاسم', `<input class="in" id="m-name" name="name" value="${esc(me.name)}" ${['merchant', 'driver', 'courier'].includes(me.role) ? 'disabled' : 'required'}>`, ['merchant', 'driver', 'courier'].includes(me.role) ? 'لتغيير الاسم تواصل مع الإدارة.' : '')}
       ${field('m-phone', 'رقم الهاتف', `<input class="in mono" id="m-phone" value="${esc(fmtPhone(me.phone))}" disabled>`, 'لتغيير رقم الهاتف تواصل مع الإدارة.')}
       <p class="hint" id="m-err" style="color:var(--red)" role="alert"></p><button class="btn block" type="submit">حفظ</button></form>`];
   },
@@ -1899,11 +1919,13 @@ const ACTIONS = {
   'pick-kind': (el) => openSheet({ type: 'new-order', form: { ...newOrderForm(), kind: el.dataset.k === 'night' ? 'night' : 'fast' } }),
   'ord-kind': (el) => { S.ordKind = el.dataset.k; S.filter = 'all'; render(); },
   'night-req': async () => { try { const r = await api('POST', '/api/merchant/night/request'); toast(`تم طلب مندوب لـ ${r.requested} طلب`); refresh(true); } catch (e) { toast(e.message, true); } },
-  'night-approve': async (el) => { try { await api('POST', '/api/driver/night/approve', { merchantId: Number(el.dataset.id) }); toast('تمت الموافقة. اذهب للمتجر واستلم الطلبات'); refresh(true); } catch (e) { toast(e.message, true); } },
+  'night-approve': async (el) => { try { await api('POST', '/api/courier/night/approve', { merchantId: Number(el.dataset.id) }); toast('تمت الموافقة. اذهب للمتجر واستلم الطلبات'); S.nstore = Number(el.dataset.id); refresh(true); } catch (e) { toast(e.message, true); } },
+  'night-recv': async (el) => { try { const r = await api('POST', '/api/courier/night/receive', { id: Number(el.dataset.id) }); toast(`تم استلام الطلب #${r.order.no}`); refresh(true); } catch (e) { toast(e.message, true); } },
+  dtab: (el) => { S.dTab = el.dataset.t; render(); },
+  ctab: (el) => { S.cTab = el.dataset.t; render(); },
   'night-store': (el) => { S.nstore = Number(el.dataset.id); render(); },
   'close-store': () => { S.nstore = null; render(); },
   'night-scan': () => openNightScan(),
-  'pickup-scan': () => { if (S.sheet) closeSheet(); openPickupScan(); },
   navmap: async (el) => {
     const id = Number(el.dataset.id); const o = findOrder(id); if (!o) return;
     let ll = mapCoords(o.merchantMap);
@@ -2123,7 +2145,7 @@ const FORMS = {
     closeSheet(); refresh(true);
   },
   async 'edit-me'(f) {
-    const locked = S.user.role === 'merchant' || S.user.role === 'driver';
+    const locked = ['merchant', 'driver', 'courier'].includes(S.user.role);
     const r = await api('PUT', '/api/me/profile', locked ? {} : { name: f.name.value });
     setUser(r.user); toast('تم حفظ بياناتك'); closeSheet(); refresh(true);
   },

@@ -166,7 +166,7 @@ async function notify(userIds, n, opts = {}) {
 }
 
 const ST_AR = {
-  pending: 'بانتظار سائق', picking_up: 'قيد الاستلام من التاجر', on_the_way: 'في الطريق للزبون', delivered: 'تم التسليم', rejected: 'مرفوض من زبون',
+  registered: 'مسجّل بانتظار الاستلام', received: 'استلمه المندوب', at_hq: 'في مقر الشركة', pending: 'بانتظار سائق', picking_up: 'قيد الاستلام من التاجر', on_the_way: 'في الطريق للزبون', delivered: 'تم التسليم', rejected: 'مرفوض من زبون',
   postponed: 'تأجيل', no_answer: 'لا يرد', problem: 'مشكلة', other: 'حالة أخرى', returned: 'راجع — استلمه التاجر', return_sent: 'إرجاع للمتجر — بانتظار تأكيد التاجر',
   partial: 'راجع جزئي', cancelled: 'ملغي'
 };

@@ -13,14 +13,14 @@ const custMsg = (o) => fillTpl(tpl('cust_' + o.status) || tpl('cust_default'), o
 const drvMsg = (o, d) => fillTpl(tpl('admin_driver'), { ...ordVars(o), name: d ? d.name : '', phone: d ? d.phone : '' });
 const thermal = () => RS === '58' || RS === '80';
 const rcls = () => 't80 sz' + RS;
-const ST_OK = ['registered', 'received', 'pending', 'picking_up', 'on_the_way', 'delivered', 'rejected', 'no_answer', 'postponed', 'return_sent', 'returned', 'cancelled'];
+const ST_OK = ['registered', 'received', 'at_hq', 'pending', 'picking_up', 'on_the_way', 'delivered', 'rejected', 'no_answer', 'postponed', 'return_sent', 'returned', 'cancelled'];
 const stKeys = (cur) => Object.keys(ST).filter((k) => ST_OK.includes(k) || k === cur);
 const rOn = () => !SET || (SET.receipts !== 0 && SET.receipts !== false);
 const sizeSeg = () => `<div class="row" style="justify-content:center;margin-bottom:10px"><span class="hint">حجم الوصل</span><div class="seg" role="group" aria-label="حجم الوصل">${[['58', '58mm'], ['80', '80mm'], ['a5', 'A5'], ['a4', 'A4']].map(([k, l]) => `<button type="button" data-a="rsize" data-k="${k}" aria-pressed="${RS === k}">${l}</button>`).join('')}</div></div>`;
 const docBtns = () => `<button class="btn" data-a="print-doc">${ico('print')} طباعة / PDF</button><button class="btn g" data-a="save-doc">${ico('dl')} حفظ صورة</button>`;
 const DONE = ['delivered', 'partial'], RET = ['returned', 'partial', 'rejected'];
 const CATS = ['الإيجار', 'الوقود', 'السحب', 'الطعام', 'تنقلات شخصية', 'الإنترنت', 'اشتراكات تقنية', 'رواتب', 'إعلانات', 'صيانة', 'كهرباء وماء', 'أخرى'];
-const PAGES_BASE = [['home', 'لوحة المعلومات', 'home'], ['orders', 'الطلبات', 'orders'], ['night', 'استلام الطلبات', 'orders'], ['merchants', 'المتاجر', 'store'], ['drivers', 'المندوبون', 'bike'], ['tracking', 'تتبع المندوبين', 'pin'], ['customers', 'العملاء', 'users'], ['finance', 'المالية والأرباح', 'money'], ['vouchers', 'سندات القبض والصرف', 'voucher'], ['cards', 'كروت الشحن', 'card'], ['settings', 'الإعدادات', 'settings']];
+const PAGES_BASE = [['home', 'لوحة المعلومات', 'home'], ['orders', 'الطلبات', 'orders'], ['night', 'استلام الطلبات', 'orders'], ['merchants', 'المتاجر', 'store'], ['drivers', 'السائقون', 'bike'], ['couriers', 'المندوبون', 'users'], ['tracking', 'تتبع السائقين', 'pin'], ['customers', 'العملاء', 'users'], ['finance', 'المالية والأرباح', 'money'], ['vouchers', 'سندات القبض والصرف', 'voucher'], ['cards', 'كروت الشحن', 'card'], ['settings', 'الإعدادات', 'settings']];
 const PAGES = PAGES_BASE.slice();
 const ls0 = (() => { try { return JSON.parse(localStorage.getItem('rio_admin_me') || 'null'); } catch { return null; } })();
 let ME = ls0, STAFF = [];
@@ -101,8 +101,10 @@ async function load(silent) {
     jobs.push(P === 'staff' && isAdm() ? api('GET', '/api/admin/staff') : null);
     jobs.push(P === 'tracking' ? api('GET', '/api/admin/tracking') : null);
     jobs.push(perm('orders') ? api('GET', '/api/admin/night').catch(() => null) : null);
-    const [d, o, f, v, cd, st, me, sf, tk, ni] = await Promise.all(jobs);
+    jobs.push(perm('couriers') ? api('GET', '/api/admin/users?role=courier').catch(() => null) : null);
+    const [d, o, f, v, cd, st, me, sf, tk, ni, cu] = await Promise.all(jobs);
     if (ni) NIGHT = ni;
+    if (cu) COUR = cu.users;
     if (tk) trkSet(tk);
     if (me && me.user) setMe(me.user);
     if (sf) STAFF = sf.staff;
@@ -289,13 +291,13 @@ const nightPg = () => {
   const canEdit = perm('orders') === 'edit';
   const rows = n.stores.map((s) => `<tr><td><b>${esc(s.name)}</b><div class="hint">${esc(s.area || '')}</div></td><td>${nn(s.registered)}</td><td>${nn(s.received)}</td><td>${nn(s.registered - s.received)}</td><td>${mny(s.price)}</td><td>${s.drivers.length ? esc(s.drivers.join('، ')) : (s.requested ? '<span class="muted">بانتظار موافقة</span>' : '<span class="muted">لم يُطلب مندوب</span>')}</td></tr>`).join('');
   const list = n.stores.map((s) => `<div class="row between" style="padding:12px 0;border-bottom:1px solid var(--line)"><div><b>${esc(s.name)}</b><div class="hint">${nn(s.received)} مستلمة · ${nn(s.registered)} مسجلة${s.drivers.length ? ' · ' + esc(s.drivers.join('، ')) : (s.requested ? ' · بانتظار موافقة مندوب' : '')}</div></div><b>${mny(s.price)}</b></div>`).join('');
-  return `<div class="kpis">${kpi('الطلبات المسجلة', nn(n.registered), 'amber', `من ${nn(n.stores.length)} متاجر`)}${kpi('الطلبات المستلمة', nn(n.received), 'green', 'في عهدة المندوبين')}</div>
+  return `<div class="kpis">${kpi('الطلبات المسجلة', nn(n.registered), 'amber', `من ${nn(n.stores.length)} متاجر`)}${kpi('الطلبات المستلمة', nn(n.received), 'green', 'في عهدة المندوبين')}${kpi('في مقر الشركة', nn(n.atHq || 0), 'blue', 'ظاهرة للسائقين')}</div>
   <div class="card" style="background:linear-gradient(135deg,#f6d24a,#d9a520);color:#171200"><div class="row between"><div style="opacity:.85">سعر الطلبات</div><div style="text-align:end"><b style="font-size:26px">${mny(n.price)}</b><div class="hint" style="color:#3a2f00">المستلمة: ${nf(n.receivedPrice)} · المتبقية: ${nf(n.remainingPrice)}</div></div></div></div>
-  ${canEdit ? '<button class="btn" style="width:100%;min-height:52px;margin:12px 0;background:#2f55c4;color:#fff" data-a="night-scan">استلام طلبات باركود</button>' : '<p class="hint">صلاحية العرض فقط.</p>'}
+  ${canEdit ? '<button class="btn" style="width:100%;min-height:52px;margin:12px 0 6px;background:#2f55c4;color:#fff" data-a="night-scan">استلام طلبات باركود</button><p class="hint" style="margin:0 0 12px">عند وصول المندوب للمقر امسح باركود كل طلب (أو اكتب رقمه)، فيُرسل فوراً لكل السائقين في «طلبات الشركة».</p>' : '<p class="hint">صلاحية العرض فقط.</p>'}
   <div class="card"><div class="ch">الطلبات المسجلة حسب المتجر <small>${nn(n.registered)} طلب</small></div>${n.stores.length ? list : empty('لا توجد طلبات ليلية مسجلة')}${n.inCustody.length ? `<div class="row" style="margin-top:12px;flex-wrap:wrap;gap:8px">${n.inCustody.map((d) => bdg(`${d.name}: ${d.n} طلب`, 'blue')).join('')}</div>` : ''}</div>`;
 };
 function page() {
-  return ({ home, orders, night: nightPg, merchants, drivers, tracking, customers, finance, vouchers, cards, settings, staff })[P]();
+  return ({ home, orders, night: nightPg, merchants, drivers, couriers, tracking, customers, finance, vouchers, cards, settings, staff })[P]();
 }
 
 /* ---------------- تتبع المندوبين ---------------- */
@@ -638,21 +640,39 @@ function merchants() {
   <div class="row"><button class="btn sm g" data-a="exp-merchants">${ico('xl')} Excel</button><button class="btn sm g" data-a="pdf-merchants">${ico('pdf')} PDF</button><button class="btn" data-a="add-user" data-r="merchant">${ico('plus')} إضافة متجر</button></div></div><div id="list">${merchantList()}</div></div>`;
 }
 
-/* ---------------- المندوبون ---------------- */
+/* ---------------- السائقون ---------------- */
 function driverList() {
   const q = norm(Q.trim());
   const l = [...D.drivers].filter((m) => !q || norm(m.name + ' ' + m.phone).includes(q)).sort((a, b) => b.delivered - a.delivered);
-  return `<div class="tw"><table><thead><tr><th>#</th><th>المندوب</th><th class="n">المنجز</th><th class="n">جارٍ</th><th class="n">متأخر</th><th class="n">راجع</th><th class="n">مشاكل</th><th class="n">الرصيد</th><th class="n">المحصّل</th><th class="n">رسوم مخصومة</th><th>آخر نشاط</th><th></th></tr></thead><tbody>
+  return `<div class="tw"><table><thead><tr><th>#</th><th>السائق</th><th class="n">المنجز</th><th class="n">جارٍ</th><th class="n">متأخر</th><th class="n">راجع</th><th class="n">مشاكل</th><th class="n">الرصيد</th><th class="n">المحصّل</th><th class="n">رسوم مخصومة</th><th>آخر نشاط</th><th></th></tr></thead><tbody>
   ${l.map((m, i) => `<tr><td>${rankB(i)}</td><td>${upImg(m, 30)}<b>${esc(m.name)}</b>${vbadge(m, 'driver')} ${!m.active ? bdg('موقوف', 'red') : m.receiving ? bdg('يستقبل', 'green') : bdg('متوقف الاستقبال', 'gray')}<div class="hint">${m.vehicle === 'car' ? 'سيارة' : 'دراجة'} · <span class="num">${esc(m.phone)}</span></div></td>
   <td class="n"><b>${nn(m.delivered)}</b></td><td class="n">${nn(m.live)}</td><td class="n">${m.late ? `<b class="neg">${nn(m.late)}</b>` : '0'}</td><td class="n">${nn(m.returned)}</td><td class="n">${nn(m.problems)}</td>
   <td class="n"><b class="${m.balance < (D.settingsFee || 1000) ? 'neg' : ''}">${mm(m.balance)}</b></td><td class="n">${mm(m.collected)}</td><td class="n">${mm(m.fees)}</td><td>${ago(m.lastAt)}</td>
   <td class="act"><div class="row"><button class="btn sm" data-a="stmt" data-t="driver" data-id="${m.id}">كشف / تصدير</button><button class="btn sm g" data-a="adjust" data-id="${m.id}">رصيد</button><button class="btn sm g" data-a="pw" data-id="${m.id}">كلمة سر</button><a class="btn sm w" target="_blank" rel="noopener" href="${wapw(m)}">واتساب</a>${isDemoAcc(m) ? '' : `<button class="btn sm ${m.verified ? 'g' : 'o'}" data-a="verify" data-id="${m.id}">${m.verified ? 'إلغاء التوثيق' : 'توثيق'}</button><button class="btn sm ${m.active ? 'g' : 'd'}" data-a="toggle" data-id="${m.id}">${m.active ? 'إيقاف' : 'تفعيل'}</button>`}${isDemoAcc(m) ? '' : `<button class="btn sm d" data-a="del-user" data-id="${m.id}">حذف</button>`}</div></td></tr>`).join('')}
-  </tbody></table></div>${l.length ? '' : empty('لا يوجد مندوبون')}`;
+  </tbody></table></div>${l.length ? '' : empty('لا يوجد سائقون')}`;
 }
 function drivers() {
   const d = D.drivers;
-  return `<div class="kpis">${kpi('عدد المندوبين', nn(d.length), 'y', nn(d.filter((x) => x.receiving && x.active).length) + ' يستقبل الطلبات')}${kpi('لديهم طلبات جارية', nn(d.filter((x) => x.live > 0).length), 'b')}${kpi('طلبات متأخرة', nn(D.lateOrders.length), D.lateOrders.length ? 'r' : 'g', `أكثر من ${D.lateMin} دقيقة`)}${kpi('مجموع الأرصدة', mm(d.reduce((a, x) => a + x.balance, 0)), 'g')}${kpi('رسوم مخصومة (الفترة)', mm(D.fees), 'y')}</div>
-  <div class="card"><div class="row between" style="margin-bottom:12px"><input class="in" id="q" placeholder="بحث عن مندوب…" value="${esc(Q)}" style="min-width:220px"><div class="row"><button class="btn sm g" data-a="exp-drivers">${ico('xl')} Excel</button><button class="btn sm g" data-a="pdf-drivers">${ico('pdf')} PDF</button><button class="btn" data-a="add-user" data-r="driver">${ico('plus')} إضافة مندوب</button></div></div><div id="list">${driverList()}</div></div>`;
+  return `<div class="kpis">${kpi('عدد السائقين', nn(d.length), 'y', nn(d.filter((x) => x.receiving && x.active).length) + ' يستقبل الطلبات')}${kpi('لديهم طلبات جارية', nn(d.filter((x) => x.live > 0).length), 'b')}${kpi('طلبات متأخرة', nn(D.lateOrders.length), D.lateOrders.length ? 'r' : 'g', `أكثر من ${D.lateMin} دقيقة`)}${kpi('مجموع الأرصدة', mm(d.reduce((a, x) => a + x.balance, 0)), 'g')}${kpi('رسوم مخصومة (الفترة)', mm(D.fees), 'y')}</div>
+  <div class="card"><div class="row between" style="margin-bottom:12px"><input class="in" id="q" placeholder="بحث عن سائق…" value="${esc(Q)}" style="min-width:220px"><div class="row"><button class="btn sm g" data-a="exp-drivers">${ico('xl')} Excel</button><button class="btn sm g" data-a="pdf-drivers">${ico('pdf')} PDF</button><button class="btn" data-a="add-user" data-r="driver">${ico('plus')} إضافة سائق</button></div></div><div id="list">${driverList()}</div></div>`;
+}
+
+/* ---------------- المندوبون (استلام الطلبات من المتاجر وتوصيلها لمقر الشركة) ---------------- */
+let COUR = [];
+function courierList() {
+  const q = norm(Q.trim());
+  const custody = new Map(((NIGHT && NIGHT.inCustody) || []).map((x) => [x.name, x.n]));
+  const l = COUR.filter((m) => !q || norm(m.name + ' ' + m.phone).includes(q));
+  return `<div class="tw tblwrap"><table class="stf"><thead><tr><th>المندوب</th><th>الهاتف</th><th class="n">في عهدته</th><th>الحالة</th><th></th></tr></thead><tbody>
+  ${l.map((m) => `<tr><td>${upImg(m, 30)}<b>${esc(m.name)}</b></td><td class="num">${esc(m.phone)}</td><td class="n"><b>${nn(custody.get(m.name) || 0)}</b> طلب</td><td>${m.active ? bdg('فعّال', 'green') : bdg('موقوف', 'red')}</td>
+  <td class="act"><div class="row"><button class="btn sm g" data-a="pw" data-id="${m.id}">كلمة سر</button><a class="btn sm w" target="_blank" rel="noopener" href="${wa(m.phone, 'مرحباً ' + m.name + '، ريوو للتوصيل اسرع')}">واتساب</a>${isDemoAcc(m) ? '' : `<button class="btn sm ${m.active ? 'g' : 'd'}" data-a="toggle" data-id="${m.id}">${m.active ? 'إيقاف' : 'تفعيل'}</button><button class="btn sm d" data-a="del-user" data-id="${m.id}">حذف</button>`}</div></td></tr>`).join('')}
+  </tbody></table></div>${l.length ? '' : empty('لا يوجد مندوبون. أضف مندوباً ليستلم الطلبات الليلية من المتاجر')}`;
+}
+function couriers() {
+  const n = NIGHT || { inCustody: [], received: 0, atHq: 0 };
+  return `<div class="kpis">${kpi('عدد المندوبين', nn(COUR.length), 'y', nn(COUR.filter((x) => x.active).length) + ' فعّال')}${kpi('في عهدة المندوبين', nn(n.received || 0), 'b', 'طلب لم يصل المقر')}${kpi('في مقر الشركة', nn(n.atHq || 0), 'g', 'بانتظار السائقين')}</div>
+  <div class="card"><p class="hint" style="margin:0 0 12px">المندوب يستلم الطلبات الليلية من المتاجر بمسح الباركود ويوصلها لمقر الشركة، ولا تُخصم منه رسوم. حسابه منفصل عن السائقين ويدخل من نفس التطبيق برقم هاتفه.</p>
+  <div class="row between" style="margin-bottom:12px;flex-wrap:wrap;gap:8px"><input class="in" id="q" placeholder="بحث عن مندوب…" value="${esc(Q)}" style="min-width:200px"><button class="btn" data-a="add-user" data-r="courier">${ico('plus')} إضافة مندوب</button></div><div id="list">${courierList()}</div></div>`;
 }
 
 /* ---------------- العملاء ---------------- */
@@ -737,7 +757,7 @@ function settings() {
       ${saveBar('حفظ القوالب')}</div></form>`,
     prices: () => `<form data-f="set-prices"><div class="card"><div class="ch">أسعار التوصيل للزبون <small>بالدينار العراقي</small></div><div class="frm">${f('bikeSame', 'دراجة · نفس المنطقة')}${f('bikeOther', 'دراجة · منطقة ثانية')}${f('carSame', 'سيارة · نفس المنطقة')}${f('carOther', 'سيارة · منطقة ثانية')}</div>${saveBar('حفظ الأسعار')}</div></form>`,
     fees: () => `<form data-f="set-fees"><div class="card"><div class="ch">تعديل الرسوم <small>رسوم التطبيق على السائق، تُخصم من محفظته عند قبول كل طلب</small></div><div class="frm">${f('feeSame', 'نفس المنطقة')}${f('feeOther', 'منطقة ثانية')}</div>${saveBar('حفظ الرسوم')}</div></form>`,
-    qr: () => `<form data-f="set-qr"><div class="card"><div class="ch">تأكيد الاستلام من المتجر بالـ QR <small>لكل طلب رمز QR خاص يظهر عند التاجر</small></div><label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="s-qr" ${Number(SET.qrPickup) === 1 ? 'checked' : ''} style="width:22px;height:22px"><span><b>تفعيل الاستلام عن طريق QR</b><span class="hint" style="display:block">عند التفعيل لا يستطيع المندوب تحويل الطلب إلى «في الطريق للزبون» إلا بمسح رمز QR الخاص بالطلب من التاجر (أو كتابة رمز الاستلام المكوّن من 4 أرقام الظاهر تحته). عند الإيقاف يغيّر المندوب الحالة كالمعتاد.</span></span></label>${saveBar('حفظ')}</div></form>`,
+    qr: () => `<form data-f="set-qr"><div class="card"><div class="ch">استلام المندوب من المتجر بالـ QR <small>لكل طلب ليلي رمز QR ورمز استلام يظهران عند التاجر</small></div><label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="s-qr" ${Number(SET.qrPickup) === 1 ? 'checked' : ''} style="width:22px;height:22px"><span><b>إلزام المندوب بمسح الباركود</b><span class="hint" style="display:block">عند التفعيل لا يستلم المندوب الطلب من المتجر إلا بمسح رمز QR الخاص به (أو كتابة رمز الاستلام المكوّن من 4 أرقام). عند الإيقاف يستطيع المسح أو الضغط على «تم الاستلام» لكل طلب. السائقون لا يستخدمون الباركود.</span></span></label>${saveBar('حفظ')}</div></form>`,
     night: () => `<form data-f="set-night"><div class="card"><div class="ch">الاستلام الليلي <small>تسجيل الطلبات مساءً واستلامها بالـ QR</small></div><label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="s-night" ${SET.nightPickup !== 0 ? 'checked' : ''} style="width:22px;height:22px"><span><b>تفعيل الاستلام الليلي</b><span class="hint" style="display:block">عند الإيقاف لا يستطيع التجار تسجيل طلبات ليلية جديدة (الطلبات المسجلة تبقى).</span></span></label>${saveBar('حفظ')}</div></form>`,
     receipts: () => `<form data-f="set-receipts"><div class="card"><div class="ch">الوصولات <small>تحكم بظهور زر «وصل» في كل مكان</small></div><label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="s-receipts" ${SET.receipts !== 0 ? 'checked' : ''} style="width:22px;height:22px"><span><b>تفعيل الوصولات</b><span class="hint" style="display:block">عند الإيقاف يختفي زر «وصل» من حسابات التجار والسائقين ومن لوحة التحكم أيضاً.</span></span></label>${saveBar('حفظ')}</div></form>`,
     alerts: () => `${notifCard()}<form data-f="set-alerts"><div class="card"><div class="ch">التنبيهات والدعم</div><div class="frm">${f('lateMin', 'مدة التأخير بالدقائق (لتنبيه الطلبات المتأخرة)')}
@@ -784,7 +804,7 @@ function curDoc() {
   if (m.type === 'vprint') return { title: 'سند #' + m.v.no, body: thermal() ? voucherDoc80(m.v) : voucherDoc(m.v), cls: thermal() ? rcls() : 'sz' + RS, name: `rio-voucher-${m.v.no}.png` };
   if (m.type === 'stmt') return { title: 'كشف', body: thermal() ? stmtReceipt(m) : stmtA4(m), cls: thermal() ? rcls() : 'sz' + RS, name: `rio-statement-${fd(Date.now())}.png` };
   if (m.type === 'created') return { title: 'بيانات حساب', body: credDoc(m), cls: rcls(), name: `rio-account-${m.phone}.png` };
-  if (m.type === 'pw') { const u = findU(m.id); return u ? { title: 'بيانات حساب', body: credDoc({ role: D.drivers.includes(u) ? 'driver' : 'merchant', name: u.name, phone: u.phone, password: m.done, vehicle: u.vehicle, area: u.area }), cls: rcls(), name: `rio-account-${u.phone}.png` } : null; }
+  if (m.type === 'pw') { const u = findU(m.id); return u ? { title: 'بيانات حساب', body: credDoc({ role: u.role === 'courier' ? 'courier' : D.drivers.includes(u) ? 'driver' : 'merchant', name: u.name, phone: u.phone, password: m.done, vehicle: u.vehicle, area: u.area }), cls: rcls(), name: `rio-account-${u.phone}.png` } : null; }
   return null;
 }
 function voucherDoc(v) {
@@ -863,7 +883,7 @@ function stmtXlsx(m) {
 
 /* ---------------- النوافذ ---------------- */
 const field = (id, l, inner, h) => `<div class="field"><label for="${id}">${l}</label>${inner}${h ? `<span class="hint">${h}</span>` : ''}</div>`;
-const findU = (id) => [...D.merchants, ...D.drivers].find((u) => u.id === id);
+const findU = (id) => [...D.merchants, ...D.drivers, ...COUR].find((u) => u.id === id);
 function modalHtml() {
   const m = M;
   if (m.type === 'stmt') return [`${stTitle(m.st)}: ${esc(stName(m.st))}`, stmtBody(m), 1];
@@ -874,17 +894,23 @@ function modalHtml() {
   }
   if (m.type === 'vprint') return [`${m.v.kind === 'in' ? 'سند قبض' : 'سند صرف'} #${m.v.no}`, `${sizeSeg()}<iframe title="معاينة السند" srcdoc="${esc(docPage('سند', thermal() ? voucherDoc80(m.v) : voucherDoc(m.v), thermal() ? rcls() : 'sz' + RS))}" style="width:100%;height:48vh;border:1px solid var(--line);border-radius:12px;background:#fff"></iframe>
     <div class="row" style="margin-top:12px;justify-content:center">${docBtns()}${vPhone(m.v) ? `<a class="btn w" target="_blank" rel="noopener" href="${wa(vPhone(m.v), `${m.v.kind === 'in' ? 'سند قبض' : 'سند صرف'} رقم #${m.v.no}\nالمبلغ: ${mny(m.v.amount)}\nالتاريخ: ${fd(m.v.at)}\nالتفاصيل: ${m.v.note || '—'}\nريوو للتوصيل اسرع`)}">واتساب</a>` : ''}</div>`, 1];
+  if (m.type === 'add-user' && m.role === 'courier') {
+    return ['إضافة مندوب', `<form data-f="add-user">${field('u-name', 'اسم المندوب', '<input class="in" id="u-name" required>')}${field('u-phone', 'رقم الهاتف', '<input class="in" id="u-phone" inputmode="tel" placeholder="07XXXXXXXXX" required>')}
+    ${field('u-pass', 'كلمة المرور', `<div class="row"><input class="in grow" id="u-pass" minlength="6" required><button type="button" class="btn g" data-a="gen" data-t="u-pass">توليد</button></div>`, '6 أحرف أو أكثر')}
+    <p class="hint">يدخل المندوب من التطبيق برقم الهاتف وكلمة المرور، ويرى المتاجر التي تطلب استلام طلباتها ليلاً.</p>
+    <div class="err" id="fe" role="alert"></div><button class="btn" style="width:100%">إنشاء الحساب</button></form>`];
+  }
   if (m.type === 'add-user') {
     const d = m.role === 'driver';
-    return [d ? 'إضافة مندوب' : 'إضافة متجر', `<form data-f="add-user">${field('u-name', d ? 'اسم المندوب' : 'اسم المتجر', '<input class="in" id="u-name" required>')}${field('u-phone', 'رقم الهاتف', '<input class="in" id="u-phone" inputmode="tel" placeholder="07XXXXXXXXX" required>')}
+    return [d ? 'إضافة سائق' : 'إضافة متجر', `<form data-f="add-user">${field('u-name', d ? 'اسم السائق' : 'اسم المتجر', '<input class="in" id="u-name" required>')}${field('u-phone', 'رقم الهاتف', '<input class="in" id="u-phone" inputmode="tel" placeholder="07XXXXXXXXX" required>')}
     ${field('u-pass', 'كلمة المرور', `<div class="row"><input class="in grow" id="u-pass" minlength="6" required><button type="button" class="btn g" data-a="gen" data-t="u-pass">توليد</button></div>`, '6 أحرف أو أكثر')}
     ${d ? field('u-veh', 'نوع المركبة', '<select class="in" id="u-veh"><option value="bike">دراجة</option><option value="car">سيارة</option></select>', 'طلبات الدراجة تصل لسائقي الدراجات فقط، وطلبات السيارة لسائقي السيارات فقط') : field('u-area', 'منطقة المتجر', '<input class="in" id="u-area" required>', 'تحدد سعر التوصيل (نفس المنطقة / منطقة ثانية)') + field('u-map', 'رابط موقع المتجر على الخرائط', '<input class="in" id="u-map" inputmode="url" dir="ltr" placeholder="https://maps.google.com/…">', 'يظهر للسائق بعد قبول الطلب ليفتحه في ويز أو أي تطبيق خرائط (اختياري)')}
     <div class="err" id="fe" role="alert"></div><button class="btn" style="width:100%">إنشاء الحساب</button></form>`];
   }
   if (m.type === 'created') {
     const d = m.role === 'driver';
-    return [d ? 'تم تسجيل السائق' : 'تم تسجيل التاجر', `<div class="card" style="background:var(--ac-soft);box-shadow:none"><div class="r2"><b>الاسم</b><span>${esc(m.name)}</span></div><div class="r2"><b>رقم الهاتف</b><span class="num">${esc(m.phone)}</span></div>
-      <div class="r2"><b>كلمة المرور</b><span class="num" style="font-weight:800;letter-spacing:.05em">${esc(m.password)}</span></div><div class="r2"><b>${d ? 'المركبة' : 'المنطقة'}</b><span>${esc(d ? (m.vehicle === 'car' ? 'سيارة' : 'دراجة') : m.area)}</span></div><div class="r2"><b>رابط الدخول</b><span class="num" style="direction:ltr">${esc(loginUrl())}</span></div></div>
+    return [m.role === 'courier' ? 'تم تسجيل المندوب' : d ? 'تم تسجيل السائق' : 'تم تسجيل التاجر', `<div class="card" style="background:var(--ac-soft);box-shadow:none"><div class="r2"><b>الاسم</b><span>${esc(m.name)}</span></div><div class="r2"><b>رقم الهاتف</b><span class="num">${esc(m.phone)}</span></div>
+      <div class="r2"><b>كلمة المرور</b><span class="num" style="font-weight:800;letter-spacing:.05em">${esc(m.password)}</span></div>${m.role === 'courier' ? '<div class="r2"><b>نوع الحساب</b><span>مندوب استلام</span></div>' : `<div class="r2"><b>${d ? 'المركبة' : 'المنطقة'}</b><span>${esc(d ? (m.vehicle === 'car' ? 'سيارة' : 'دراجة') : m.area)}</span></div>`}<div class="r2"><b>رابط الدخول</b><span class="num" style="direction:ltr">${esc(loginUrl())}</span></div></div>
       ${sizeSeg()}<div class="row" style="justify-content:center;margin-top:14px"><a class="btn w" target="_blank" rel="noopener" href="${wa(m.phone, credText(m))}">إرسال بالواتساب</a>${docBtns()}<button class="btn g" data-a="copy" data-t="${esc(credText(m))}">نسخ</button></div>`];
   }
   if (m.type === 'chat') {
@@ -1126,7 +1152,7 @@ The driver app asks for location permission (the driver's position is shared wit
   'menu-x'() { MENU = false; draw(); },
   'night-scan'() {
     if (!window.RioScan) return;
-    window.RioScan.open({ title: 'استلام طلبات بالباركود', onCode: async (code) => { const r = await api('POST', '/api/admin/night/scan', { code }); load(true); return `${r.already ? 'مستلم مسبقاً' : 'تم استلام'} الطلب #${r.order.no}`; } });
+    window.RioScan.open({ title: 'الاستلام في مقر الشركة', placeholder: 'أو اكتب رقم الطلب', onCode: async (code) => { const r = await api('POST', '/api/admin/night/scan', { code }); load(true); return r.already ? `الطلب #${r.order.no} في المقر مسبقاً` : `تم استلام الطلب #${r.order.no} في المقر — أُرسل للسائقين`; } });
   },
   page(el) { MENU = false; const ap = document.querySelector('.app'); if (ap) ap.classList.remove('open'); const mt = document.querySelector('.mbar b'); if (mt) mt.textContent = el.textContent.trim(); P = el.dataset.k; ls.set('rio_page', P); Q = ''; FS = 'all'; FM = 0; load(); },
   logout() { logout(); },
@@ -1208,7 +1234,7 @@ The driver app asks for location permission (the driver's position is shared wit
     const u = findU(Number(el.dataset.id)); if (!u) return;
     const isD = u.role === 'driver' || D.drivers.includes(u);
     const bal = isD && u.balance ? `\nرصيده الحالي ${nn(u.balance)} د.ع سيُفقد.` : '';
-    if (!await RioDialog.confirm(`حذف ${isD ? 'المندوب' : 'المتجر'} «${u.name}» نهائياً؟${bal}\nتبقى طلباته القديمة في السجل، ولا يمكنه الدخول بعد ذلك.`)) return;
+    if (!await RioDialog.confirm(`حذف ${u.role === 'courier' ? 'المندوب' : isD ? 'السائق' : 'المتجر'} «${u.name}» نهائياً؟${bal}\nتبقى طلباته القديمة في السجل، ولا يمكنه الدخول بعد ذلك.`)) return;
     if (await act(() => api('DELETE', '/api/admin/users/' + u.id), 'تم حذف الحساب')) load();
   },
   async verify(el) {
@@ -1283,6 +1309,11 @@ document.addEventListener('submit', async (e) => {
       const body = { kind: VK, partyType: t, amount: $('#va').value, note: $('#vn').value, ref: $('#vr').value, at: at('vd') };
       if (t === 'merchant' || t === 'driver') body.partyId = Number(p.value); else body.partyName = p.value;
       const r = await api('POST', '/api/admin/vouchers', body); toast('تم إنشاء السند #' + r.voucher.no); await load(); M = { type: 'vprint', v: r.voucher }; drawModal();
+    }
+    else if (k === 'add-user' && M.role === 'courier') {
+      const info = { type: 'created', role: 'courier', name: $('#u-name').value.trim(), phone: $('#u-phone').value.trim(), password: $('#u-pass').value };
+      await api('POST', '/api/admin/users', { role: 'courier', name: $('#u-name').value, phone: $('#u-phone').value, password: $('#u-pass').value });
+      toast('تم إنشاء حساب المندوب'); await load(); M = info; drawModal();
     }
     else if (k === 'add-user') {
       const d = M.role === 'driver';

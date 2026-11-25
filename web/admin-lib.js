@@ -17,10 +17,10 @@
     return 'قبل ' + Math.floor(h / 24) + ' يوم';
   };
   const ST = {
-    registered: 'مسجّل — بانتظار الاستلام', received: 'تم الاستلام من التاجر', pending: 'بانتظار سائق', picking_up: 'قيد الاستلام من التاجر', on_the_way: 'في الطريق للزبون', delivered: 'تم التسليم', no_answer: 'لا يرد', postponed: 'تأجيل', rejected: 'مرفوض من زبون',
+    registered: 'مسجّل — بانتظار الاستلام', received: 'استلمه المندوب', at_hq: 'في مقر الشركة', pending: 'بانتظار سائق', picking_up: 'قيد الاستلام من التاجر', on_the_way: 'في الطريق للزبون', delivered: 'تم التسليم', no_answer: 'لا يرد', postponed: 'تأجيل', rejected: 'مرفوض من زبون',
     problem: 'مشكلة', other: 'أخرى', returned: 'راجع (استلمه التاجر)', return_sent: 'إرجاع للمتجر — بانتظار تأكيد التاجر', partial: 'راجع جزئي', cancelled: 'ملغي'
   };
-  const STC = { registered: 'amber', received: 'blue', pending: 'amber', picking_up: 'blue', on_the_way: 'blue', delivered: 'green', no_answer: 'red', postponed: 'amber', rejected: 'violet', problem: 'red', other: 'red', returned: 'violet', return_sent: 'amber', partial: 'violet', cancelled: 'gray' };
+  const STC = { registered: 'amber', received: 'blue', at_hq: 'blue', pending: 'amber', picking_up: 'blue', on_the_way: 'blue', delivered: 'green', no_answer: 'red', postponed: 'amber', rejected: 'violet', problem: 'red', other: 'red', returned: 'violet', return_sent: 'amber', partial: 'violet', cancelled: 'gray' };
   const fillTpl = (t, v) => String(t || '').replace(/\{(\w+)\}/g, (m, k) => (v[k] !== undefined && v[k] !== null ? String(v[k]) : m));
   const wa = (phone, text) => {
     let d = String(phone || '').replace(/\D/g, '');

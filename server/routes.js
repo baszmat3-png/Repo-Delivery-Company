@@ -28,9 +28,9 @@ const yearStart = (t) => { const d = new Date(t + OFF); return Date.UTC(d.getUTC
 const sumOf = (a, k) => a.reduce((s, o) => s + (Number(o[k]) || 0), 0);
 const isRet = (o) => o.status === 'returned' || o.status === 'return_sent' || o.status === 'partial' || o.status === 'rejected';
 
-const STATUSES = ['registered', 'received', 'pending', 'picking_up', 'on_the_way', 'delivered', 'no_answer', 'postponed', 'rejected', 'return_sent', 'returned', 'cancelled'];
+const STATUSES = ['registered', 'received', 'at_hq', 'pending', 'picking_up', 'on_the_way', 'delivered', 'no_answer', 'postponed', 'rejected', 'return_sent', 'returned', 'cancelled'];
 const DRIVER_STATUSES = ['picking_up', 'on_the_way', 'delivered', 'rejected', 'no_answer', 'postponed', 'return_sent'];
-const RETURNABLE = ['received', 'picking_up', 'on_the_way', 'rejected', 'no_answer', 'postponed'];
+const RETURNABLE = ['received', 'at_hq', 'picking_up', 'on_the_way', 'rejected', 'no_answer', 'postponed'];
 const TROUBLE = ['no_answer', 'postponed', 'problem', 'other'];
 const DONE = ['delivered', 'partial'];
 
@@ -72,7 +72,7 @@ function cleanUrl(v) {
 }
 
 /* صلاحيات فريق الإدارة: {صفحة: 'view'|'edit'} */
-const PAGES_ALL = ['home', 'orders', 'merchants', 'drivers', 'tracking', 'customers', 'finance', 'vouchers', 'cards', 'settings'];
+const PAGES_ALL = ['home', 'orders', 'merchants', 'drivers', 'couriers', 'tracking', 'customers', 'finance', 'vouchers', 'cards', 'settings'];
 function permsOf(u) {
   const o = safeJson(u.perms, {});
   const out = {};
@@ -203,7 +203,7 @@ route('GET', '/api/me', async (c) => ({ user: pub(c.user) }));
 
 route('PUT', '/api/me/profile', async (c) => {
   const patch = {};
-  const locked = c.user.role === 'merchant' || c.user.role === 'driver';
+  const locked = c.user.role === 'merchant' || c.user.role === 'driver' || c.user.role === 'courier';
   if (c.body.name !== undefined) {
     const name = clean(c.body.name, 60);
     if (locked) { if (name !== c.user.name) fail('لا يمكن تغيير الاسم، تواصل مع الإدارة', 403); }
@@ -256,7 +256,7 @@ async function orderForChat(id, user) {
   const r = await q('SELECT * FROM orders WHERE id=$1', [id]);
   const o = r.rows[0];
   if (!o) fail('الطلب غير موجود', 404);
-  const allowed = user.role === 'admin' || (user.role === 'staff' && can(user, 'orders')) || (user.role === 'merchant' && o.merchant_id === user.id) || (user.role === 'driver' && o.driver_id === user.id);
+  const allowed = user.role === 'admin' || (user.role === 'staff' && can(user, 'orders')) || (user.role === 'merchant' && o.merchant_id === user.id) || (user.role === 'driver' && o.driver_id === user.id) || (user.role === 'courier' && o.pick_driver_id === user.id);
   if (!allowed) fail('غير مسموح', 403);
   return o;
 }
@@ -290,8 +290,8 @@ route('GET', '/api/notifications', { roles: ['merchant', 'driver'] }, async (c) 
 });
 
 /* ---------- قائمة الإشعارات + الدفع للهاتف ---------- */
-const USERS_ONLY = { roles: ['merchant', 'driver'] };
-const PUSH_ROLES = { roles: ['merchant', 'driver', 'admin', 'staff'] };
+const USERS_ONLY = { roles: ['merchant', 'driver', 'courier'] };
+const PUSH_ROLES = { roles: ['merchant', 'driver', 'courier', 'admin', 'staff'] };
 /* المدير والموظفون (صلاحية الطلبات) يستلمون إشعارات الطلبات أيضاً */
 async function notifyAdmins(n) {
   try {
@@ -480,7 +480,7 @@ route('GET', '/api/driver/home', DRIVER, async (c) => {
   const mine = await q('SELECT * FROM orders WHERE driver_id=$1 ORDER BY updated_at DESC LIMIT 150', [c.user.id]);
   return {
     me: pub(c.user), settings: await getSettings(), available: avail.rows.map(ord), orders: mine.rows.map(ord), wallet: await walletFor(c.user), adsVer: await adsVer('driver'),
-    nightStores: await nightStoresFor(c.user)
+    company: (await q(`SELECT * FROM orders WHERE status='at_hq' AND driver_id IS NULL AND vehicle=$1 ORDER BY hq_at ASC, created_at ASC LIMIT 100`, [c.user.vehicle === 'car' ? 'car' : 'bike'])).rows.map(ord)
   };
 });
 
@@ -502,7 +502,8 @@ route('POST', '/api/driver/orders/:id/accept', DRIVER, async (c) => {
   if (!u.receiving) fail('فعّل استقبال الطلبات أولاً', 409);
   const r = await q('SELECT * FROM orders WHERE id=$1', [Number(c.params.id)]);
   const o = r.rows[0];
-  if (!o || o.status !== 'pending') fail('الطلب لم يعد متاحاً', 409);
+  if (!o || !(o.status === 'pending' || (o.status === 'at_hq' && !o.driver_id))) fail('الطلب لم يعد متاحاً', 409);
+  const fromHq = o.status === 'at_hq';
   if ((o.vehicle === 'car' ? 'car' : 'bike') !== (u.vehicle === 'car' ? 'car' : 'bike')) fail(o.vehicle === 'car' ? 'هذا الطلب لسائقي السيارات فقط' : 'هذا الطلب لسائقي الدراجات فقط', 403);
   const s = await getSettings();
   const fee = o.fee_quote !== null && o.fee_quote !== undefined ? Number(o.fee_quote) : (o.same_area ? s.feeSame : s.feeOther);
@@ -510,8 +511,8 @@ route('POST', '/api/driver/orders/:id/accept', DRIVER, async (c) => {
   if (!pay.rows.length) fail('رصيدك لا يكفي لرسوم التطبيق. اشحن المحفظة أولاً', 402);
   const now = Date.now();
   const claim = await q(
-    `UPDATE orders SET status='picking_up',driver_id=$1,driver_name=$2,fee=$3,accepted_at=$4,updated_at=$4,log=$5 WHERE id=$6 AND status='pending' RETURNING *`,
-    [u.id, u.name, fee, now, pushLog(o, 'picking_up', now), o.id]
+    `UPDATE orders SET status='picking_up',driver_id=$1,driver_name=$2,fee=$3,accepted_at=$4,updated_at=$4,log=$5 WHERE id=$6 AND status=$7 AND driver_id IS NULL RETURNING *`,
+    [u.id, u.name, fee, now, pushLog(o, 'picking_up', now), o.id, o.status]
   );
   if (!claim.rows.length) {
     await q('UPDATE users SET balance=balance+$1 WHERE id=$2', [fee, u.id]);
@@ -519,7 +520,8 @@ route('POST', '/api/driver/orders/:id/accept', DRIVER, async (c) => {
   }
   await db.insert('txs', { driver_id: u.id, amount: -fee, kind: 'fee', label: 'رسوم التطبيق', order_num: o.num, at: now });
   notifyAdmins({ kind: 'order_status', orderId: o.id, orderNo: o.num, title: `السائق ${u.name} قبل الطلب #${o.num}`, body: `${o.merchant_name} · ${o.customer_area}` });
-  await notify(o.merchant_id, { kind: 'order_accepted', orderId: o.id, orderNo: o.num, title: `تم قبول طلبك #${o.num}`, body: `السائق ${u.name} قبل الطلب وهو في طريقه لاستلامه من المتجر` });
+  if (fromHq) await notify(o.merchant_id, { kind: 'order_accepted', orderId: o.id, orderNo: o.num, title: `طلبك #${o.num} خرج للتوصيل`, body: `السائق ${u.name} استلمه من مقر الشركة لتوصيله للزبون` });
+  else await notify(o.merchant_id, { kind: 'order_accepted', orderId: o.id, orderNo: o.num, title: `تم قبول طلبك #${o.num}`, body: `السائق ${u.name} قبل الطلب وهو في طريقه لاستلامه من المتجر` });
   if (fee > 0) await notify(u.id, { kind: 'wallet_debit', orderId: o.id, orderNo: o.num, title: `خصم رسوم التطبيق −${iqd(fee)}`, body: `طلب #${o.num} · رصيدك الحالي ${iqd(pay.rows[0].balance)}` });
   return { order: ord(claim.rows[0]) };
 });
@@ -533,9 +535,6 @@ route('POST', '/api/driver/orders/:id/status', DRIVER, async (c) => {
   if (o.status === 'delivered') fail('تم تسليم هذا الطلب ولا يمكن تغيير حالته', 409);
   if (o.status === 'return_sent' || o.status === 'returned') fail('تم إرجاع هذا الطلب للتاجر ولا يمكن تغيير حالته', 409);
   if (status === 'return_sent' && !RETURNABLE.includes(o.status)) fail('يمكن الإرجاع للتاجر قبل التسليم فقط', 409);
-  if (o.status === 'picking_up' && status !== 'picking_up' && status !== 'return_sent' && o.kind !== 'night' && o.pick_code && Number((await getSettings()).qrPickup) === 1 && !pickMatch(o, c.body.code)) {
-    fail('امسح رمز QR الخاص بالطلب من المتجر لتأكيد الاستلام أولاً', 428);
-  }
   return { order: ord(await applyDriverStatus(o, status, c.user)) };
 });
 
@@ -547,24 +546,6 @@ function pickMatch(o, raw) {
   if (m) return Number(m[1]) === Number(o.num) && m[2].toLowerCase() === o.pick_code;
   return /^\d{4}$/.test(t) && t === pickPin(o.pick_code);
 }
-
-/* المندوب: مسح QR الطلب عند المتجر ← «في الطريق للزبون» */
-route('POST', '/api/driver/pickup/scan', DRIVER, async (c) => {
-  const raw = String(c.body.code || '').trim();
-  const r = await q(`SELECT * FROM orders WHERE driver_id=$1 AND status='picking_up' AND kind<>'night' AND pick_code<>''`, [c.user.id]);
-  const hits = r.rows.filter((o) => pickMatch(o, raw));
-  if (!hits.length) {
-    const m = /^RIO:(\d{1,9}):/.exec(raw);
-    if (m) {
-      const x = (await q('SELECT status,driver_id FROM orders WHERE num=$1', [Number(m[1])])).rows[0];
-      if (x && x.driver_id === c.user.id && x.status !== 'picking_up') fail('تم تأكيد استلام هذا الطلب مسبقاً', 409);
-      if (x && x.driver_id !== c.user.id) fail('هذا الطلب ليس من طلباتك', 403);
-    }
-    fail('الرمز غير صحيح أو لا يخص أي طلب بانتظار الاستلام لديك', 400);
-  }
-  if (hits.length > 1) fail('الرمز يطابق أكثر من طلب، امسح رمز QR بدل كتابة الرقم', 409);
-  return { order: ord(await applyDriverStatus(hits[0], 'on_the_way', c.user)) };
-});
 
 async function applyDriverStatus(o, status, user) {
   const c = { user };
@@ -715,17 +696,17 @@ route('POST', '/api/admin/orders/:id/assign', ADM('orders', 'edit'), async (c) =
   return { order: ord(u) };
 });
 
-route('GET', '/api/admin/users', ADM(['merchants', 'drivers', 'orders']), async (c) => {
-  const role = c.query.role === 'merchant' ? 'merchant' : 'driver';
-  need(c.user, [role === 'merchant' ? 'merchants' : 'drivers', 'orders']);
+route('GET', '/api/admin/users', ADM(['merchants', 'drivers', 'couriers', 'orders']), async (c) => {
+  const role = ['merchant', 'courier'].includes(c.query.role) ? c.query.role : 'driver';
+  need(c.user, [role === 'merchant' ? 'merchants' : role === 'courier' ? 'couriers' : 'drivers', 'orders']);
   const r = await q(`SELECT * FROM users WHERE role=$1 AND phone NOT LIKE 'deleted-%' ORDER BY created_at DESC LIMIT 500`, [role]);
   return { users: r.rows.map(pub) };
 });
 
-route('POST', '/api/admin/users', ADM(['merchants', 'drivers'], 'edit'), async (c) => {
+route('POST', '/api/admin/users', ADM(['merchants', 'drivers', 'couriers'], 'edit'), async (c) => {
   const b = c.body;
-  const role = b.role === 'merchant' ? 'merchant' : 'driver';
-  need(c.user, role === 'merchant' ? 'merchants' : 'drivers', 'edit');
+  const role = ['merchant', 'courier'].includes(b.role) ? b.role : 'driver';
+  need(c.user, role === 'merchant' ? 'merchants' : role === 'courier' ? 'couriers' : 'drivers', 'edit');
   const name = clean(b.name, 60);
   const phone = normPhone(b.phone);
   const password = String(b.password || '');
@@ -742,13 +723,13 @@ route('POST', '/api/admin/users', ADM(['merchants', 'drivers'], 'edit'), async (
   return { user: pub(u) };
 });
 
-route('PUT', '/api/admin/users/:id', ADM(['merchants', 'drivers'], 'edit'), async (c) => {
+route('PUT', '/api/admin/users/:id', ADM(['merchants', 'drivers', 'couriers'], 'edit'), async (c) => {
   const b = c.body;
-  const r = await q(`SELECT * FROM users WHERE id=$1 AND role IN ('driver','merchant')`, [Number(c.params.id)]);
+  const r = await q(`SELECT * FROM users WHERE id=$1 AND role IN ('driver','merchant','courier')`, [Number(c.params.id)]);
   const u = r.rows[0];
   if (!u) fail('المستخدم غير موجود', 404);
-  need(c.user, u.role === 'merchant' ? 'merchants' : 'drivers', 'edit');
-  if ((b.active !== undefined || b.verified !== undefined) && (/تجريبي|تحريبي|المراجعة/.test(String(u.name || '')) || ['07700000201', '07700000301'].includes(String(u.phone)) || Object.values(REVIEW).includes(String(u.phone)))) fail('هذا حساب تجريبي محمي: لا يمكن إيقافه أو تغيير توثيقه', 403);
+  need(c.user, u.role === 'merchant' ? 'merchants' : u.role === 'courier' ? 'couriers' : 'drivers', 'edit');
+  if ((b.active !== undefined || b.verified !== undefined) && (/تجريبي|تحريبي|المراجعة/.test(String(u.name || '')) || ['07700000201', '07700000301', '07700000401'].includes(String(u.phone)) || Object.values(REVIEW).includes(String(u.phone)))) fail('هذا حساب تجريبي محمي: لا يمكن إيقافه أو تغيير توثيقه', 403);
   const patch = {};
   if (b.name !== undefined) { patch.name = clean(b.name, 60); if (patch.name.length < 2) fail('اكتب الاسم'); }
   if (b.phone !== undefined) {
@@ -796,13 +777,13 @@ route('PUT', '/api/admin/users/:id', ADM(['merchants', 'drivers'], 'edit'), asyn
 });
 
 /* حذف مندوب أو متجر: بدون طلبات يُحذف نهائياً، ومعه طلبات يُجهَّل الحساب (يبقى سجل الطلبات والحسابات المالية) ويختفي من القوائم */
-route('DELETE', '/api/admin/users/:id', ADM(['merchants', 'drivers'], 'edit'), async (c) => {
-  const r = await q(`SELECT * FROM users WHERE id=$1 AND role IN ('driver','merchant')`, [Number(c.params.id)]);
+route('DELETE', '/api/admin/users/:id', ADM(['merchants', 'drivers', 'couriers'], 'edit'), async (c) => {
+  const r = await q(`SELECT * FROM users WHERE id=$1 AND role IN ('driver','merchant','courier')`, [Number(c.params.id)]);
   const u = r.rows[0];
   if (!u) fail('المستخدم غير موجود', 404);
-  if (/تجريبي|تحريبي|المراجعة/.test(String(u.name || '')) || ['07700000201', '07700000301'].includes(String(u.phone)) || Object.values(REVIEW).includes(String(u.phone))) fail('هذا حساب تجريبي محمي ولا يمكن حذفه', 403);
-  need(c.user, u.role === 'merchant' ? 'merchants' : 'drivers', 'edit');
-  const live = Number((await q(`SELECT COUNT(*) AS n FROM orders WHERE (merchant_id=$1 OR driver_id=$1) AND status IN ('pending','picking_up','on_the_way','return_sent')`, [u.id])).rows[0].n);
+  if (/تجريبي|تحريبي|المراجعة/.test(String(u.name || '')) || ['07700000201', '07700000301', '07700000401'].includes(String(u.phone)) || Object.values(REVIEW).includes(String(u.phone))) fail('هذا حساب تجريبي محمي ولا يمكن حذفه', 403);
+  need(c.user, u.role === 'merchant' ? 'merchants' : u.role === 'courier' ? 'couriers' : 'drivers', 'edit');
+  const live = Number((await q(`SELECT COUNT(*) AS n FROM orders WHERE ((merchant_id=$1 OR driver_id=$1) AND status IN ('pending','picking_up','on_the_way','return_sent')) OR (pick_driver_id=$1 AND status='received')`, [u.id])).rows[0].n);
   if (live) fail('لا يمكن الحذف: لدى الحساب ' + live + ' طلب جارٍ. أنهِ الطلبات أو انقلها لسائق آخر أولاً', 409);
   const total = Number((await q(`SELECT COUNT(*) AS n FROM orders WHERE merchant_id=$1 OR driver_id=$1`, [u.id])).rows[0].n);
   await q('DELETE FROM push_subs WHERE user_id=$1', [u.id]);
@@ -995,7 +976,8 @@ route('GET', '/api/orders/:id', { roles: ['merchant', 'driver', 'admin', 'staff'
   if (!o) fail('الطلب غير موجود أو تم حذفه', 404);
   const u = c.user;
   if (u.role === 'merchant' && o.merchant_id !== u.id) fail('غير مسموح', 403);
-  if (u.role === 'driver' && o.driver_id !== u.id && !(o.status === 'pending' && o.vehicle === (u.vehicle === 'car' ? 'car' : 'bike'))) fail('غير مسموح', 403);
+  if (u.role === 'driver' && o.driver_id !== u.id && !(['pending', 'at_hq'].includes(o.status) && o.vehicle === (u.vehicle === 'car' ? 'car' : 'bike'))) fail('غير مسموح', 403);
+  if (u.role === 'courier' && o.pick_driver_id !== u.id) fail('غير مسموح', 403);
   if (u.role === 'staff') need(u, 'orders', 'view');
   return { order: ord(o) };
 });
@@ -1434,17 +1416,18 @@ route('POST', '/api/driver/orders/:id/pay-confirm', DRIVER, (c) => confirmPay(c,
 
 
 /* =====================================================================
-   الاستلام الليلي: التاجر يسجّل طلباته مساءً ← يطلب مندوباً ← المندوب يوافق ويمسح QR لكل طلب عند الاستلام ← التسليم في اليوم التالي
+   الاستلام الليلي: التاجر يسجّل طلباته مساءً ← يطلب مندوباً ← المندوب (حساب مستقل عن السائقين) يوافق ويستلم
+   كل طلب بمسح QR ← يوصلها لمقر الشركة ← الإدارة تستلمها بالباركود (في مقر الشركة) ← تظهر للسائقين في «طلبات الشركة»
    ===================================================================== */
-const NIGHT_OPEN = ['registered', 'received'];
+const COURIER = { roles: ['courier'] };
 const maskPhone = (p) => String(p || '').replace(/^(\d{2})\d+$/, '$1XX XXX XXXX');
+const qrRequired = async () => Number((await getSettings()).qrPickup) === 1;
 
-/* متاجر لديها طلبات ليلية طلبت مندوباً (تظهر لكل المندوبين المناسبين حتى يوافق أحدهم) */
+/* متاجر لديها طلبات ليلية طلبت مندوباً (تظهر لكل المندوبين حتى يوافق أحدهم) */
 async function nightStoresFor(user) {
-  const veh = user.vehicle === 'car' ? 'car' : 'bike';
   const r = await q(
-    `SELECT * FROM orders WHERE kind='night' AND ((status='registered' AND pickup_req=1 AND vehicle=$1 AND (pick_driver_id IS NULL OR pick_driver_id=$2)) OR (status='received' AND driver_id=$2)) ORDER BY created_at ASC LIMIT 500`,
-    [veh, user.id]
+    `SELECT * FROM orders WHERE kind='night' AND ((status='registered' AND pickup_req=1 AND (pick_driver_id IS NULL OR pick_driver_id=$1)) OR (status='received' AND pick_driver_id=$1)) ORDER BY created_at ASC LIMIT 500`,
+    [user.id]
   );
   const by = new Map();
   for (const o of r.rows) {
@@ -1453,47 +1436,44 @@ async function nightStoresFor(user) {
     if (o.status === 'received') { g.received++; g.receivedPrice += o.total; g.approved = true; continue; }
     g.count++; g.price += o.total;
     if (o.pick_driver_id === user.id) g.approved = true;
-    g.orders.push({ no: o.num, customerArea: o.customer_area, total: o.total, productPrice: o.product_price });
+    g.orders.push({ id: o.id, no: o.num, customerArea: o.customer_area, total: o.total, productPrice: o.product_price, product: o.product });
   }
   const out = [...by.values()].filter((g) => g.count > 0 || g.received > 0);
   return out.map((g) => ({ ...g, phone: g.approved ? g.phone : maskPhone(g.phone), map: g.approved ? g.map : '', orders: g.approved ? g.orders : [], remaining: g.count }));
 }
 
-/* ينفّذ استلام طلب ليلي من التاجر: يخصم رسوم التطبيق من المندوب ويحوّل الطلب إلى «تم الاستلام» */
-async function receiveNight(o, drv) {
-  const s = await getSettings();
-  const fee = o.fee_quote !== null && o.fee_quote !== undefined ? Number(o.fee_quote) : (o.same_area ? s.feeSame : s.feeOther);
-  const pay = await q('UPDATE users SET balance=balance-$1 WHERE id=$2 AND balance>=$1 RETURNING balance', [fee, drv.id]);
-  if (!pay.rows.length) fail('رصيد المندوب لا يكفي لرسوم التطبيق. اشحن المحفظة أولاً', 402);
+/* المندوب يستلم طلباً ليلياً من التاجر (بدون رسوم — المندوب يعمل للشركة) */
+async function receiveNight(o, cur) {
   const now = Date.now();
   const claim = await q(
-    `UPDATE orders SET status='received',driver_id=$1,driver_name=$2,fee=$3,accepted_at=$4,received_at=$4,updated_at=$4,pick_driver_id=$1,pick_driver_name=$2,log=$5 WHERE id=$6 AND status='registered' RETURNING *`,
-    [drv.id, drv.name, fee, now, pushLog(o, 'received', now), o.id]
+    `UPDATE orders SET status='received',received_at=$1,updated_at=$1,pick_driver_id=$2,pick_driver_name=$3,log=$4 WHERE id=$5 AND status='registered' RETURNING *`,
+    [now, cur.id, cur.name, pushLog(o, 'received', now), o.id]
   );
-  if (!claim.rows.length) { await q('UPDATE users SET balance=balance+$1 WHERE id=$2', [fee, drv.id]); fail('تم استلام هذا الطلب مسبقاً', 409); }
-  if (fee > 0) await db.insert('txs', { driver_id: drv.id, amount: -fee, kind: 'fee', label: 'رسوم التطبيق', order_num: o.num, at: now });
-  await notify(o.merchant_id, { kind: 'order_status', orderId: o.id, orderNo: o.num, title: `تم استلام طلبك #${o.num}`, body: `استلمه المندوب ${drv.name} وسيصل للزبون في اليوم التالي` });
-  notifyAdmins({ kind: 'order_status', orderId: o.id, orderNo: o.num, title: `استلام ليلي #${o.num}`, body: `${o.merchant_name} ← ${drv.name}` });
+  if (!claim.rows.length) fail('تم استلام هذا الطلب مسبقاً', 409);
+  await notify(o.merchant_id, { kind: 'order_status', orderId: o.id, orderNo: o.num, title: `تم استلام طلبك #${o.num}`, body: `استلمه المندوب ${cur.name} وسيُسلَّم لمقر الشركة ثم للزبون` });
+  notifyAdmins({ kind: 'order_status', orderId: o.id, orderNo: o.num, title: `استلام ليلي #${o.num}`, body: `${o.merchant_name} ← المندوب ${cur.name}` });
   return claim.rows[0];
 }
 
-/* يقرأ رمز QR (RIO:رقم:رمز) أو رقم الطلب المكتوب يدوياً */
-async function findNightByCode(raw) {
+/* يقرأ رمز QR (RIO:رقم:رمز)، أو رمز الاستلام (4 أرقام) للمندوب، أو رقم الطلب للإدارة */
+function parseCode(raw) {
   const t = String(raw || '').trim();
-  let num = 0, code = '';
   const m = /^RIO:(\d{1,9}):([0-9a-fA-F]{12})$/.exec(t);
-  if (m) { num = Number(m[1]); code = m[2].toLowerCase(); }
-  else { const n = /^#?(\d{1,9})$/.exec(t); if (n) num = Number(n[1]); }
-  if (!num) fail('الرمز غير صحيح');
-  const r = await q(`SELECT * FROM orders WHERE num=$1 AND kind='night'`, [num]);
-  const o = r.rows[0];
-  if (!o) fail('لا يوجد طلب ليلي بهذا الرمز', 404);
-  if (code && o.pick_code !== code) fail('رمز الطلب غير صحيح', 400);
+  if (m) return { num: Number(m[1]), code: m[2].toLowerCase() };
+  const n = /^#?(\d{1,9})$/.exec(t);
+  if (n) return { num: Number(n[1]), plain: n[1] };
+  fail('الرمز غير صحيح');
+}
+async function findNightByCode(raw) {
+  const p = parseCode(raw);
+  const o = (await q(`SELECT * FROM orders WHERE num=$1 AND kind='night'`, [p.num])).rows[0];
+  if (!o) fail('لا يوجد طلب ليلي بهذا الرقم', 404);
+  if (p.code && o.pick_code !== p.code) fail('رمز الطلب غير صحيح', 400);
   return o;
 }
 
-async function storeProgress(merchantId, driverId) {
-  const r = await q(`SELECT status,total FROM orders WHERE merchant_id=$1 AND kind='night' AND (status='registered' OR (status='received' AND driver_id=$2))`, [merchantId, driverId || 0]);
+async function storeProgress(merchantId, courierId) {
+  const r = await q(`SELECT status,total FROM orders WHERE merchant_id=$1 AND kind='night' AND (status='registered' OR (status='received' AND pick_driver_id=$2))`, [merchantId, courierId || 0]);
   const rec = r.rows.filter((x) => x.status === 'received'), rem = r.rows.filter((x) => x.status === 'registered');
   return { received: rec.length, remaining: rem.length, receivedPrice: rec.reduce((a, x) => a + x.total, 0), remainingPrice: rem.reduce((a, x) => a + x.total, 0) };
 }
@@ -1505,71 +1485,109 @@ route('POST', '/api/merchant/night/request', MERCHANT, async (c) => {
   const u = await q(`UPDATE orders SET pickup_req=1,updated_at=$1 WHERE merchant_id=$2 AND kind='night' AND status='registered' AND pickup_req=0 RETURNING *`, [now, c.user.id]);
   const total = (await q(`SELECT COUNT(*) AS n FROM orders WHERE merchant_id=$1 AND kind='night' AND status='registered'`, [c.user.id])).rows[0];
   if (!u.rows.length) fail(Number(total.n) ? 'تم طلب مندوب لكل طلباتك المسجلة. بانتظار موافقة مندوب' : 'لا توجد طلبات ليلية مسجلة لطلب مندوب', 409);
-  const veh = [...new Set(u.rows.map((x) => (x.vehicle === 'car' ? 'car' : 'bike')))];
-  const ds = await q(`SELECT id FROM users WHERE role='driver' AND active=1 AND receiving=1 AND vehicle IN (${veh.map((_, i) => '$' + (i + 1)).join(',')})`, veh);
-  await notify(ds.rows.map((x) => x.id), { kind: 'order_new', title: 'طلب استلام ليلي من متجر', body: `${c.user.name} — ${c.user.area}\n${u.rows.length} طلب بسعر ${iqd(u.rows.reduce((a, x) => a + x.total, 0))}` });
+  const cs = await q(`SELECT id FROM users WHERE role='courier' AND active=1`);
+  await notify(cs.rows.map((x) => x.id), { kind: 'order_new', title: 'طلب استلام ليلي من متجر', body: `${c.user.name} — ${c.user.area}\n${u.rows.length} طلب بسعر ${iqd(u.rows.reduce((a, x) => a + x.total, 0))}` });
   notifyAdmins({ kind: 'order_new', title: `${c.user.name} طلب مندوباً للاستلام الليلي`, body: `${u.rows.length} طلب` });
   return { ok: true, requested: u.rows.length };
 });
 
-/* ----- المندوب: الموافقة على استلام طلبات متجر ----- */
-route('POST', '/api/driver/night/approve', DRIVER, async (c) => {
+/* ----- المندوب ----- */
+route('GET', '/api/courier/home', COURIER, async (c) => {
+  const mine = await q(`SELECT * FROM orders WHERE pick_driver_id=$1 AND status<>'registered' ORDER BY COALESCE(received_at,updated_at) DESC LIMIT 200`, [c.user.id]);
+  const day = dayStart(Date.now());
+  const rows = mine.rows;
+  const custody = rows.filter((o) => o.status === 'received');
+  const todayRec = rows.filter((o) => (o.received_at || 0) >= day);
+  const todayHq = rows.filter((o) => (o.hq_at || 0) >= day);
+  return {
+    me: pub(c.user), settings: await getSettings(), stores: await nightStoresFor(c.user), orders: rows.map(ord),
+    stats: { custody: custody.length, custodyPrice: sumOf(custody, 'total'), todayReceived: todayRec.length, todayHq: todayHq.length, total: rows.length }
+  };
+});
+
+route('POST', '/api/courier/night/approve', COURIER, async (c) => {
   const u = c.user;
-  if (!u.receiving) fail('فعّل استقبال الطلبات أولاً', 409);
   const mid = Number(c.body.merchantId);
   if (!mid) fail('متجر غير صحيح');
-  const veh = u.vehicle === 'car' ? 'car' : 'bike';
   const now = Date.now();
-  const r = await q(`UPDATE orders SET pick_driver_id=$1,pick_driver_name=$2,updated_at=$3 WHERE merchant_id=$4 AND kind='night' AND status='registered' AND pickup_req=1 AND vehicle=$5 AND pick_driver_id IS NULL RETURNING *`, [u.id, u.name, now, mid, veh]);
+  const r = await q(`UPDATE orders SET pick_driver_id=$1,pick_driver_name=$2,updated_at=$3 WHERE merchant_id=$4 AND kind='night' AND status='registered' AND pickup_req=1 AND pick_driver_id IS NULL RETURNING *`, [u.id, u.name, now, mid]);
   if (!r.rows.length) {
     const mine = (await q(`SELECT COUNT(*) AS n FROM orders WHERE merchant_id=$1 AND kind='night' AND status='registered' AND pick_driver_id=$2`, [mid, u.id])).rows[0];
     if (Number(mine.n)) return { ok: true, approved: 0, already: true };
     fail('سبقك مندوب آخر بالموافقة على هذا المتجر', 409);
   }
   await notify(mid, { kind: 'order_accepted', title: 'وافق مندوب على استلام طلباتك', body: `المندوب ${u.name} في طريقه لاستلام ${r.rows.length} طلب` });
-  notifyAdmins({ kind: 'order_status', title: `${u.name} وافق على استلام ${r.rows[0].merchant_name}`, body: `${r.rows.length} طلب` });
+  notifyAdmins({ kind: 'order_status', title: `المندوب ${u.name} وافق على استلام ${r.rows[0].merchant_name}`, body: `${r.rows.length} طلب` });
   return { ok: true, approved: r.rows.length };
 });
 
-/* ----- المندوب: مسح QR / كتابة رقم الطلب عند الاستلام ----- */
-route('POST', '/api/driver/night/scan', DRIVER, async (c) => {
-  const o = await findNightByCode(c.body.code);
-  if (o.status === 'received' && o.driver_id === c.user.id) return { already: true, order: ord(o), progress: await storeProgress(o.merchant_id, c.user.id) };
+/* مسح QR أو كتابة رمز الاستلام (4 أرقام) */
+route('POST', '/api/courier/night/scan', COURIER, async (c) => {
+  const raw = String(c.body.code || '').trim();
+  let o;
+  if (/^\d{4}$/.test(raw)) {
+    const r = await q(`SELECT * FROM orders WHERE kind='night' AND status='registered' AND pick_driver_id=$1`, [c.user.id]);
+    const hits = r.rows.filter((x) => pickPin(x.pick_code) === raw);
+    if (!hits.length) fail('رمز الاستلام غير صحيح أو لا يخص طلباً بانتظار استلامك', 400);
+    if (hits.length > 1) fail('الرمز يطابق أكثر من طلب، امسح رمز QR', 409);
+    o = hits[0];
+  } else {
+    const p = parseCode(raw);
+    if (!p.code) fail('امسح رمز QR أو اكتب رمز الاستلام المكوّن من 4 أرقام', 400);
+    o = await findNightByCode(raw);
+  }
+  if (o.status !== 'registered' && o.pick_driver_id === c.user.id) return { already: true, order: ord(o), progress: await storeProgress(o.merchant_id, c.user.id) };
   if (o.status !== 'registered') fail('هذا الطلب ليس بانتظار الاستلام', 409);
   if (o.pick_driver_id && o.pick_driver_id !== c.user.id) fail('وافق مندوب آخر على استلام هذا الطلب', 403);
   if (!o.pick_driver_id) fail('وافق على استلام طلبات هذا المتجر أولاً', 409);
-  if ((o.vehicle === 'car' ? 'car' : 'bike') !== (c.user.vehicle === 'car' ? 'car' : 'bike')) fail('هذا الطلب لنوع مركبة آخر', 403);
   const done = await receiveNight(o, c.user);
   return { order: ord(done), progress: await storeProgress(o.merchant_id, c.user.id) };
 });
 
-/* ----- الإدارة: ملخص الاستلام الليلي + مسح الباركود ----- */
+/* استلام بالضغط (فقط عندما يكون الاستلام بالـ QR متوقفاً من الإعدادات) */
+route('POST', '/api/courier/night/receive', COURIER, async (c) => {
+  if (await qrRequired()) fail('الاستلام بالـ QR مفعّل: امسح رمز الطلب', 409);
+  const o = (await q(`SELECT * FROM orders WHERE id=$1 AND kind='night'`, [Number(c.body.id)])).rows[0];
+  if (!o) fail('الطلب غير موجود', 404);
+  if (o.status !== 'registered') fail('هذا الطلب ليس بانتظار الاستلام', 409);
+  if (o.pick_driver_id !== c.user.id) fail('وافق على استلام طلبات هذا المتجر أولاً', 409);
+  const done = await receiveNight(o, c.user);
+  return { order: ord(done), progress: await storeProgress(o.merchant_id, c.user.id) };
+});
+
+/* ----- الإدارة: ملخص الاستلام الليلي + الاستلام في مقر الشركة بالباركود ----- */
 route('GET', '/api/admin/night', ADM('orders'), async () => {
-  const r = await q(`SELECT * FROM orders WHERE kind='night' AND status IN ('registered','received') ORDER BY created_at ASC LIMIT 2000`);
+  const r = await q(`SELECT * FROM orders WHERE kind='night' AND status IN ('registered','received','at_hq') ORDER BY created_at ASC LIMIT 3000`);
   const by = new Map();
-  let reg = 0, rec = 0, price = 0, recPrice = 0;
+  let reg = 0, rec = 0, hq = 0, price = 0, recPrice = 0, hqPrice = 0;
   for (const o of r.rows) {
+    if (o.status === 'at_hq') { hq++; hqPrice += o.total; continue; }
     reg++; price += o.total;
     const isRec = o.status === 'received';
     if (isRec) { rec++; recPrice += o.total; }
     let g = by.get(o.merchant_id);
     if (!g) { g = { merchantId: o.merchant_id, name: o.merchant_name, area: o.merchant_area, registered: 0, received: 0, price: 0, requested: 0, drivers: [] }; by.set(o.merchant_id, g); }
     g.registered++; g.price += o.total; if (isRec) g.received++; if (o.pickup_req && !isRec) g.requested++;
-    const dn = isRec ? o.driver_name : o.pick_driver_name;
+    const dn = o.pick_driver_name;
     if (dn && !g.drivers.includes(dn)) g.drivers.push(dn);
   }
-  const drv = new Map();
-  for (const o of r.rows) if (o.status === 'received' && o.driver_name) drv.set(o.driver_name, (drv.get(o.driver_name) || 0) + 1);
-  return { registered: reg, received: rec, remaining: reg - rec, price, receivedPrice: recPrice, remainingPrice: price - recPrice, stores: [...by.values()], inCustody: [...drv].map(([name, n]) => ({ name, n })) };
+  const cur = new Map();
+  for (const o of r.rows) if (o.status === 'received' && o.pick_driver_name) cur.set(o.pick_driver_name, (cur.get(o.pick_driver_name) || 0) + 1);
+  return {
+    registered: reg, received: rec, remaining: reg - rec, price, receivedPrice: recPrice, remainingPrice: price - recPrice,
+    atHq: hq, atHqPrice: hqPrice, stores: [...by.values()], inCustody: [...cur].map(([name, n]) => ({ name, n }))
+  };
 });
 
 route('POST', '/api/admin/night/scan', ADM('orders', 'edit'), async (c) => {
   const o = await findNightByCode(c.body.code);
-  if (o.status === 'received') return { already: true, order: ordM(o) };
-  if (o.status !== 'registered') fail('هذا الطلب ليس بانتظار الاستلام', 409);
-  if (!o.pick_driver_id) fail('لم يوافق أي مندوب على استلام طلبات هذا المتجر بعد', 409);
-  const du = (await q('SELECT * FROM users WHERE id=$1', [o.pick_driver_id])).rows[0];
-  if (!du) fail('المندوب غير موجود', 404);
-  const done = await receiveNight(o, du);
-  return { order: ordM(done) };
+  if (o.status === 'at_hq') return { already: true, order: ordM(o) };
+  if (!['registered', 'received'].includes(o.status)) fail('هذا الطلب ليس بانتظار الاستلام في المقر', 409);
+  const now = Date.now();
+  const u = await q(`UPDATE orders SET status='at_hq',hq_at=$1,updated_at=$1,log=$2 WHERE id=$3 AND status IN ('registered','received') RETURNING *`, [now, pushLog(o, 'at_hq', now), o.id]);
+  if (!u.rows.length) fail('تم استلام هذا الطلب مسبقاً', 409);
+  await notify(o.merchant_id, { kind: 'order_status', orderId: o.id, orderNo: o.num, title: `طلبك #${o.num} في مقر الشركة`, body: 'سيخرج للتوصيل مع أحد السائقين' });
+  const ds = await q(`SELECT id FROM users WHERE role='driver' AND active=1 AND receiving=1 AND vehicle=$1`, [o.vehicle === 'car' ? 'car' : 'bike']);
+  await notify(ds.rows.map((x) => x.id), { kind: 'order_new', orderId: o.id, orderNo: o.num, title: 'طلب جديد في مقر الشركة', body: `#${o.num} · ${o.customer_area} · ${iqd(o.total)}` });
+  return { order: ordM(u.rows[0]) };
 });

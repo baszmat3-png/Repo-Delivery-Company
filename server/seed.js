@@ -38,6 +38,7 @@ async function seedDemo() {
     ali: await mk('driver', 'علي كريم', '07700000301', '', 'bike', 5000),
     hasan: await mk('driver', 'حسن جاسم', '07700000302', '', 'car', 12000)
   };
+  await mk('courier', 'مندوب الاستلام', '07700000401', '', 'bike', 0);
   const price = { bike: { same: 3000, other: 5000 }, car: { same: 5000, other: 8000 } };
   async function order(num, merchant, area, phone, product, qty, vehicle, prod, status, driver, createdAgo, doneAgo, note) {
     const same = merchant.area === area;
@@ -80,7 +81,7 @@ async function seedDemo() {
   for (const [number, amount] of cards) await db.insert('cards', { number, amount, used: 0, used_by: '', used_at: null, created_at: now - 2 * DAY });
   await db.insert('cards', { number: '120458736921', amount: 5000, used: 1, used_by: 'علي كريم', used_at: now - 3 * HR, created_at: now - 2 * DAY });
   await db.insert('txs', { driver_id: d.ali.id, amount: 5000, kind: 'charge', label: 'شحن بطاقة', order_num: null, at: now - 3 * HR });
-  console.log('تم تحميل بيانات تجريبية (كلمة مرور الجميع 123456). التجار: 07700000201-203 — السائقون: 07700000301-302');
+  console.log('تم تحميل بيانات تجريبية (كلمة مرور الجميع 123456). التجار: 07700000201-203 — السائقون: 07700000301-302 — المندوب: 07700000401');
 }
 
 module.exports = { seedAdmin, seedDemo };
