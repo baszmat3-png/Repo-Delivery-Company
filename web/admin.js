@@ -13,14 +13,14 @@ const custMsg = (o) => fillTpl(tpl('cust_' + o.status) || tpl('cust_default'), o
 const drvMsg = (o, d) => fillTpl(tpl('admin_driver'), { ...ordVars(o), name: d ? d.name : '', phone: d ? d.phone : '' });
 const thermal = () => RS === '58' || RS === '80';
 const rcls = () => 't80 sz' + RS;
-const ST_OK = ['pending', 'picking_up', 'on_the_way', 'delivered', 'rejected', 'no_answer', 'postponed', 'return_sent', 'returned', 'cancelled'];
+const ST_OK = ['registered', 'received', 'pending', 'picking_up', 'on_the_way', 'delivered', 'rejected', 'no_answer', 'postponed', 'return_sent', 'returned', 'cancelled'];
 const stKeys = (cur) => Object.keys(ST).filter((k) => ST_OK.includes(k) || k === cur);
 const rOn = () => !SET || (SET.receipts !== 0 && SET.receipts !== false);
 const sizeSeg = () => `<div class="row" style="justify-content:center;margin-bottom:10px"><span class="hint">حجم الوصل</span><div class="seg" role="group" aria-label="حجم الوصل">${[['58', '58mm'], ['80', '80mm'], ['a5', 'A5'], ['a4', 'A4']].map(([k, l]) => `<button type="button" data-a="rsize" data-k="${k}" aria-pressed="${RS === k}">${l}</button>`).join('')}</div></div>`;
 const docBtns = () => `<button class="btn" data-a="print-doc">${ico('print')} طباعة / PDF</button><button class="btn g" data-a="save-doc">${ico('dl')} حفظ صورة</button>`;
 const DONE = ['delivered', 'partial'], RET = ['returned', 'partial', 'rejected'];
 const CATS = ['الإيجار', 'الوقود', 'السحب', 'الطعام', 'تنقلات شخصية', 'الإنترنت', 'اشتراكات تقنية', 'رواتب', 'إعلانات', 'صيانة', 'كهرباء وماء', 'أخرى'];
-const PAGES_BASE = [['home', 'لوحة المعلومات', 'home'], ['orders', 'الطلبات', 'orders'], ['merchants', 'المتاجر', 'store'], ['drivers', 'المندوبون', 'bike'], ['tracking', 'تتبع المندوبين', 'pin'], ['customers', 'العملاء', 'users'], ['finance', 'المالية والأرباح', 'money'], ['vouchers', 'سندات القبض والصرف', 'voucher'], ['cards', 'كروت الشحن', 'card'], ['settings', 'الإعدادات', 'settings']];
+const PAGES_BASE = [['home', 'لوحة المعلومات', 'home'], ['orders', 'الطلبات', 'orders'], ['night', 'استلام الطلبات', 'orders'], ['merchants', 'المتاجر', 'store'], ['drivers', 'المندوبون', 'bike'], ['tracking', 'تتبع المندوبين', 'pin'], ['customers', 'العملاء', 'users'], ['finance', 'المالية والأرباح', 'money'], ['vouchers', 'سندات القبض والصرف', 'voucher'], ['cards', 'كروت الشحن', 'card'], ['settings', 'الإعدادات', 'settings']];
 const PAGES = PAGES_BASE.slice();
 const ls0 = (() => { try { return JSON.parse(localStorage.getItem('rio_admin_me') || 'null'); } catch { return null; } })();
 let ME = ls0, STAFF = [];
@@ -100,7 +100,9 @@ async function load(silent) {
     jobs.push(api('GET', '/api/me'));
     jobs.push(P === 'staff' && isAdm() ? api('GET', '/api/admin/staff') : null);
     jobs.push(P === 'tracking' ? api('GET', '/api/admin/tracking') : null);
-    const [d, o, f, v, cd, st, me, sf, tk] = await Promise.all(jobs);
+    jobs.push(P === 'night' ? api('GET', '/api/admin/night') : null);
+    const [d, o, f, v, cd, st, me, sf, tk, ni] = await Promise.all(jobs);
+    if (ni) NIGHT = ni;
     if (tk) trkSet(tk);
     if (me && me.user) setMe(me.user);
     if (sf) STAFF = sf.staff;
@@ -279,8 +281,18 @@ function draw() {
   window.scrollTo(0, sy);
 }
 
+let NIGHT = null;
+const nightPg = () => {
+  const n = NIGHT;
+  if (!n) return empty('جارٍ التحميل…');
+  const canEdit = perm('orders') === 'edit';
+  const rows = n.stores.map((s) => `<tr><td><b>${esc(s.name)}</b><div class="hint">${esc(s.area || '')}</div></td><td>${nn(s.registered)}</td><td>${nn(s.received)}</td><td>${nn(s.registered - s.received)}</td><td>${mny(s.price)}</td><td>${s.drivers.length ? esc(s.drivers.join('، ')) : (s.requested ? '<span class="muted">بانتظار موافقة</span>' : '<span class="muted">لم يُطلب مندوب</span>')}</td></tr>`).join('');
+  return `<div class="kpis">${kpi('الطلبات المسجلة', nn(n.registered), '', mny(n.price))}${kpi('تم الاستلام', nn(n.received), 'green', mny(n.receivedPrice))}${kpi('المتبقي للاستلام', nn(n.remaining), 'amber', mny(n.remainingPrice))}</div>
+  <div class="card"><div class="ch">استلام الطلبات <small>امسح باركود QR الموجود على الطلب عند وصوله للمخزن</small></div>${canEdit ? '<button class="btn" data-a="night-scan">استلام طلبات باركود</button>' : '<p class="hint">صلاحية العرض فقط.</p>'}${n.inCustody.length ? `<div class="row" style="margin-top:12px;flex-wrap:wrap;gap:8px">${n.inCustody.map((d) => bdg(`${d.name}: ${d.n} طلب`, 'blue')).join('')}</div>` : ''}</div>
+  <div class="card"><div class="ch">حسب المتجر</div>${n.stores.length ? `<div class="tw"><table><thead><tr><th>المتجر</th><th>مسجّل</th><th>مستلم</th><th>متبقي</th><th>السعر</th><th>المندوب</th></tr></thead><tbody>${rows}</tbody></table></div>` : empty('لا توجد طلبات ليلية مسجلة')}</div>`;
+};
 function page() {
-  return ({ home, orders, merchants, drivers, tracking, customers, finance, vouchers, cards, settings, staff })[P]();
+  return ({ home, orders, night: nightPg, merchants, drivers, tracking, customers, finance, vouchers, cards, settings, staff })[P]();
 }
 
 /* ---------------- تتبع المندوبين ---------------- */
@@ -706,7 +718,7 @@ function cards() {
 }
 
 /* ---------------- الإعدادات ---------------- */
-const SECS = [['themes', 'الثيمات'], ['wa', 'قوالب رسائل واتساب'], ['prices', 'أسعار التوصيل للزبون'], ['fees', 'الرسوم'], ['receipts', 'الوصولات'], ['alerts', 'التنبيهات والدعم'], ['ocd', 'تصميم الوصولات'], ['ads', 'إعلانات التاجر'], ['adsd', 'إعلانات السائق'], ['review', 'حسابات مراجعة Google Play'], ['stats', 'إعادة تعيين الإحصائيات'], ['rcards', 'تصفير الكروت'], ['reset', 'تصفير البيانات']];
+const SECS = [['themes', 'الثيمات'], ['wa', 'قوالب رسائل واتساب'], ['prices', 'أسعار التوصيل للزبون'], ['fees', 'الرسوم'], ['receipts', 'الوصولات'], ['night', 'الاستلام الليلي'], ['alerts', 'التنبيهات والدعم'], ['ocd', 'تصميم الوصولات'], ['ads', 'إعلانات التاجر'], ['adsd', 'إعلانات السائق'], ['review', 'حسابات مراجعة Google Play'], ['stats', 'إعادة تعيين الإحصائيات'], ['rcards', 'تصفير الكروت'], ['reset', 'تصفير البيانات']];
 const saveBar = (label = 'حفظ') => `<div class="err" id="fe" role="alert"></div><button class="btn" style="min-height:44px">${label}</button>`;
 function settings() {
   if (!SET) return `<div class="card">جارٍ التحميل…</div>`;
@@ -722,6 +734,7 @@ function settings() {
       ${saveBar('حفظ القوالب')}</div></form>`,
     prices: () => `<form data-f="set-prices"><div class="card"><div class="ch">أسعار التوصيل للزبون <small>بالدينار العراقي</small></div><div class="frm">${f('bikeSame', 'دراجة · نفس المنطقة')}${f('bikeOther', 'دراجة · منطقة ثانية')}${f('carSame', 'سيارة · نفس المنطقة')}${f('carOther', 'سيارة · منطقة ثانية')}</div>${saveBar('حفظ الأسعار')}</div></form>`,
     fees: () => `<form data-f="set-fees"><div class="card"><div class="ch">تعديل الرسوم <small>رسوم التطبيق على السائق، تُخصم من محفظته عند قبول كل طلب</small></div><div class="frm">${f('feeSame', 'نفس المنطقة')}${f('feeOther', 'منطقة ثانية')}</div>${saveBar('حفظ الرسوم')}</div></form>`,
+    night: () => `<form data-f="set-night"><div class="card"><div class="ch">الاستلام الليلي <small>تسجيل الطلبات مساءً واستلامها بالـ QR</small></div><label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="s-night" ${SET.nightPickup !== 0 ? 'checked' : ''} style="width:22px;height:22px"><span><b>تفعيل الاستلام الليلي</b><span class="hint" style="display:block">عند الإيقاف لا يستطيع التجار تسجيل طلبات ليلية جديدة (الطلبات المسجلة تبقى).</span></span></label>${saveBar('حفظ')}</div></form>`,
     receipts: () => `<form data-f="set-receipts"><div class="card"><div class="ch">الوصولات <small>تحكم بظهور زر «وصل» في كل مكان</small></div><label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="s-receipts" ${SET.receipts !== 0 ? 'checked' : ''} style="width:22px;height:22px"><span><b>تفعيل الوصولات</b><span class="hint" style="display:block">عند الإيقاف يختفي زر «وصل» من حسابات التجار والسائقين ومن لوحة التحكم أيضاً.</span></span></label>${saveBar('حفظ')}</div></form>`,
     alerts: () => `${notifCard()}<form data-f="set-alerts"><div class="card"><div class="ch">التنبيهات والدعم</div><div class="frm">${f('lateMin', 'مدة التأخير بالدقائق (لتنبيه الطلبات المتأخرة)')}
       <div class="field"><label for="s-support">رقم الدعم (يظهر للتجار والسائقين)</label><input class="in" id="s-support" inputmode="tel" value="${esc(SET.support || '')}" placeholder="07XX XXX XXXX"></div></div>${saveBar('حفظ')}</div></form>`,
@@ -1107,6 +1120,10 @@ The driver app asks for location permission (the driver's position is shared wit
     if (r && r !== true) { toast(`تم حذف ${r.orders} طلب`); await load(); }
   },
   'menu-x'() { MENU = false; draw(); },
+  'night-scan'() {
+    if (!window.RioScan) return;
+    window.RioScan.open({ title: 'استلام طلبات بالباركود', onCode: async (code) => { const r = await api('POST', '/api/admin/night/scan', { code }); load(true); return `${r.already ? 'مستلم مسبقاً' : 'تم استلام'} الطلب #${r.order.no}`; } });
+  },
   page(el) { MENU = false; P = el.dataset.k; ls.set('rio_page', P); Q = ''; FS = 'all'; FM = 0; load(); },
   logout() { logout(); },
   theme(el) { RioTheme.set(el.dataset.t); draw(); },
@@ -1279,6 +1296,7 @@ document.addEventListener('submit', async (e) => {
       else if (sec === 'fees') ['feeSame', 'feeOther'].forEach((x) => { body[x] = v('s-' + x).value; });
       else if (sec === 'alerts') { body.lateMin = v('s-lateMin').value; body.support = v('s-support').value; }
       else if (sec === 'receipts') body.receipts = v('s-receipts').checked;
+      else if (sec === 'night') body.nightPickup = v('s-night').checked;
       else if (sec === 'wa') { body.templates = {}; TPL_DEFS.forEach(([t]) => { body.templates[t] = v('t-' + t).value; }); }
       else if (sec === 'ocd') body.ocDesign = OCSEL || SET.ocDesign || 'classic';
       const r = await api('PUT', '/api/admin/settings', body); SET = r.settings; OCSEL = null;

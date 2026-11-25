@@ -27,6 +27,7 @@ jobs:
           if [ -f android/app/google-services.json ] && ! grep -q '"package_name": *"com.rioiraq.delivery"' android/app/google-services.json; then rm android/app/google-services.json; echo "::warning::google-services.json لا يطابق com.rioiraq.delivery فتم تجاهله. أنشئ تطبيق Android جديداً في Firebase بهذا الاسم وحدّث الملف"; fi
           if [ -f android/app/google-services.json ]; then echo "window.RIO_FCM = true;" >> web/config.js; else echo "window.RIO_FCM = false;" >> web/config.js; fi
           M=android/app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.CAMERA' $M || sed -i 's#<application#<uses-permission android:name="android.permission.CAMERA" />\n    <application#' $M
           grep -q POST_NOTIFICATIONS $M || sed -i 's#<application#<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <application#' $M
           grep -q ACCESS_FINE_LOCATION $M || sed -i 's#<application#<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <application#' $M
           grep -q FOREGROUND_SERVICE_LOCATION $M || sed -i 's#<application#<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />\n    <application#' $M

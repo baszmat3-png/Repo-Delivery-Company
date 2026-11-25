@@ -28,13 +28,13 @@ const yearStart = (t) => { const d = new Date(t + OFF); return Date.UTC(d.getUTC
 const sumOf = (a, k) => a.reduce((s, o) => s + (Number(o[k]) || 0), 0);
 const isRet = (o) => o.status === 'returned' || o.status === 'return_sent' || o.status === 'partial' || o.status === 'rejected';
 
-const STATUSES = ['pending', 'picking_up', 'on_the_way', 'delivered', 'no_answer', 'postponed', 'rejected', 'return_sent', 'returned', 'cancelled'];
+const STATUSES = ['registered', 'received', 'pending', 'picking_up', 'on_the_way', 'delivered', 'no_answer', 'postponed', 'rejected', 'return_sent', 'returned', 'cancelled'];
 const DRIVER_STATUSES = ['picking_up', 'on_the_way', 'delivered', 'rejected', 'no_answer', 'postponed', 'return_sent'];
-const RETURNABLE = ['picking_up', 'on_the_way', 'rejected', 'no_answer', 'postponed'];
+const RETURNABLE = ['received', 'picking_up', 'on_the_way', 'rejected', 'no_answer', 'postponed'];
 const TROUBLE = ['no_answer', 'postponed', 'problem', 'other'];
 const DONE = ['delivered', 'partial'];
 
-const DEF_SETTINGS = { bikeSame: 3000, bikeOther: 5000, carSame: 5000, carOther: 8000, feeSame: 500, feeOther: 1000, lateMin: 45, support: '', receipts: 1, directPay: 0, ocDesign: 'steps' };
+const DEF_SETTINGS = { bikeSame: 3000, bikeOther: 5000, carSame: 5000, carOther: 8000, feeSame: 500, feeOther: 1000, lateMin: 45, support: '', receipts: 1, directPay: 0, ocDesign: 'steps', nightPickup: 1 };
 /* تصاميم الوصولات (بطاقة الطلب): يختارها المدير وتُطبَّق فوراً على كل الحسابات */
 const OC_KEYS = ['classic', 'bold', 'green', 'ticket', 'sun', 'night', 'steps'];
 
@@ -102,13 +102,15 @@ const pub = (u) => ({
   ...(u.role === 'staff' ? { username: String(u.phone).replace(/^staff:/, ''), perms: permsOf(u) } : {})
 });
 
+const ordM = (r) => ({ ...ord(r), pickCode: r.pick_code || '' }); // يحتوي رمز QR (للتاجر والإدارة فقط)
 const ord = (r) => ({
   id: r.id, no: r.num, merchantId: r.merchant_id, merchantName: r.merchant_name, merchantArea: r.merchant_area,
   merchantPhone: r.merchant_phone, customerArea: r.customer_area, customerPhone: r.customer_phone,
   product: r.product, qty: r.qty, vehicle: r.vehicle, sameArea: !!r.same_area, note: r.note,
   productPrice: r.product_price, deliveryPrice: r.delivery_price, total: r.total, status: r.status,
   driverId: r.driver_id, driverName: r.driver_name, fee: r.fee, createdAt: r.created_at, updatedAt: r.updated_at,
-  acceptedAt: r.accepted_at, deliveredAt: r.delivered_at, discount: r.discount || 0, feeQuote: r.fee_quote === null || r.fee_quote === undefined ? null : Number(r.fee_quote), merchantMap: r.merchant_map || '', payMode: r.pay_mode === 'prepaid' ? 'prepaid' : 'cod', payConfirmed: !!r.pay_confirmed, payConfirmedBy: r.pay_confirmed_by || '', payConfirmedAt: r.pay_confirmed_at || null, log: safeJson(r.log, [])
+  acceptedAt: r.accepted_at, deliveredAt: r.delivered_at, discount: r.discount || 0, feeQuote: r.fee_quote === null || r.fee_quote === undefined ? null : Number(r.fee_quote), merchantMap: r.merchant_map || '', payMode: r.pay_mode === 'prepaid' ? 'prepaid' : 'cod', payConfirmed: !!r.pay_confirmed, payConfirmedBy: r.pay_confirmed_by || '', payConfirmedAt: r.pay_confirmed_at || null, log: safeJson(r.log, []),
+  kind: r.kind === 'night' ? 'night' : 'fast', pickReq: !!r.pickup_req, pickDriverId: r.pick_driver_id || null, pickDriverName: r.pick_driver_name || '', receivedAt: r.received_at || null
 });
 
 function safeJson(s, d) { try { return JSON.parse(s); } catch { return d; } }
@@ -360,7 +362,7 @@ route('GET', '/api/merchant/home', MERCHANT, async (c) => {
   const dIds = [...new Set(r.rows.map((x) => x.driver_id).filter(Boolean))];
   const dPh = {};
   if (dIds.length) (await q(`SELECT id, phone FROM users WHERE id IN (${dIds.map((_, i) => '$' + (i + 1)).join(',')})`, dIds)).rows.forEach((x) => { dPh[x.id] = x.phone; });
-  return { me: pub(c.user), settings: await getSettings(), orders: r.rows.map((x) => ({ ...ord(x), driverPhone: dPh[x.driver_id] || '' })), adsVer: await adsVer('merchant') };
+  return { me: pub(c.user), settings: await getSettings(), orders: r.rows.map((x) => ({ ...ordM(x), driverPhone: dPh[x.driver_id] || '' })), adsVer: await adsVer('merchant') };
 });
 
 // تقرير التاجر لفترة محددة (للتصدير): كل طلبات الفترة بدون حد الـ 300
@@ -380,6 +382,8 @@ route('POST', '/api/merchant/orders', MERCHANT, async (c) => {
   const vehicle = b.vehicle === 'car' ? 'car' : 'bike';
   const productPrice = /واصل/.test(String(b.productPrice || '')) ? 0 : int(b.productPrice);
   const payMode = b.payMode === 'prepaid' && Number((await getSettings()).directPay) === 1 ? 'prepaid' : 'cod';
+  const night = b.kind === 'night';
+  if (night && Number((await getSettings()).nightPickup) !== 1) fail('الاستلام الليلي متوقف حالياً', 409);
   if (!customerArea) fail('اكتب منطقة الزبون');
   if (!validPhone(customerPhone)) fail('رقم الزبون يجب أن يبدأ بـ 07 ويتكوّن من 11 رقماً');
   if (!product) fail('اكتب نوع المنتج');
@@ -401,12 +405,13 @@ route('POST', '/api/merchant/orders', MERCHANT, async (c) => {
         num: m.rows[0].n, merchant_id: c.user.id, merchant_name: c.user.name, merchant_area: c.user.area, merchant_phone: c.user.phone, merchant_map: c.user.map_url || '',
         customer_area: customerArea, customer_phone: customerPhone, product, qty, vehicle, same_area: same ? 1 : 0,
         note: clean(b.note, 200), product_price: productPrice, delivery_price: deliveryPrice, total: productPrice + deliveryPrice, discount: disc, fee_quote: feeQuote, pay_mode: payMode,
-        status: 'pending', driver_id: null, driver_name: '', fee: 0, created_at: now, updated_at: now,
-        accepted_at: null, delivered_at: null, log: JSON.stringify([{ s: 'pending', at: now }])
+        status: night ? 'registered' : 'pending', driver_id: null, driver_name: '', fee: 0, created_at: now, updated_at: now,
+        accepted_at: null, delivered_at: null, log: JSON.stringify([{ s: night ? 'registered' : 'pending', at: now }]),
+        kind: night ? 'night' : 'fast', pick_code: night ? crypto.randomBytes(6).toString('hex') : ''
       });
-      await notifyNewOrder(row);
-      notifyAdmins({ kind: 'order_new', orderId: row.id, orderNo: row.num, title: `طلب جديد #${row.num}`, body: `${row.merchant_name} — ${row.merchant_area} ← ${row.customer_area}\n${payMode === 'prepaid' ? 'دفع مباشر للتاجر — المطلوب من الزبون ' + iqd(row.total) : 'المطلوب ' + iqd(row.total)}` });
-      return { order: ord(row) };
+      if (!night) await notifyNewOrder(row);
+      notifyAdmins({ kind: 'order_new', orderId: row.id, orderNo: row.num, title: night ? `طلب ليلي مسجّل #${row.num}` : `طلب جديد #${row.num}`, body: `${row.merchant_name} — ${row.merchant_area} ← ${row.customer_area}\n${payMode === 'prepaid' ? 'دفع مباشر للتاجر — المطلوب من الزبون ' + iqd(row.total) : 'المطلوب ' + iqd(row.total)}` });
+      return { order: ordM(row) };
     } catch (e) {
       if (!/unique|duplicate/i.test(String(e.message))) throw e;
     }
@@ -419,7 +424,7 @@ route('POST', '/api/merchant/orders/:id/cancel', MERCHANT, async (c) => {
   const o = r.rows[0];
   if (!o) fail('الطلب غير موجود', 404);
   const now = Date.now();
-  const u = await q(`UPDATE orders SET status='cancelled',updated_at=$1,log=$2 WHERE id=$3 AND status='pending' RETURNING *`, [now, pushLog(o, 'cancelled', now), o.id]);
+  const u = await q(`UPDATE orders SET status='cancelled',updated_at=$1,log=$2 WHERE id=$3 AND status IN ('pending','registered') AND pick_driver_id IS NULL RETURNING *`, [now, pushLog(o, 'cancelled', now), o.id]);
   if (!u.rows.length) fail('لا يمكن إلغاء الطلب بعد قبول السائق له', 409);
   notifyAdmins({ kind: 'order_status', orderId: o.id, orderNo: o.num, title: `التاجر ألغى الطلب #${o.num}`, body: o.merchant_name });
   return { order: ord(u.rows[0]) };
@@ -473,7 +478,8 @@ route('GET', '/api/driver/home', DRIVER, async (c) => {
   const avail = await q(`SELECT * FROM orders WHERE status='pending' AND vehicle=$1 ORDER BY created_at DESC LIMIT 50`, [c.user.vehicle === 'car' ? 'car' : 'bike']);
   const mine = await q('SELECT * FROM orders WHERE driver_id=$1 ORDER BY updated_at DESC LIMIT 150', [c.user.id]);
   return {
-    me: pub(c.user), settings: await getSettings(), available: avail.rows.map(ord), orders: mine.rows.map(ord), wallet: await walletFor(c.user), adsVer: await adsVer('driver')
+    me: pub(c.user), settings: await getSettings(), available: avail.rows.map(ord), orders: mine.rows.map(ord), wallet: await walletFor(c.user), adsVer: await adsVer('driver'),
+    nightStores: await nightStoresFor(c.user)
   };
 });
 
@@ -599,7 +605,7 @@ route('GET', '/api/admin/orders', ADM('orders'), async (c) => {
   if (c.query.phone) add('customer_phone=?', normPhone(c.query.phone));
   const limit = Math.min(5000, Math.max(1, Number(c.query.limit) || 300));
   const r = await q(`SELECT * FROM orders ${w.length ? 'WHERE ' + w.join(' AND ') : ''} ORDER BY created_at DESC LIMIT ${limit}`, p);
-  return { orders: r.rows.map(ord) };
+  return { orders: r.rows.map(ordM) };
 });
 
 route('POST', '/api/admin/orders/:id/status', ADM('orders', 'edit'), async (c) => {
@@ -887,6 +893,7 @@ route('PUT', '/api/admin/settings', ADM('settings', 'edit'), async (c) => {
     next.ocDesign = c.body.ocDesign;
   }
   if (c.body.receipts !== undefined) next.receipts = [true, 1, '1', 'true'].includes(c.body.receipts) ? 1 : 0;
+  if (c.body.nightPickup !== undefined) next.nightPickup = [true, 1, '1', 'true'].includes(c.body.nightPickup) ? 1 : 0;
   if (c.body.directPay !== undefined) next.directPay = [true, 1, '1', 'true'].includes(c.body.directPay) ? 1 : 0;
   if (c.body.support !== undefined) next.support = normPhone(c.body.support).slice(0, 15);
   await q(`INSERT INTO settings(key,value) VALUES('main',$1) ON CONFLICT(key) DO UPDATE SET value=excluded.value`, [JSON.stringify(next)]);
@@ -1387,3 +1394,145 @@ async function confirmPay(c, who, where) {
 }
 route('POST', '/api/merchant/orders/:id/pay-confirm', MERCHANT, (c) => confirmPay(c, 'merchant', 'merchant_id'));
 route('POST', '/api/driver/orders/:id/pay-confirm', DRIVER, (c) => confirmPay(c, 'driver', 'driver_id'));
+
+
+/* =====================================================================
+   الاستلام الليلي: التاجر يسجّل طلباته مساءً ← يطلب مندوباً ← المندوب يوافق ويمسح QR لكل طلب عند الاستلام ← التسليم في اليوم التالي
+   ===================================================================== */
+const NIGHT_OPEN = ['registered', 'received'];
+const maskPhone = (p) => String(p || '').replace(/^(\d{2})\d+$/, '$1XX XXX XXXX');
+
+/* متاجر لديها طلبات ليلية طلبت مندوباً (تظهر لكل المندوبين المناسبين حتى يوافق أحدهم) */
+async function nightStoresFor(user) {
+  const veh = user.vehicle === 'car' ? 'car' : 'bike';
+  const r = await q(
+    `SELECT * FROM orders WHERE kind='night' AND ((status='registered' AND pickup_req=1 AND vehicle=$1 AND (pick_driver_id IS NULL OR pick_driver_id=$2)) OR (status='received' AND driver_id=$2)) ORDER BY created_at ASC LIMIT 500`,
+    [veh, user.id]
+  );
+  const by = new Map();
+  for (const o of r.rows) {
+    let g = by.get(o.merchant_id);
+    if (!g) { g = { merchantId: o.merchant_id, name: o.merchant_name, area: o.merchant_area, phone: o.merchant_phone, map: o.merchant_map || '', count: 0, price: 0, received: 0, receivedPrice: 0, approved: false, orders: [] }; by.set(o.merchant_id, g); }
+    if (o.status === 'received') { g.received++; g.receivedPrice += o.total; g.approved = true; continue; }
+    g.count++; g.price += o.total;
+    if (o.pick_driver_id === user.id) g.approved = true;
+    g.orders.push({ no: o.num, customerArea: o.customer_area, total: o.total, productPrice: o.product_price });
+  }
+  const out = [...by.values()].filter((g) => g.count > 0 || g.received > 0);
+  return out.map((g) => ({ ...g, phone: g.approved ? g.phone : maskPhone(g.phone), map: g.approved ? g.map : '', orders: g.approved ? g.orders : [], remaining: g.count }));
+}
+
+/* ينفّذ استلام طلب ليلي من التاجر: يخصم رسوم التطبيق من المندوب ويحوّل الطلب إلى «تم الاستلام» */
+async function receiveNight(o, drv) {
+  const s = await getSettings();
+  const fee = o.fee_quote !== null && o.fee_quote !== undefined ? Number(o.fee_quote) : (o.same_area ? s.feeSame : s.feeOther);
+  const pay = await q('UPDATE users SET balance=balance-$1 WHERE id=$2 AND balance>=$1 RETURNING balance', [fee, drv.id]);
+  if (!pay.rows.length) fail('رصيد المندوب لا يكفي لرسوم التطبيق. اشحن المحفظة أولاً', 402);
+  const now = Date.now();
+  const claim = await q(
+    `UPDATE orders SET status='received',driver_id=$1,driver_name=$2,fee=$3,accepted_at=$4,received_at=$4,updated_at=$4,pick_driver_id=$1,pick_driver_name=$2,log=$5 WHERE id=$6 AND status='registered' RETURNING *`,
+    [drv.id, drv.name, fee, now, pushLog(o, 'received', now), o.id]
+  );
+  if (!claim.rows.length) { await q('UPDATE users SET balance=balance+$1 WHERE id=$2', [fee, drv.id]); fail('تم استلام هذا الطلب مسبقاً', 409); }
+  if (fee > 0) await db.insert('txs', { driver_id: drv.id, amount: -fee, kind: 'fee', label: 'رسوم التطبيق', order_num: o.num, at: now });
+  await notify(o.merchant_id, { kind: 'order_status', orderId: o.id, orderNo: o.num, title: `تم استلام طلبك #${o.num}`, body: `استلمه المندوب ${drv.name} وسيصل للزبون في اليوم التالي` });
+  notifyAdmins({ kind: 'order_status', orderId: o.id, orderNo: o.num, title: `استلام ليلي #${o.num}`, body: `${o.merchant_name} ← ${drv.name}` });
+  return claim.rows[0];
+}
+
+/* يقرأ رمز QR (RIO:رقم:رمز) أو رقم الطلب المكتوب يدوياً */
+async function findNightByCode(raw) {
+  const t = String(raw || '').trim();
+  let num = 0, code = '';
+  const m = /^RIO:(\d{1,9}):([0-9a-fA-F]{12})$/.exec(t);
+  if (m) { num = Number(m[1]); code = m[2].toLowerCase(); }
+  else { const n = /^#?(\d{1,9})$/.exec(t); if (n) num = Number(n[1]); }
+  if (!num) fail('الرمز غير صحيح');
+  const r = await q(`SELECT * FROM orders WHERE num=$1 AND kind='night'`, [num]);
+  const o = r.rows[0];
+  if (!o) fail('لا يوجد طلب ليلي بهذا الرمز', 404);
+  if (code && o.pick_code !== code) fail('رمز الطلب غير صحيح', 400);
+  return o;
+}
+
+async function storeProgress(merchantId, driverId) {
+  const r = await q(`SELECT status,total FROM orders WHERE merchant_id=$1 AND kind='night' AND (status='registered' OR (status='received' AND driver_id=$2))`, [merchantId, driverId || 0]);
+  const rec = r.rows.filter((x) => x.status === 'received'), rem = r.rows.filter((x) => x.status === 'registered');
+  return { received: rec.length, remaining: rem.length, receivedPrice: rec.reduce((a, x) => a + x.total, 0), remainingPrice: rem.reduce((a, x) => a + x.total, 0) };
+}
+
+/* ----- التاجر: طلب مندوب لكل الطلبات الليلية المسجّلة ----- */
+route('POST', '/api/merchant/night/request', MERCHANT, async (c) => {
+  if (Number((await getSettings()).nightPickup) !== 1) fail('الاستلام الليلي متوقف حالياً', 409);
+  const now = Date.now();
+  const u = await q(`UPDATE orders SET pickup_req=1,updated_at=$1 WHERE merchant_id=$2 AND kind='night' AND status='registered' AND pickup_req=0 RETURNING *`, [now, c.user.id]);
+  const total = (await q(`SELECT COUNT(*) AS n FROM orders WHERE merchant_id=$1 AND kind='night' AND status='registered'`, [c.user.id])).rows[0];
+  if (!u.rows.length) fail(Number(total.n) ? 'تم طلب مندوب لكل طلباتك المسجلة. بانتظار موافقة مندوب' : 'لا توجد طلبات ليلية مسجلة لطلب مندوب', 409);
+  const veh = [...new Set(u.rows.map((x) => (x.vehicle === 'car' ? 'car' : 'bike')))];
+  const ds = await q(`SELECT id FROM users WHERE role='driver' AND active=1 AND receiving=1 AND vehicle IN (${veh.map((_, i) => '$' + (i + 1)).join(',')})`, veh);
+  await notify(ds.rows.map((x) => x.id), { kind: 'order_new', title: 'طلب استلام ليلي من متجر', body: `${c.user.name} — ${c.user.area}\n${u.rows.length} طلب بسعر ${iqd(u.rows.reduce((a, x) => a + x.total, 0))}` });
+  notifyAdmins({ kind: 'order_new', title: `${c.user.name} طلب مندوباً للاستلام الليلي`, body: `${u.rows.length} طلب` });
+  return { ok: true, requested: u.rows.length };
+});
+
+/* ----- المندوب: الموافقة على استلام طلبات متجر ----- */
+route('POST', '/api/driver/night/approve', DRIVER, async (c) => {
+  const u = c.user;
+  if (!u.receiving) fail('فعّل استقبال الطلبات أولاً', 409);
+  const mid = Number(c.body.merchantId);
+  if (!mid) fail('متجر غير صحيح');
+  const veh = u.vehicle === 'car' ? 'car' : 'bike';
+  const now = Date.now();
+  const r = await q(`UPDATE orders SET pick_driver_id=$1,pick_driver_name=$2,updated_at=$3 WHERE merchant_id=$4 AND kind='night' AND status='registered' AND pickup_req=1 AND vehicle=$5 AND pick_driver_id IS NULL RETURNING *`, [u.id, u.name, now, mid, veh]);
+  if (!r.rows.length) {
+    const mine = (await q(`SELECT COUNT(*) AS n FROM orders WHERE merchant_id=$1 AND kind='night' AND status='registered' AND pick_driver_id=$2`, [mid, u.id])).rows[0];
+    if (Number(mine.n)) return { ok: true, approved: 0, already: true };
+    fail('سبقك مندوب آخر بالموافقة على هذا المتجر', 409);
+  }
+  await notify(mid, { kind: 'order_accepted', title: 'وافق مندوب على استلام طلباتك', body: `المندوب ${u.name} في طريقه لاستلام ${r.rows.length} طلب` });
+  notifyAdmins({ kind: 'order_status', title: `${u.name} وافق على استلام ${r.rows[0].merchant_name}`, body: `${r.rows.length} طلب` });
+  return { ok: true, approved: r.rows.length };
+});
+
+/* ----- المندوب: مسح QR / كتابة رقم الطلب عند الاستلام ----- */
+route('POST', '/api/driver/night/scan', DRIVER, async (c) => {
+  const o = await findNightByCode(c.body.code);
+  if (o.status === 'received' && o.driver_id === c.user.id) return { already: true, order: ord(o), progress: await storeProgress(o.merchant_id, c.user.id) };
+  if (o.status !== 'registered') fail('هذا الطلب ليس بانتظار الاستلام', 409);
+  if (o.pick_driver_id && o.pick_driver_id !== c.user.id) fail('وافق مندوب آخر على استلام هذا الطلب', 403);
+  if (!o.pick_driver_id) fail('وافق على استلام طلبات هذا المتجر أولاً', 409);
+  if ((o.vehicle === 'car' ? 'car' : 'bike') !== (c.user.vehicle === 'car' ? 'car' : 'bike')) fail('هذا الطلب لنوع مركبة آخر', 403);
+  const done = await receiveNight(o, c.user);
+  return { order: ord(done), progress: await storeProgress(o.merchant_id, c.user.id) };
+});
+
+/* ----- الإدارة: ملخص الاستلام الليلي + مسح الباركود ----- */
+route('GET', '/api/admin/night', ADM('orders'), async () => {
+  const r = await q(`SELECT * FROM orders WHERE kind='night' AND status IN ('registered','received') ORDER BY created_at ASC LIMIT 2000`);
+  const by = new Map();
+  let reg = 0, rec = 0, price = 0, recPrice = 0;
+  for (const o of r.rows) {
+    reg++; price += o.total;
+    const isRec = o.status === 'received';
+    if (isRec) { rec++; recPrice += o.total; }
+    let g = by.get(o.merchant_id);
+    if (!g) { g = { merchantId: o.merchant_id, name: o.merchant_name, area: o.merchant_area, registered: 0, received: 0, price: 0, requested: 0, drivers: [] }; by.set(o.merchant_id, g); }
+    g.registered++; g.price += o.total; if (isRec) g.received++; if (o.pickup_req && !isRec) g.requested++;
+    const dn = isRec ? o.driver_name : o.pick_driver_name;
+    if (dn && !g.drivers.includes(dn)) g.drivers.push(dn);
+  }
+  const drv = new Map();
+  for (const o of r.rows) if (o.status === 'received' && o.driver_name) drv.set(o.driver_name, (drv.get(o.driver_name) || 0) + 1);
+  return { registered: reg, received: rec, remaining: reg - rec, price, receivedPrice: recPrice, remainingPrice: price - recPrice, stores: [...by.values()], inCustody: [...drv].map(([name, n]) => ({ name, n })) };
+});
+
+route('POST', '/api/admin/night/scan', ADM('orders', 'edit'), async (c) => {
+  const o = await findNightByCode(c.body.code);
+  if (o.status === 'received') return { already: true, order: ordM(o) };
+  if (o.status !== 'registered') fail('هذا الطلب ليس بانتظار الاستلام', 409);
+  if (!o.pick_driver_id) fail('لم يوافق أي مندوب على استلام طلبات هذا المتجر بعد', 409);
+  const du = (await q('SELECT * FROM users WHERE id=$1', [o.pick_driver_id])).rows[0];
+  if (!du) fail('المندوب غير موجود', 404);
+  const done = await receiveNight(o, du);
+  return { order: ordM(done) };
+});

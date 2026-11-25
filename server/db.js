@@ -100,6 +100,13 @@ async function init() {
   await addColumn('orders', 'pay_confirmed', 'INTEGER NOT NULL DEFAULT 0');
   await addColumn('orders', 'pay_confirmed_by', "TEXT NOT NULL DEFAULT ''");
   await addColumn('orders', 'pay_confirmed_at', 'BIGINT');
+  // الاستلام الليلي: نوع الطلب (fast/night)، رمز QR، طلب مندوب، المندوب الموافق، وقت الاستلام من التاجر
+  await addColumn('orders', 'kind', "TEXT NOT NULL DEFAULT 'fast'");
+  await addColumn('orders', 'pick_code', "TEXT NOT NULL DEFAULT ''");
+  await addColumn('orders', 'pickup_req', 'INTEGER NOT NULL DEFAULT 0');
+  await addColumn('orders', 'pick_driver_id', 'INTEGER');
+  await addColumn('orders', 'pick_driver_name', "TEXT NOT NULL DEFAULT ''");
+  await addColumn('orders', 'received_at', 'BIGINT');
   await addColumn('users', 'perms', "TEXT NOT NULL DEFAULT ''");
   await addColumn('users', 'avatar', "TEXT NOT NULL DEFAULT ''");
   await addColumn('users', 'verified', 'INTEGER NOT NULL DEFAULT 0');
