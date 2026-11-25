@@ -126,7 +126,7 @@ function setLive() { document.querySelectorAll('.live').forEach((e) => { e.class
 let lastAP = 0;
 setInterval(() => { if (!T || document.hidden) return; if (LIVE && Date.now() - lastAP < 60000) return; lastAP = Date.now(); load(true); }, 20000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden && T) load(true); });
-function logout() { unsubscribePush(T); entryAsked = false; clickAsked = false; MENU = false; T = ''; ls.del(KEY); try { localStorage.removeItem('rio_admin_me'); } catch { /* ignore */ } ME = null; applyPerms(); disconnect(); D = null; M = null; draw(); drawModal(); }
+function logout() { unsubscribePush(T); entryAsked = false; clickAsked = false; MENU = false; T = ''; ls.del(KEY); try { localStorage.removeItem('rio_admin_me'); } catch { /* ignore */ } ME = null; applyPerms(); disconnect(); D = null; M = null; try { if (localStorage.getItem('rio_from_app') === '1') { localStorage.removeItem('rio_from_app'); location.replace('index.html'); return; } } catch { /* ignore */ } draw(); drawModal(); }
 
 /* ---------------- الإشعارات (المدير والموظفون) ---------------- */
 const NOFF_K = 'rio_admin_notif_off';
