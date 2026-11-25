@@ -45,6 +45,7 @@ function ddl() {
       name TEXT NOT NULL, text TEXT NOT NULL, at BIGINT NOT NULL)`,
     `CREATE INDEX IF NOT EXISTS messages_order_idx ON messages(order_id)`,
     `CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT NOT NULL)`,
+    `CREATE TABLE IF NOT EXISTS stickers(code TEXT PRIMARY KEY, batch BIGINT NOT NULL, created_at BIGINT NOT NULL, order_id INTEGER, used_at BIGINT)`,
     `CREATE TABLE IF NOT EXISTS expenses(
       id ${pk}, amount BIGINT NOT NULL, category TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT '',
       at BIGINT NOT NULL, created_at BIGINT NOT NULL)`,
@@ -108,6 +109,8 @@ async function init() {
   await addColumn('orders', 'pick_driver_name', "TEXT NOT NULL DEFAULT ''");
   await addColumn('orders', 'received_at', 'BIGINT');
   await addColumn('orders', 'hq_at', 'BIGINT');
+  await addColumn('orders', 'sticker', "TEXT NOT NULL DEFAULT ''");
+  await addColumn('orders', 'customer_gov', "TEXT NOT NULL DEFAULT ''");
   await addColumn('users', 'perms', "TEXT NOT NULL DEFAULT ''");
   await addColumn('users', 'avatar', "TEXT NOT NULL DEFAULT ''");
   await addColumn('users', 'verified', 'INTEGER NOT NULL DEFAULT 0');

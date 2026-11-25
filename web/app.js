@@ -92,6 +92,7 @@ const IC = {
   chev: '<path d="M15 5l-7 7 7 7"/>',
   pin: '<path d="M12 21s7-6 7-11a7 7 0 10-14 0c0 5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>',
   grid: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+  bolt2: '<path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/>',
   moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
   qr: '<path d="M3 3h6v6H3zM15 3h6v6h-6zM3 15h6v6H3zM15 15h2v2h-2zM19 19h2v2h-2zM19 15h2M15 19h2"/>',
   box: '<path d="M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8M12 13v8"/>',
@@ -530,7 +531,9 @@ function payBox(o) {
 const nightOn = () => Number((S.data && S.data.settings && S.data.settings.nightPickup)) === 1;
 const qrOn = () => Number((S.data && S.data.settings && S.data.settings.qrPickup)) === 1;
 /* رمز QR للطلب الليلي (يمسحه المندوب عند الاستلام من التاجر) + رمز استلام من 4 أرقام بديل الكاميرا */
-const qrBox = (o) => (o.kind === 'night' && o.status === 'registered' && o.pickCode && window.RioQR
+const qrBox = (o) => (o.kind === 'night' && o.status === 'registered' && o.sticker
+  ? `<div class="qrbox"><div class="qrpin">ملصق رقم <b class="num">${esc(o.sticker)}</b></div><small>المندوب يمسح الملصق الموجود على الطلب عند الاستلام · رقم الطلب <bdi>#${o.no}</bdi></small></div>`
+  : o.kind === 'night' && o.status === 'registered' && o.pickCode && window.RioQR
   ? `<div class="qrbox"><div class="qrimg">${window.RioQR.svg('RIO:' + o.no + ':' + o.pickCode, 150)}</div>${o.pickPin ? `<div class="qrpin">رمز الاستلام: <b class="num">${o.pickPin}</b></div>` : ''}<small>أعطِ هذا الرمز للمندوب ليمسحه عند الاستلام · رقم الطلب <bdi>#${o.no}</bdi></small></div>` : '');
 function merchantOpts(o, withCancel) {
   const armed = S.armed === 'c' + o.id;
@@ -1661,14 +1664,15 @@ function courierStoreCard(g) {
   const btn = g.approved
     ? `<button class="btn block navy" data-act="night-store" data-id="${g.merchantId}">${ico('eye')} عرض التفاصيل</button>`
     : `<button class="btn block" data-act="night-approve" data-id="${g.merchantId}">موافقة على الاستلام</button>`;
-  return `<div class="card cst"><div class="cst-t"><span class="cst-ic">${ico('store')}</span><div><b>${esc(g.name)}</b><small>${ico('pin')} ${esc(g.area || '')}</small></div></div>
+  return `<div class="card cst"><div class="cst-t"><span class="cst-ic">${ico('store')}</span><div style="flex:1"><b>${esc(g.name)}</b><small>${ico('pin')} ${esc(g.area || '')}</small></div><a class="btn ghost sm outline" href="${esc(mapHref(g))}" target="_blank" rel="noopener">${ico('pin')} الموقع</a></div>
     <div class="cst-g"><div><small>عدد الطلبات</small><b>${total}</b></div><div><small>سعر الطلبات</small><b>${nf.format(Math.round(g.price + g.receivedPrice))} <small>د.ع</small></b></div></div>${btn}</div>`;
 }
+const mapHref = (g) => g.map || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(g.name + ' ' + (g.area || '') + ' بغداد')}`;
 function courierStorePage(g) {
   const total = g.count + g.received;
   const row = (ic, l, v, extra = '') => `<div class="cdr"><span class="cst-ic">${ico(ic)}</span><div class="cdr-b"><small>${l}</small><b>${v}</b></div>${extra}</div>`;
   const qr = qrOn();
-  const orders = g.approved && g.orders.length ? `<h2 class="sec">الطلبات المتبقية للاستلام</h2><div class="card">${g.orders.map((x) => `<div class="cdo"><div><b>#${x.no}</b> <small class="muted">${esc(x.customerArea)}${x.product ? ' · ' + esc(x.product) : ''}</small></div><div class="row" style="gap:8px"><b class="num">${money(x.total)}</b>${qr ? '' : `<button class="btn sm" data-act="night-recv" data-id="${x.id}">تم الاستلام</button>`}</div></div>`).join('')}</div>` : '';
+  const orders = g.approved && g.orders.length ? `<h2 class="sec">الطلبات المتبقية للاستلام</h2><div class="card">${g.orders.map((x) => `<div class="cdo"><div><b>#${x.no}</b>${x.sticker ? ` <small class="pill">ملصق ${esc(x.sticker)}</small>` : ''} <small class="muted">${x.customerGov ? esc(x.customerGov) + ' - ' : ''}${esc(x.customerArea)}</small></div><div class="row" style="gap:8px"><b class="num">${money(x.total)}</b>${qr ? '' : `<button class="btn sm" data-act="night-recv" data-id="${x.id}">تم الاستلام</button>`}</div></div>`).join('')}</div>` : '';
   const act = g.approved
     ? (g.count ? `<button class="btn block blue big" data-act="night-scan">${ico('qr')} استلام طلب QR</button>` : `<div class="notice green">استلمت كل طلبات هذا المتجر. سلّمها لمقر الشركة.</div>`)
     : `<button class="btn block big" data-act="night-approve" data-id="${g.merchantId}">موافقة على الاستلام</button>`;
@@ -1676,7 +1680,7 @@ function courierStorePage(g) {
   ${head('تفاصيل المتجر', 'بيانات الاستلام')}
   <div class="card cdc">
     ${row('store', esc(g.name), g.approved ? telLink(g.phone) : `<bdi>${esc(g.phone)}</bdi>`, g.approved ? '' : '<small class="muted">يظهر الرقم بعد الموافقة</small>')}
-    ${row('pin', 'موقع المتجر', g.approved && g.map ? 'رابط خرائط كوكل' : esc(g.area || ''), g.approved && g.map ? `<a class="btn ghost sm outline" href="${esc(g.map)}" target="_blank" rel="noopener">افتح الخريطة</a>` : '')}
+    ${row('pin', 'موقع المتجر', `${esc(g.area || '')}<small class="muted" style="display:block;font-weight:500">${g.map ? 'رابط خرائط كوكل' : 'بحث في خرائط كوكل'}</small>`, `<a class="btn ghost sm outline" href="${esc(mapHref(g))}" target="_blank" rel="noopener">افتح الخريطة</a>`)}
     ${row('box', 'عدد الطلبات', `${total} طلبات`)}
     ${row('wallet', 'سعر الطلبات', money(g.price + g.receivedPrice))}
   </div>
@@ -1684,11 +1688,25 @@ function courierStorePage(g) {
   ${orders}
   ${act}`;
 }
+/* التاجر: مسح ملصق الباركود المطبوع ← ملء معلومات الطلب */
+function openStickerScan() {
+  if (S.sheet) closeSheet();
+  if (!window.RioScan) return toast('الماسح غير متاح', true);
+  window.RioScan.open({
+    title: 'امسح باركود الملصق',
+    placeholder: 'أو اكتب رقم الملصق (8 أرقام)',
+    onCode: async (code) => {
+      const r = await api('POST', '/api/merchant/sticker', { code });
+      setTimeout(() => { window.RioScan.close(); openSheet({ type: 'night-order', form: { sticker: r.code, customerGov: 'بغداد', customerArea: '', customerPhone: '', total: '', product: '', note: '' } }); }, 500);
+      return `ملصق ${r.code} صالح ✓`;
+    }
+  });
+}
 function openNightScan() {
   if (!window.RioScan) return toast('الماسح غير متاح', true);
   window.RioScan.open({
-    title: 'استلام طلب بالـ QR',
-    placeholder: 'أو اكتب رمز الاستلام (4 أرقام)',
+    title: 'استلام طلب بالباركود',
+    placeholder: 'أو اكتب رقم الملصق (8 أرقام)',
     onCode: async (code) => {
       const r = await api('POST', '/api/courier/night/scan', { code });
       refresh(true);
@@ -1700,9 +1718,24 @@ function openNightScan() {
 
 const SHEETS = {
   'order-kind'() {
-    return ['نوع الطلب', `<div class="stack">
-      <button type="button" class="kindopt" data-act="pick-kind" data-k="night"><span class="ki">🌙</span><span><b>استلام طلبات ليلاً وتسليمها غداً</b><small>سجّل طلباتك بالليل ويمرّ مندوب لاستلامها بمسح رمز QR</small></span></button>
-      <button type="button" class="kindopt" data-act="pick-kind" data-k="fast"><span class="ki">⚡</span><span><b>إرسال طلب سريع جداً</b><small>يصل لكل المندوبين فوراً ويُقبل خلال دقائق</small></span></button></div>`];
+    return ['إنشاء طلب', `<p class="muted" style="margin:-6px 0 14px">اختر نوع الطلب</p><div class="stack">
+      <button type="button" class="kindcard night" data-act="pick-kind" data-k="night"><span class="kc-ic">${ico('moon')}</span><span class="kc-t"><b>استلام طلبات ليلاً وتسليمها غداً</b><small>سجّل طلباتك مساءً، وتصل للزبون في اليوم التالي.</small></span><span class="kc-ch">${ico('chev')}</span></button>
+      <button type="button" class="kindcard fast" data-act="pick-kind" data-k="fast"><span class="kc-ic">${ico('bolt2')}</span><span class="kc-t"><b>إرسال طلب سريع جداً</b><small>أقرب سائق يستلم طلبك بأسرع وقت.</small></span><span class="kc-ch">${ico('chev')}</span></button></div>`];
+  },
+  'night-order'(s) {
+    const f = s.form;
+    const st = S.data.settings || {};
+    const dp = Math.max(0, (Number(st.nightDelivery) || 0) - Math.min(Number(st.nightDelivery) || 0, Number(S.user.discount) || 0));
+    return ['🌙 معلومات الطلب', `<form class="stack" data-form="night-order" novalidate>
+      <div class="stk-ok">${ico('check')}<span>ملصق رقم <b class="num">${esc(f.sticker)}</b></span><button type="button" class="btn ghost sm" data-act="pick-kind" data-k="night">مسح ملصق آخر</button></div>
+      ${field('n-gov', 'محافظة الزبون', `<input class="in" id="n-gov" name="customerGov" data-in="nn" value="${esc(f.customerGov)}" required>`)}
+      ${field('n-area', 'منطقة الزبون', `<input class="in" id="n-area" name="customerArea" data-in="nn" placeholder="مثال: الشعلة" value="${esc(f.customerArea)}" required>`)}
+      ${field('n-phone', 'رقم الزبون', `<input class="in mono" id="n-phone" name="customerPhone" data-in="nn" inputmode="tel" placeholder="07XX XXX XXXX" value="${esc(f.customerPhone)}" required>`)}
+      ${field('n-total', 'السعر الإجمالي مع التوصيل (د.ع)', `<input class="in" id="n-total" name="total" data-in="nn" inputmode="numeric" placeholder="مثال: 30000" value="${esc(f.total)}" required>`, `يشمل أجرة التوصيل ${money(dp)}.`)}
+      ${field('n-prod', 'نوع المنتج (اختياري)', `<input class="in" id="n-prod" name="product" data-in="nn" placeholder="مثال: ملابس" value="${esc(f.product)}">`)}
+      ${field('n-note', 'ملاحظة (اختياري)', `<textarea class="in" id="n-note" name="note" data-in="nn" maxlength="200">${esc(f.note)}</textarea>`)}
+      <p class="hint" id="n-err" style="color:var(--red)" role="alert"></p>
+      <button class="btn block" type="submit">تسجيل الطلب</button></form>`];
   },
   'new-order'(s) {
     const f = s.form;
@@ -1916,7 +1949,7 @@ const ACTIONS = {
   otab: (el) => { S.ordersTab = el.dataset.t; S.menu = null; render(); },
   wtab: (el) => { S.walletTab = el.dataset.t; render(); },
   'new-order': () => (nightOn() ? openSheet({ type: 'order-kind' }) : openSheet({ type: 'new-order', form: newOrderForm() })),
-  'pick-kind': (el) => openSheet({ type: 'new-order', form: { ...newOrderForm(), kind: el.dataset.k === 'night' ? 'night' : 'fast' } }),
+  'pick-kind': (el) => (el.dataset.k === 'night' ? openStickerScan() : openSheet({ type: 'new-order', form: { ...newOrderForm(), kind: 'fast' } })),
   'ord-kind': (el) => { S.ordKind = el.dataset.k; S.filter = 'all'; render(); },
   'night-req': async () => { try { const r = await api('POST', '/api/merchant/night/request'); toast(`تم طلب مندوب لـ ${r.requested} طلب`); refresh(true); } catch (e) { toast(e.message, true); } },
   'night-approve': async (el) => { try { await api('POST', '/api/courier/night/approve', { merchantId: Number(el.dataset.id) }); toast('تمت الموافقة. اذهب للمتجر واستلم الطلبات'); S.nstore = Number(el.dataset.id); refresh(true); } catch (e) { toast(e.message, true); } },
@@ -2096,6 +2129,8 @@ document.addEventListener('input', (e) => {
     const map = { customerArea: 'customerArea', customerPhone: 'customerPhone', product: 'product', productPrice: 'productPrice', note: 'note' };
     S.sheet.form[map[t.name]] = t.value;
     updateOrderForm();
+  } else if (k === 'nn' && S.sheet && S.sheet.type === 'night-order') {
+    S.sheet.form[t.name] = t.value;
   } else if (k === 'card') {
     const d = digits(t.value).replace(/\D/g, '').slice(0, 12);
     t.value = d.replace(/(\d{4})(?=\d)/g, '$1 ');
@@ -2137,6 +2172,13 @@ const FORMS = {
     await api('POST', '/api/merchant/orders', body);
     toast(form.kind === 'night' ? 'تم تسجيل الطلب. اضغط «اطلب مندوب» عند الانتهاء' : 'أُرسل الطلب للسائقين');
     S.ordKind = form.kind === 'night' ? 'night' : 'fast';
+    closeSheet(); go('orders');
+  },
+  async 'night-order'() {
+    const f = S.sheet.form;
+    const r = await api('POST', '/api/merchant/orders', { kind: 'night', sticker: f.sticker, customerGov: f.customerGov, customerArea: f.customerArea, customerPhone: f.customerPhone, total: digits(String(f.total)).replace(/[^\d]/g, ''), product: f.product, note: f.note });
+    toast(`تم تسجيل الطلب #${r.order.no}. امسح الملصق التالي أو اضغط «اطلب مندوب»`);
+    S.ordKind = 'night';
     closeSheet(); go('orders');
   },
   async charge(f) {
@@ -2186,7 +2228,7 @@ const FORMS = {
     toast('تم حفظ الإعدادات'); refresh(true);
   }
 };
-const ERR_ID = { login: 'l-err', 'new-order': 'o-err', charge: 'c-err', 'edit-me': 'm-err', password: 'p-err', 'delete-me': 'd-err', 'add-user': 'u-err', 'edit-user': 'e-err', adjust: 'a-err', register: 'r-err' };
+const ERR_ID = { login: 'l-err', 'new-order': 'o-err', 'night-order': 'n-err', charge: 'c-err', 'edit-me': 'm-err', password: 'p-err', 'delete-me': 'd-err', 'add-user': 'u-err', 'edit-user': 'e-err', adjust: 'a-err', register: 'r-err' };
 
 document.addEventListener('submit', async (e) => {
   const form = e.target.closest('[data-form]');

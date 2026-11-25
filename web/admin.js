@@ -294,6 +294,7 @@ const nightPg = () => {
   return `<div class="kpis">${kpi('الطلبات المسجلة', nn(n.registered), 'amber', `من ${nn(n.stores.length)} متاجر`)}${kpi('الطلبات المستلمة', nn(n.received), 'green', 'في عهدة المندوبين')}${kpi('في مقر الشركة', nn(n.atHq || 0), 'blue', 'ظاهرة للسائقين')}</div>
   <div class="card" style="background:linear-gradient(135deg,#f6d24a,#d9a520);color:#171200"><div class="row between"><div style="opacity:.85">سعر الطلبات</div><div style="text-align:end"><b style="font-size:26px">${mny(n.price)}</b><div class="hint" style="color:#3a2f00">المستلمة: ${nf(n.receivedPrice)} · المتبقية: ${nf(n.remainingPrice)}</div></div></div></div>
   ${canEdit ? '<button class="btn" style="width:100%;min-height:52px;margin:12px 0 6px;background:#2f55c4;color:#fff" data-a="night-scan">استلام طلبات باركود</button><p class="hint" style="margin:0 0 12px">عند وصول المندوب للمقر امسح باركود كل طلب (أو اكتب رقمه)، فيُرسل فوراً لكل السائقين في «طلبات الشركة».</p>' : '<p class="hint">صلاحية العرض فقط.</p>'}
+  <div class="card row between" style="flex-wrap:wrap;gap:10px"><div><b>ملصقات الباركود</b><div class="hint">التاجر يلصق الملصق على الطلب ويمسحه من التطبيق ثم يملأ المعلومات.${n.stickers ? ` مطبوع ${nn(n.stickers.total)} · مستخدم ${nn(n.stickers.used)} · متبقٍ ${nn(n.stickers.total - n.stickers.used)}` : ''}</div></div>${canEdit ? '<button class="btn g" data-a="stickers">طباعة ملصقات باركود</button>' : ''}</div>
   <div class="card"><div class="ch">الطلبات المسجلة حسب المتجر <small>${nn(n.registered)} طلب</small></div>${n.stores.length ? list : empty('لا توجد طلبات ليلية مسجلة')}${n.inCustody.length ? `<div class="row" style="margin-top:12px;flex-wrap:wrap;gap:8px">${n.inCustody.map((d) => bdg(`${d.name}: ${d.n} طلب`, 'blue')).join('')}</div>` : ''}</div>`;
 };
 function page() {
@@ -758,7 +759,7 @@ function settings() {
     prices: () => `<form data-f="set-prices"><div class="card"><div class="ch">أسعار التوصيل للزبون <small>بالدينار العراقي</small></div><div class="frm">${f('bikeSame', 'دراجة · نفس المنطقة')}${f('bikeOther', 'دراجة · منطقة ثانية')}${f('carSame', 'سيارة · نفس المنطقة')}${f('carOther', 'سيارة · منطقة ثانية')}</div>${saveBar('حفظ الأسعار')}</div></form>`,
     fees: () => `<form data-f="set-fees"><div class="card"><div class="ch">تعديل الرسوم <small>رسوم التطبيق على السائق، تُخصم من محفظته عند قبول كل طلب</small></div><div class="frm">${f('feeSame', 'نفس المنطقة')}${f('feeOther', 'منطقة ثانية')}</div>${saveBar('حفظ الرسوم')}</div></form>`,
     qr: () => `<form data-f="set-qr"><div class="card"><div class="ch">استلام المندوب من المتجر بالـ QR <small>لكل طلب ليلي رمز QR ورمز استلام يظهران عند التاجر</small></div><label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="s-qr" ${Number(SET.qrPickup) === 1 ? 'checked' : ''} style="width:22px;height:22px"><span><b>إلزام المندوب بمسح الباركود</b><span class="hint" style="display:block">عند التفعيل لا يستلم المندوب الطلب من المتجر إلا بمسح رمز QR الخاص به (أو كتابة رمز الاستلام المكوّن من 4 أرقام). عند الإيقاف يستطيع المسح أو الضغط على «تم الاستلام» لكل طلب. السائقون لا يستخدمون الباركود.</span></span></label>${saveBar('حفظ')}</div></form>`,
-    night: () => `<form data-f="set-night"><div class="card"><div class="ch">الاستلام الليلي <small>تسجيل الطلبات مساءً واستلامها بالـ QR</small></div><label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="s-night" ${SET.nightPickup !== 0 ? 'checked' : ''} style="width:22px;height:22px"><span><b>تفعيل الاستلام الليلي</b><span class="hint" style="display:block">عند الإيقاف لا يستطيع التجار تسجيل طلبات ليلية جديدة (الطلبات المسجلة تبقى).</span></span></label>${saveBar('حفظ')}</div></form>`,
+    night: () => `<form data-f="set-night"><div class="card"><div class="ch">الاستلام الليلي <small>تسجيل الطلبات مساءً واستلامها بالـ QR</small></div><label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="s-night" ${SET.nightPickup !== 0 ? 'checked' : ''} style="width:22px;height:22px"><span><b>تفعيل الاستلام الليلي</b><span class="hint" style="display:block">عند الإيقاف لا يستطيع التجار تسجيل طلبات ليلية جديدة (الطلبات المسجلة تبقى).</span></span></label><div class="field" style="margin-top:12px"><label for="s-ndel">أجرة توصيل الطلب الليلي (د.ع)</label><input class="in" id="s-ndel" inputmode="numeric" value="${esc(String(SET.nightDelivery ?? 5000))}"><span class="hint">التاجر يكتب السعر الإجمالي مع التوصيل، ويُحسب سعر المنتج = الإجمالي − هذه الأجرة.</span></div>${saveBar('حفظ')}</div></form>`,
     receipts: () => `<form data-f="set-receipts"><div class="card"><div class="ch">الوصولات <small>تحكم بظهور زر «وصل» في كل مكان</small></div><label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="s-receipts" ${SET.receipts !== 0 ? 'checked' : ''} style="width:22px;height:22px"><span><b>تفعيل الوصولات</b><span class="hint" style="display:block">عند الإيقاف يختفي زر «وصل» من حسابات التجار والسائقين ومن لوحة التحكم أيضاً.</span></span></label>${saveBar('حفظ')}</div></form>`,
     alerts: () => `${notifCard()}<form data-f="set-alerts"><div class="card"><div class="ch">التنبيهات والدعم</div><div class="frm">${f('lateMin', 'مدة التأخير بالدقائق (لتنبيه الطلبات المتأخرة)')}
       <div class="field"><label for="s-support">رقم الدعم (يظهر للتجار والسائقين)</label><input class="in" id="s-support" inputmode="tel" value="${esc(SET.support || '')}" placeholder="07XX XXX XXXX"></div></div>${saveBar('حفظ')}</div></form>`,
@@ -803,9 +804,27 @@ function curDoc() {
   if (m.type === 'receipt') return { title: 'وصل #' + m.o.no, body: orderReceipt(m.o), cls: rcls(), name: `rio-receipt-${m.o.no}.png` };
   if (m.type === 'vprint') return { title: 'سند #' + m.v.no, body: thermal() ? voucherDoc80(m.v) : voucherDoc(m.v), cls: thermal() ? rcls() : 'sz' + RS, name: `rio-voucher-${m.v.no}.png` };
   if (m.type === 'stmt') return { title: 'كشف', body: thermal() ? stmtReceipt(m) : stmtA4(m), cls: thermal() ? rcls() : 'sz' + RS, name: `rio-statement-${fd(Date.now())}.png` };
+  if (m.type === 'stk') return { title: 'ملصقات ريوو', body: stickersDoc(m.codes, m.size), cls: m.size === 'a4' ? 'sza4' : 'sz80', name: `rio-stickers-${m.codes[0]}.png` };
   if (m.type === 'created') return { title: 'بيانات حساب', body: credDoc(m), cls: rcls(), name: `rio-account-${m.phone}.png` };
   if (m.type === 'pw') { const u = findU(m.id); return u ? { title: 'بيانات حساب', body: credDoc({ role: u.role === 'courier' ? 'courier' : D.drivers.includes(u) ? 'driver' : 'merchant', name: u.name, phone: u.phone, password: m.done, vehicle: u.vehicle, area: u.area }), cls: rcls(), name: `rio-account-${u.phone}.png` } : null; }
   return null;
+}
+/* ملصق الطلب الليلي (نفس تصميم الملصق المطبوع) مع باركود حقيقي ورقم فريد */
+function stickersDoc(codes, size) {
+  const sup = String((SET && SET.support) || '07733390242 - 07772030408');
+  const one = (c) => `<div class="stk"><div class="stk-h">🚚 ريوو للتوصيل الاسرع</div><div class="stk-p">توصيل سريع وآمن لجميع مناطق بغداد</div><hr>
+    <div class="stk-b">امسح باركود لإضافة معلومات زبون</div>
+    <table class="stk-t">${['اسم التاجر:', 'محافظة الزبون:', 'منطقة الزبون:', 'السعر الإجمالي مع التوصيل:'].map((l) => `<tr><th>${l}</th><td></td></tr>`).join('')}</table>
+    <div class="stk-q">${window.RioQR ? window.RioQR.svg('RIOS:' + c, 150) : ''}<b>${c}</b></div><hr>
+    <div class="stk-f"><small>تواصل معنا</small><b>${esc(sup)}</b></div></div>`;
+  const css = `<style>.stk{border:2px solid #111;border-radius:12px;padding:10px 12px;font-family:Cairo,sans-serif;color:#111;break-inside:avoid;page-break-inside:avoid;background:#fff}
+  .stk-h{text-align:center;font-weight:900;font-size:19px}.stk-p{background:#222;color:#fff;border-radius:99px;text-align:center;font-size:11px;padding:3px 8px;margin:6px 0}
+  .stk hr{border:0;border-top:1.5px solid #111;margin:8px 0}.stk-b{border:1.5px solid #111;border-radius:10px;text-align:center;font-weight:800;padding:6px;margin-bottom:8px}
+  .stk-t{width:100%;border-collapse:collapse}.stk-t th,.stk-t td{border:1.5px solid #111;padding:9px 6px;font-size:12px;text-align:right;width:50%;background:#fff !important;color:#111 !important;font-weight:800}
+  .stk-q{display:flex;flex-direction:column;align-items:center;gap:2px;margin-top:10px}.stk-q svg{width:120px;height:120px}.stk-q b{font-size:16px;letter-spacing:3px;direction:ltr}
+  .stk-f{text-align:center}.stk-f small{display:block;font-weight:700}.stk-f b{direction:ltr;display:inline-block}
+  .sz80 .stk{margin:0 0 4mm;page-break-after:always}.sza4 .grid{display:grid;grid-template-columns:1fr 1fr;gap:6mm}.sza4 .stk{padding:8px 10px}.sza4 .stk-t th,.sza4 .stk-t td{padding:6px}.sza4 .stk-q svg{width:100px;height:100px}</style>`;
+  return css + (size === 'a4' ? `<div class="grid">${codes.map(one).join('')}</div>` : codes.map(one).join(''));
 }
 function voucherDoc(v) {
   const k = v.kind === 'in' ? 'سند قبض' : 'سند صرف';
@@ -894,6 +913,16 @@ function modalHtml() {
   }
   if (m.type === 'vprint') return [`${m.v.kind === 'in' ? 'سند قبض' : 'سند صرف'} #${m.v.no}`, `${sizeSeg()}<iframe title="معاينة السند" srcdoc="${esc(docPage('سند', thermal() ? voucherDoc80(m.v) : voucherDoc(m.v), thermal() ? rcls() : 'sz' + RS))}" style="width:100%;height:48vh;border:1px solid var(--line);border-radius:12px;background:#fff"></iframe>
     <div class="row" style="margin-top:12px;justify-content:center">${docBtns()}${vPhone(m.v) ? `<a class="btn w" target="_blank" rel="noopener" href="${wa(vPhone(m.v), `${m.v.kind === 'in' ? 'سند قبض' : 'سند صرف'} رقم #${m.v.no}\nالمبلغ: ${mny(m.v.amount)}\nالتاريخ: ${fd(m.v.at)}\nالتفاصيل: ${m.v.note || '—'}\nريوو للتوصيل اسرع`)}">واتساب</a>` : ''}</div>`, 1];
+  if (m.type === 'stickers') {
+    return ['طباعة ملصقات باركود', `<form data-f="stickers">${field('k-n', 'عدد الملصقات', '<input class="in" id="k-n" type="number" min="1" max="500" value="20" required>', 'كل ملصق له باركود ورقم فريد لا يتكرر، ويُستخدم لطلب واحد فقط.')}
+    <div class="field"><label>حجم الطباعة</label><div class="seg2"><label><input type="radio" name="k-sz" value="80" checked> طابعة ملصقات (80mm)</label> <label><input type="radio" name="k-sz" value="a4"> ورق A4 (6 بالصفحة)</label></div></div>
+    <div class="err" id="fe" role="alert"></div><button class="btn" style="width:100%">توليد الملصقات</button></form>`];
+  }
+  if (m.type === 'stk') {
+    const d = curDoc();
+    return [`ملصقات باركود (${m.codes.length})`, `<iframe title="معاينة الملصقات" srcdoc="${esc(docPage(d.title, d.body, d.cls))}" style="width:100%;height:52vh;border:1px solid var(--line);border-radius:12px;background:#fff"></iframe>
+    <div class="row" style="margin-top:12px;justify-content:center">${docBtns()}</div>`];
+  }
   if (m.type === 'add-user' && m.role === 'courier') {
     return ['إضافة مندوب', `<form data-f="add-user">${field('u-name', 'اسم المندوب', '<input class="in" id="u-name" required>')}${field('u-phone', 'رقم الهاتف', '<input class="in" id="u-phone" inputmode="tel" placeholder="07XXXXXXXXX" required>')}
     ${field('u-pass', 'كلمة المرور', `<div class="row"><input class="in grow" id="u-pass" minlength="6" required><button type="button" class="btn g" data-a="gen" data-t="u-pass">توليد</button></div>`, '6 أحرف أو أكثر')}
@@ -1217,6 +1246,7 @@ The driver app asks for location permission (the driver's position is shared wit
   },
   receipt(el) { const o = O.find((x) => x.id === Number(el.dataset.id)); if (o) { M = { type: 'receipt', o }; drawModal(); } },
   chat(el) { const o = O.find((x) => x.id === Number(el.dataset.id)); if (o) { M = { type: 'chat', o, msgs: [], loaded: false }; drawModal(); startChat(); } },
+  stickers() { M = { type: 'stickers' }; drawModal(); },
   'print-doc'() { const d = curDoc(); if (d) printDoc(d.title, d.body, d.cls); },
   async 'save-doc'() { const d = curDoc(); if (d) await act(() => saveDocImage(d.title, d.body, d.cls, d.name), 'تم حفظ الصورة'); },
   rsize(el) { RS = el.dataset.k; ls.set('rio_rsize', RS); drawModal(); },
@@ -1310,6 +1340,11 @@ document.addEventListener('submit', async (e) => {
       if (t === 'merchant' || t === 'driver') body.partyId = Number(p.value); else body.partyName = p.value;
       const r = await api('POST', '/api/admin/vouchers', body); toast('تم إنشاء السند #' + r.voucher.no); await load(); M = { type: 'vprint', v: r.voucher }; drawModal();
     }
+    else if (k === 'stickers') {
+      const size = (document.querySelector('input[name="k-sz"]:checked') || {}).value === 'a4' ? 'a4' : '80';
+      const r = await api('POST', '/api/admin/stickers', { count: $('#k-n').value });
+      toast(`تم توليد ${r.codes.length} ملصق`); load(true); M = { type: 'stk', codes: r.codes, size }; drawModal();
+    }
     else if (k === 'add-user' && M.role === 'courier') {
       const info = { type: 'created', role: 'courier', name: $('#u-name').value.trim(), phone: $('#u-phone').value.trim(), password: $('#u-pass').value };
       await api('POST', '/api/admin/users', { role: 'courier', name: $('#u-name').value, phone: $('#u-phone').value, password: $('#u-pass').value });
@@ -1331,7 +1366,7 @@ document.addEventListener('submit', async (e) => {
       else if (sec === 'fees') ['feeSame', 'feeOther'].forEach((x) => { body[x] = v('s-' + x).value; });
       else if (sec === 'alerts') { body.lateMin = v('s-lateMin').value; body.support = v('s-support').value; }
       else if (sec === 'receipts') body.receipts = v('s-receipts').checked;
-      else if (sec === 'night') body.nightPickup = v('s-night').checked;
+      else if (sec === 'night') { body.nightPickup = v('s-night').checked; body.nightDelivery = v('s-ndel').value; }
       else if (sec === 'qr') body.qrPickup = v('s-qr').checked;
       else if (sec === 'wa') { body.templates = {}; TPL_DEFS.forEach(([t]) => { body.templates[t] = v('t-' + t).value; }); }
       else if (sec === 'ocd') body.ocDesign = OCSEL || SET.ocDesign || 'classic';

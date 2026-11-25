@@ -34,7 +34,7 @@ const RETURNABLE = ['received', 'at_hq', 'picking_up', 'on_the_way', 'rejected',
 const TROUBLE = ['no_answer', 'postponed', 'problem', 'other'];
 const DONE = ['delivered', 'partial'];
 
-const DEF_SETTINGS = { bikeSame: 3000, bikeOther: 5000, carSame: 5000, carOther: 8000, feeSame: 500, feeOther: 1000, lateMin: 45, support: '', receipts: 1, directPay: 0, ocDesign: 'steps', nightPickup: 1, qrPickup: 0 };
+const DEF_SETTINGS = { bikeSame: 3000, bikeOther: 5000, carSame: 5000, carOther: 8000, feeSame: 500, feeOther: 1000, lateMin: 45, support: '', receipts: 1, directPay: 0, ocDesign: 'steps', nightPickup: 1, qrPickup: 0, nightDelivery: 5000 };
 /* تصاميم الوصولات (بطاقة الطلب): يختارها المدير وتُطبَّق فوراً على كل الحسابات */
 const OC_KEYS = ['classic', 'bold', 'green', 'ticket', 'sun', 'night', 'steps'];
 
@@ -111,7 +111,7 @@ const ord = (r) => ({
   productPrice: r.product_price, deliveryPrice: r.delivery_price, total: r.total, status: r.status,
   driverId: r.driver_id, driverName: r.driver_name, fee: r.fee, createdAt: r.created_at, updatedAt: r.updated_at,
   acceptedAt: r.accepted_at, deliveredAt: r.delivered_at, discount: r.discount || 0, feeQuote: r.fee_quote === null || r.fee_quote === undefined ? null : Number(r.fee_quote), merchantMap: r.merchant_map || '', payMode: r.pay_mode === 'prepaid' ? 'prepaid' : 'cod', payConfirmed: !!r.pay_confirmed, payConfirmedBy: r.pay_confirmed_by || '', payConfirmedAt: r.pay_confirmed_at || null, log: safeJson(r.log, []),
-  kind: r.kind === 'night' ? 'night' : 'fast', pickReq: !!r.pickup_req, pickDriverId: r.pick_driver_id || null, pickDriverName: r.pick_driver_name || '', receivedAt: r.received_at || null
+  kind: r.kind === 'night' ? 'night' : 'fast', pickReq: !!r.pickup_req, pickDriverId: r.pick_driver_id || null, pickDriverName: r.pick_driver_name || '', sticker: r.sticker || '', customerGov: r.customer_gov || '', receivedAt: r.received_at || null
 });
 
 function safeJson(s, d) { try { return JSON.parse(s); } catch { return d; } }
@@ -384,7 +384,7 @@ route('POST', '/api/merchant/orders', MERCHANT, async (c) => {
   const productPrice = /واصل/.test(String(b.productPrice || '')) ? 0 : int(b.productPrice);
   const payMode = b.payMode === 'prepaid' && Number((await getSettings()).directPay) === 1 ? 'prepaid' : 'cod';
   const night = b.kind === 'night';
-  if (night && Number((await getSettings()).nightPickup) !== 1) fail('الاستلام الليلي متوقف حالياً', 409);
+  if (night) return createNightOrder(c);
   if (!customerArea) fail('اكتب منطقة الزبون');
   if (!validPhone(customerPhone)) fail('رقم الزبون يجب أن يبدأ بـ 07 ويتكوّن من 11 رقماً');
   if (!product) fail('اكتب نوع المنتج');
@@ -420,6 +420,67 @@ route('POST', '/api/merchant/orders', MERCHANT, async (c) => {
   fail('تعذّر إنشاء الطلب، حاول مرة أخرى', 503);
 });
 
+/* الطلب الليلي: التاجر يمسح ملصق الباركود المطبوع ثم يملأ معلومات الزبون والسعر الإجمالي مع التوصيل */
+const stickerOf = (raw) => { const t = String(raw || '').trim().replace(/\s+/g, ''); const m = /^(?:RIOS:)?(\d{8})$/i.exec(t); return m ? m[1] : ''; };
+async function createNightOrder(c) {
+  const b = c.body;
+  const s = await getSettings();
+  if (Number(s.nightPickup) !== 1) fail('الاستلام الليلي متوقف حالياً', 409);
+  const code = stickerOf(b.sticker);
+  if (!code) fail('امسح باركود الملصق أولاً');
+  const customerGov = clean(b.customerGov, 40) || 'بغداد';
+  const customerArea = clean(b.customerArea, 60);
+  const customerPhone = normPhone(b.customerPhone);
+  const product = clean(b.product, 80) || 'طلب ليلي';
+  const total = int(b.total);
+  if (!customerArea) fail('اكتب منطقة الزبون');
+  if (!validPhone(customerPhone)) fail('رقم الزبون يجب أن يبدأ بـ 07 ويتكوّن من 11 رقماً');
+  const base = Math.max(0, Number(s.nightDelivery) || 0);
+  const disc = Math.min(base, Math.max(0, Number(c.user.discount) || 0));
+  const deliveryPrice = base - disc;
+  if (!Number.isFinite(total) || total < deliveryPrice || total > 100000000) fail(`اكتب السعر الإجمالي مع التوصيل (لا يقل عن أجرة التوصيل ${iqd(deliveryPrice)})`);
+  const now = Date.now();
+  const claim = await q('UPDATE stickers SET order_id=0,used_at=$1 WHERE code=$2 AND order_id IS NULL RETURNING code', [now, code]);
+  if (!claim.rows.length) {
+    const ex = (await q('SELECT order_id FROM stickers WHERE code=$1', [code])).rows[0];
+    fail(ex ? 'هذا الملصق مستخدم لطلب آخر، استخدم ملصقاً جديداً' : 'هذا الملصق غير مسجّل لدى ريوو', 409);
+  }
+  try {
+    for (let i = 0; i < 5; i++) {
+      const m = await q('SELECT COALESCE(MAX(num),1042)+1 AS n FROM orders');
+      try {
+        const row = await db.insert('orders', {
+          num: m.rows[0].n, merchant_id: c.user.id, merchant_name: c.user.name, merchant_area: c.user.area, merchant_phone: c.user.phone, merchant_map: c.user.map_url || '',
+          customer_area: customerArea, customer_gov: customerGov, customer_phone: customerPhone, product, qty: 1, vehicle: 'bike', same_area: 0,
+          note: clean(b.note, 200), product_price: total - deliveryPrice, delivery_price: deliveryPrice, total, discount: disc, fee_quote: s.feeOther, pay_mode: 'cod',
+          status: 'registered', driver_id: null, driver_name: '', fee: 0, created_at: now, updated_at: now,
+          accepted_at: null, delivered_at: null, log: JSON.stringify([{ s: 'registered', at: now }]),
+          kind: 'night', pick_code: crypto.randomBytes(6).toString('hex'), sticker: code
+        });
+        await q('UPDATE stickers SET order_id=$1 WHERE code=$2', [row.id, code]);
+        notifyAdmins({ kind: 'order_new', orderId: row.id, orderNo: row.num, title: `طلب ليلي مسجّل #${row.num}`, body: `${row.merchant_name} ← ${customerGov} - ${customerArea}` });
+        return { order: ordM(row) };
+      } catch (e) {
+        if (!/unique|duplicate/i.test(String(e.message))) throw e;
+      }
+    }
+    fail('تعذّر إنشاء الطلب، حاول مرة أخرى', 503);
+  } catch (e) {
+    await q('UPDATE stickers SET order_id=NULL,used_at=NULL WHERE code=$1 AND order_id=0', [code]);
+    throw e;
+  }
+}
+
+/* التاجر يتحقق من الملصق قبل ملء معلومات الطلب */
+route('POST', '/api/merchant/sticker', MERCHANT, async (c) => {
+  const code = stickerOf(c.body.code);
+  if (!code) fail('هذا ليس باركود ملصق ريوو. امسح الملصق المطبوع على الطلب', 400);
+  const r = (await q('SELECT order_id FROM stickers WHERE code=$1', [code])).rows[0];
+  if (!r) fail('هذا الملصق غير مسجّل لدى ريوو', 404);
+  if (r.order_id !== null && r.order_id !== undefined) fail('هذا الملصق مستخدم لطلب آخر، استخدم ملصقاً جديداً', 409);
+  return { code };
+});
+
 route('POST', '/api/merchant/orders/:id/cancel', MERCHANT, async (c) => {
   const r = await q('SELECT * FROM orders WHERE id=$1 AND merchant_id=$2', [Number(c.params.id), c.user.id]);
   const o = r.rows[0];
@@ -427,6 +488,7 @@ route('POST', '/api/merchant/orders/:id/cancel', MERCHANT, async (c) => {
   const now = Date.now();
   const u = await q(`UPDATE orders SET status='cancelled',updated_at=$1,log=$2 WHERE id=$3 AND status IN ('pending','registered') AND pick_driver_id IS NULL RETURNING *`, [now, pushLog(o, 'cancelled', now), o.id]);
   if (!u.rows.length) fail('لا يمكن إلغاء الطلب بعد قبول السائق له', 409);
+  if (o.sticker) await q('UPDATE stickers SET order_id=NULL,used_at=NULL WHERE code=$1 AND order_id=$2', [o.sticker, o.id]); // يعود الملصق قابلاً للاستخدام
   notifyAdmins({ kind: 'order_status', orderId: o.id, orderNo: o.num, title: `التاجر ألغى الطلب #${o.num}`, body: o.merchant_name });
   return { order: ord(u.rows[0]) };
 });
@@ -480,7 +542,7 @@ route('GET', '/api/driver/home', DRIVER, async (c) => {
   const mine = await q('SELECT * FROM orders WHERE driver_id=$1 ORDER BY updated_at DESC LIMIT 150', [c.user.id]);
   return {
     me: pub(c.user), settings: await getSettings(), available: avail.rows.map(ord), orders: mine.rows.map(ord), wallet: await walletFor(c.user), adsVer: await adsVer('driver'),
-    company: (await q(`SELECT * FROM orders WHERE status='at_hq' AND driver_id IS NULL AND vehicle=$1 ORDER BY hq_at ASC, created_at ASC LIMIT 100`, [c.user.vehicle === 'car' ? 'car' : 'bike'])).rows.map(ord)
+    company: (await q(`SELECT * FROM orders WHERE status='at_hq' AND driver_id IS NULL ORDER BY hq_at ASC, created_at ASC LIMIT 100`)).rows.map(ord)
   };
 });
 
@@ -504,7 +566,7 @@ route('POST', '/api/driver/orders/:id/accept', DRIVER, async (c) => {
   const o = r.rows[0];
   if (!o || !(o.status === 'pending' || (o.status === 'at_hq' && !o.driver_id))) fail('الطلب لم يعد متاحاً', 409);
   const fromHq = o.status === 'at_hq';
-  if ((o.vehicle === 'car' ? 'car' : 'bike') !== (u.vehicle === 'car' ? 'car' : 'bike')) fail(o.vehicle === 'car' ? 'هذا الطلب لسائقي السيارات فقط' : 'هذا الطلب لسائقي الدراجات فقط', 403);
+  if (!fromHq && (o.vehicle === 'car' ? 'car' : 'bike') !== (u.vehicle === 'car' ? 'car' : 'bike')) fail(o.vehicle === 'car' ? 'هذا الطلب لسائقي السيارات فقط' : 'هذا الطلب لسائقي الدراجات فقط', 403);
   const s = await getSettings();
   const fee = o.fee_quote !== null && o.fee_quote !== undefined ? Number(o.fee_quote) : (o.same_area ? s.feeSame : s.feeOther);
   const pay = await q('UPDATE users SET balance=balance-$1 WHERE id=$2 AND balance>=$1 RETURNING balance', [fee, u.id]);
@@ -910,6 +972,7 @@ route('PUT', '/api/admin/settings', ADM('settings', 'edit'), async (c) => {
     next.ocDesign = c.body.ocDesign;
   }
   if (c.body.receipts !== undefined) next.receipts = [true, 1, '1', 'true'].includes(c.body.receipts) ? 1 : 0;
+  if (c.body.nightDelivery !== undefined) { const v = int(c.body.nightDelivery); if (!Number.isFinite(v) || v < 0 || v > 1000000) fail('سعر توصيل الطلب الليلي غير صحيح'); next.nightDelivery = v; }
   if (c.body.qrPickup !== undefined) next.qrPickup = [true, 1, '1', 'true'].includes(c.body.qrPickup) ? 1 : 0;
   if (c.body.nightPickup !== undefined) next.nightPickup = [true, 1, '1', 'true'].includes(c.body.nightPickup) ? 1 : 0;
   if (c.body.directPay !== undefined) next.directPay = [true, 1, '1', 'true'].includes(c.body.directPay) ? 1 : 0;
@@ -976,7 +1039,7 @@ route('GET', '/api/orders/:id', { roles: ['merchant', 'driver', 'admin', 'staff'
   if (!o) fail('الطلب غير موجود أو تم حذفه', 404);
   const u = c.user;
   if (u.role === 'merchant' && o.merchant_id !== u.id) fail('غير مسموح', 403);
-  if (u.role === 'driver' && o.driver_id !== u.id && !(['pending', 'at_hq'].includes(o.status) && o.vehicle === (u.vehicle === 'car' ? 'car' : 'bike'))) fail('غير مسموح', 403);
+  if (u.role === 'driver' && o.driver_id !== u.id && !(o.status === 'at_hq' || (o.status === 'pending' && o.vehicle === (u.vehicle === 'car' ? 'car' : 'bike')))) fail('غير مسموح', 403);
   if (u.role === 'courier' && o.pick_driver_id !== u.id) fail('غير مسموح', 403);
   if (u.role === 'staff') need(u, 'orders', 'view');
   return { order: ord(o) };
@@ -1425,28 +1488,37 @@ const qrRequired = async () => Number((await getSettings()).qrPickup) === 1;
 
 /* متاجر لديها طلبات ليلية طلبت مندوباً (تظهر لكل المندوبين حتى يوافق أحدهم) */
 async function nightStoresFor(user) {
+  /* متاجر عمل عليها المندوب (وافق أو استلم منها): تظهر له طلباتها الجديدة أيضاً حتى لو لم يطلب التاجر مندوباً مرة أخرى */
+  const act = await q(`SELECT DISTINCT merchant_id FROM orders WHERE kind='night' AND pick_driver_id=$1 AND status IN ('registered','received')`, [user.id]);
+  const mine = new Set(act.rows.map((x) => x.merchant_id));
   const r = await q(
-    `SELECT * FROM orders WHERE kind='night' AND ((status='registered' AND pickup_req=1 AND (pick_driver_id IS NULL OR pick_driver_id=$1)) OR (status='received' AND pick_driver_id=$1)) ORDER BY created_at ASC LIMIT 500`,
+    `SELECT * FROM orders WHERE kind='night' AND ((status='registered' AND (pick_driver_id IS NULL OR pick_driver_id=$1)) OR (status='received' AND pick_driver_id=$1)) ORDER BY created_at ASC LIMIT 800`,
     [user.id]
   );
+  const rows = r.rows.filter((o) => o.status === 'received' || o.pick_driver_id === user.id || o.pickup_req || mine.has(o.merchant_id));
   const by = new Map();
-  for (const o of r.rows) {
+  for (const o of rows) {
     let g = by.get(o.merchant_id);
-    if (!g) { g = { merchantId: o.merchant_id, name: o.merchant_name, area: o.merchant_area, phone: o.merchant_phone, map: o.merchant_map || '', count: 0, price: 0, received: 0, receivedPrice: 0, approved: false, orders: [] }; by.set(o.merchant_id, g); }
+    if (!g) { g = { merchantId: o.merchant_id, name: o.merchant_name, area: o.merchant_area, phone: o.merchant_phone, map: o.merchant_map || '', count: 0, price: 0, received: 0, receivedPrice: 0, approved: mine.has(o.merchant_id), orders: [] }; by.set(o.merchant_id, g); }
     if (o.status === 'received') { g.received++; g.receivedPrice += o.total; g.approved = true; continue; }
     g.count++; g.price += o.total;
     if (o.pick_driver_id === user.id) g.approved = true;
-    g.orders.push({ id: o.id, no: o.num, customerArea: o.customer_area, total: o.total, productPrice: o.product_price, product: o.product });
+    g.orders.push({ id: o.id, no: o.num, customerArea: o.customer_area, customerGov: o.customer_gov || '', total: o.total, productPrice: o.product_price, product: o.product, sticker: o.sticker || '' });
   }
   const out = [...by.values()].filter((g) => g.count > 0 || g.received > 0);
-  return out.map((g) => ({ ...g, phone: g.approved ? g.phone : maskPhone(g.phone), map: g.approved ? g.map : '', orders: g.approved ? g.orders : [], remaining: g.count }));
+  if (out.length) { /* موقع المتجر من حساب التاجر (الأحدث) */
+    const ids = out.map((g) => g.merchantId);
+    const us = await q(`SELECT id,map_url,area,phone FROM users WHERE id IN (${ids.map((_, i) => '$' + (i + 1)).join(',')})`, ids);
+    for (const u of us.rows) { const g = by.get(u.id); if (g) { g.map = u.map_url || g.map; g.area = u.area || g.area; g.phone = u.phone || g.phone; } }
+  }
+  return out.map((g) => ({ ...g, phone: g.approved ? g.phone : maskPhone(g.phone), orders: g.approved ? g.orders : [], remaining: g.count }));
 }
 
 /* المندوب يستلم طلباً ليلياً من التاجر (بدون رسوم — المندوب يعمل للشركة) */
 async function receiveNight(o, cur) {
   const now = Date.now();
   const claim = await q(
-    `UPDATE orders SET status='received',received_at=$1,updated_at=$1,pick_driver_id=$2,pick_driver_name=$3,log=$4 WHERE id=$5 AND status='registered' RETURNING *`,
+    `UPDATE orders SET status='received',received_at=$1,updated_at=$1,pick_driver_id=$2,pick_driver_name=$3,log=$4 WHERE id=$5 AND status='registered' AND (pick_driver_id IS NULL OR pick_driver_id=$2) RETURNING *`,
     [now, cur.id, cur.name, pushLog(o, 'received', now), o.id]
   );
   if (!claim.rows.length) fail('تم استلام هذا الطلب مسبقاً', 409);
@@ -1458,6 +1530,8 @@ async function receiveNight(o, cur) {
 /* يقرأ رمز QR (RIO:رقم:رمز)، أو رمز الاستلام (4 أرقام) للمندوب، أو رقم الطلب للإدارة */
 function parseCode(raw) {
   const t = String(raw || '').trim();
+  const st = stickerOf(t);
+  if (st) return { sticker: st };
   const m = /^RIO:(\d{1,9}):([0-9a-fA-F]{12})$/.exec(t);
   if (m) return { num: Number(m[1]), code: m[2].toLowerCase() };
   const n = /^#?(\d{1,9})$/.exec(t);
@@ -1466,7 +1540,9 @@ function parseCode(raw) {
 }
 async function findNightByCode(raw) {
   const p = parseCode(raw);
-  const o = (await q(`SELECT * FROM orders WHERE num=$1 AND kind='night'`, [p.num])).rows[0];
+  const o = p.sticker
+    ? (await q(`SELECT * FROM orders WHERE sticker=$1 AND kind='night' AND status<>'cancelled' ORDER BY id DESC LIMIT 1`, [p.sticker])).rows[0]
+    : (await q(`SELECT * FROM orders WHERE num=$1 AND kind='night'`, [p.num])).rows[0];
   if (!o) fail('لا يوجد طلب ليلي بهذا الرقم', 404);
   if (p.code && o.pick_code !== p.code) fail('رمز الطلب غير صحيح', 400);
   return o;
@@ -1526,21 +1602,20 @@ route('POST', '/api/courier/night/scan', COURIER, async (c) => {
   const raw = String(c.body.code || '').trim();
   let o;
   if (/^\d{4}$/.test(raw)) {
-    const r = await q(`SELECT * FROM orders WHERE kind='night' AND status='registered' AND pick_driver_id=$1`, [c.user.id]);
+    const r = await q(`SELECT * FROM orders WHERE kind='night' AND status='registered' AND (pick_driver_id=$1 OR pick_driver_id IS NULL)`, [c.user.id]);
     const hits = r.rows.filter((x) => pickPin(x.pick_code) === raw);
     if (!hits.length) fail('رمز الاستلام غير صحيح أو لا يخص طلباً بانتظار استلامك', 400);
     if (hits.length > 1) fail('الرمز يطابق أكثر من طلب، امسح رمز QR', 409);
     o = hits[0];
   } else {
     const p = parseCode(raw);
-    if (!p.code) fail('امسح رمز QR أو اكتب رمز الاستلام المكوّن من 4 أرقام', 400);
+    if (!p.code && !p.sticker) fail('امسح باركود الملصق أو اكتب رقمه (8 أرقام)', 400);
     o = await findNightByCode(raw);
   }
   if (o.status !== 'registered' && o.pick_driver_id === c.user.id) return { already: true, order: ord(o), progress: await storeProgress(o.merchant_id, c.user.id) };
   if (o.status !== 'registered') fail('هذا الطلب ليس بانتظار الاستلام', 409);
   if (o.pick_driver_id && o.pick_driver_id !== c.user.id) fail('وافق مندوب آخر على استلام هذا الطلب', 403);
-  if (!o.pick_driver_id) fail('وافق على استلام طلبات هذا المتجر أولاً', 409);
-  const done = await receiveNight(o, c.user);
+  const done = await receiveNight(o, c.user); // المسح عند المتجر يكفي للاستلام (حتى الطلبات الجديدة بعد استلام سابق)
   return { order: ord(done), progress: await storeProgress(o.merchant_id, c.user.id) };
 });
 
@@ -1550,9 +1625,21 @@ route('POST', '/api/courier/night/receive', COURIER, async (c) => {
   const o = (await q(`SELECT * FROM orders WHERE id=$1 AND kind='night'`, [Number(c.body.id)])).rows[0];
   if (!o) fail('الطلب غير موجود', 404);
   if (o.status !== 'registered') fail('هذا الطلب ليس بانتظار الاستلام', 409);
-  if (o.pick_driver_id !== c.user.id) fail('وافق على استلام طلبات هذا المتجر أولاً', 409);
+  if (o.pick_driver_id && o.pick_driver_id !== c.user.id) fail('وافق مندوب آخر على استلام هذا الطلب', 403);
   const done = await receiveNight(o, c.user);
   return { order: ord(done), progress: await storeProgress(o.merchant_id, c.user.id) };
+});
+
+/* ----- الإدارة: توليد ملصقات باركود للطباعة ----- */
+route('POST', '/api/admin/stickers', ADM('orders', 'edit'), async (c) => {
+  const n = Math.min(500, Math.max(1, int(c.body.count) || 0));
+  const batch = Date.now();
+  const codes = [];
+  for (let tries = 0; codes.length < n && tries < n * 20; tries++) {
+    const code = String(10000000 + crypto.randomInt(90000000));
+    try { await db.insert('stickers', { code, batch, created_at: batch }); codes.push(code); } catch (e) { if (!/unique|duplicate|constraint/i.test(String(e.message))) throw e; }
+  }
+  return { codes, batch };
 });
 
 /* ----- الإدارة: ملخص الاستلام الليلي + الاستلام في مقر الشركة بالباركود ----- */
@@ -1575,7 +1662,8 @@ route('GET', '/api/admin/night', ADM('orders'), async () => {
   for (const o of r.rows) if (o.status === 'received' && o.pick_driver_name) cur.set(o.pick_driver_name, (cur.get(o.pick_driver_name) || 0) + 1);
   return {
     registered: reg, received: rec, remaining: reg - rec, price, receivedPrice: recPrice, remainingPrice: price - recPrice,
-    atHq: hq, atHqPrice: hqPrice, stores: [...by.values()], inCustody: [...cur].map(([name, n]) => ({ name, n }))
+    atHq: hq, atHqPrice: hqPrice, stores: [...by.values()], inCustody: [...cur].map(([name, n]) => ({ name, n })),
+    stickers: (await q('SELECT COUNT(*) AS n, COUNT(order_id) AS used FROM stickers')).rows.map((x) => ({ total: Number(x.n), used: Number(x.used) }))[0]
   };
 });
 
@@ -1587,7 +1675,7 @@ route('POST', '/api/admin/night/scan', ADM('orders', 'edit'), async (c) => {
   const u = await q(`UPDATE orders SET status='at_hq',hq_at=$1,updated_at=$1,log=$2 WHERE id=$3 AND status IN ('registered','received') RETURNING *`, [now, pushLog(o, 'at_hq', now), o.id]);
   if (!u.rows.length) fail('تم استلام هذا الطلب مسبقاً', 409);
   await notify(o.merchant_id, { kind: 'order_status', orderId: o.id, orderNo: o.num, title: `طلبك #${o.num} في مقر الشركة`, body: 'سيخرج للتوصيل مع أحد السائقين' });
-  const ds = await q(`SELECT id FROM users WHERE role='driver' AND active=1 AND receiving=1 AND vehicle=$1`, [o.vehicle === 'car' ? 'car' : 'bike']);
+  const ds = await q(`SELECT id FROM users WHERE role='driver' AND active=1 AND receiving=1`);
   await notify(ds.rows.map((x) => x.id), { kind: 'order_new', orderId: o.id, orderNo: o.num, title: 'طلب جديد في مقر الشركة', body: `#${o.num} · ${o.customer_area} · ${iqd(o.total)}` });
   return { order: ordM(u.rows[0]) };
 });

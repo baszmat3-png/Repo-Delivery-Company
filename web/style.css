@@ -1019,3 +1019,20 @@ html:has(body.au-on),body.au-on{background:#0a0a0c}
 .cdo:last-child{border-bottom:0}
 .cdo2{display:flex;flex-direction:column;gap:8px}
 .dseg{border-radius:20px;padding:6px}.dseg button{padding:14px 8px;font-size:16px;border-radius:16px}.dseg button[aria-pressed="true"]{background:var(--surface);color:var(--fg);font-weight:800;box-shadow:var(--shadow)}
+
+/* اختيار نوع الطلب (حسب التصميم) */
+.kindcard{position:relative;overflow:hidden;display:flex;align-items:center;gap:14px;width:100%;text-align:start;padding:22px 18px;border:0;border-radius:24px;font:inherit;cursor:pointer;box-shadow:0 12px 28px rgba(20,30,80,.18)}
+.kindcard::before{content:"";position:absolute;inset-inline-end:-30px;top:-40px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.28),transparent 70%)}
+.kindcard.night{background:linear-gradient(135deg,#3b55c9,#22337f);color:#fff}
+.kindcard.fast{background:linear-gradient(135deg,#ffe066,#f5b81c);color:#1d1600;box-shadow:0 12px 28px rgba(245,184,28,.3)}
+.kc-ic{width:58px;height:58px;border-radius:18px;display:grid;place-items:center;flex:none}
+.kc-ic svg{width:30px;height:30px}
+.kindcard.night .kc-ic{background:rgba(255,255,255,.16);color:#ffd23f}
+.kindcard.fast .kc-ic{background:rgba(120,80,0,.14);color:#1d1600}
+.kc-t{flex:1;display:flex;flex-direction:column;gap:6px}
+.kc-t b{font-size:19px;line-height:1.35}
+.kc-t small{font-size:13.5px;opacity:.85;line-height:1.5}
+.kc-ch svg{width:22px;height:22px}
+.stk-ok{display:flex;align-items:center;gap:8px;padding:12px;border-radius:14px;background:var(--green-soft);color:var(--fg)}
+.stk-ok>svg{width:20px;height:20px;color:var(--green);flex:none}
+.stk-ok span{flex:1}
