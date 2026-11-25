@@ -40,15 +40,50 @@ jobs:
       - run: npx cap sync android
       - name: رقم الإصدار
         run: sed -i "s/versionCode 1/versionCode $((${{ github.run_number }} + 1000))/" android/app/build.gradle
+      - name: تفعيل R8 (تصغير الكود وتعتيمه — مطلب Google Play لجودة DEX)
+        run: |
+          G=android/app/build.gradle
+          sed -i 's/minifyEnabled false/minifyEnabled true/' $G
+          sed -i "s/proguard-android.txt/proguard-android-optimize.txt/" $G
+          grep -q "minifyEnabled true" $G || { echo "::error::لم يُعثر على minifyEnabled في build.gradle"; exit 1; }
+          P=android/app/proguard-rules.pro
+          {
+            echo ''
+            echo '# ===== ريوو: قواعد R8 لـ Capacitor والإضافات (لا تُعتَّم لأنها تُستدعى من الواجهة بالاسم) ====='
+            echo '-keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod,Exceptions,SourceFile,LineNumberTable'
+            echo '-renamesourcefileattribute SourceFile'
+            echo '-keep class com.getcapacitor.** { *; }'
+            echo '-keep public class * extends com.getcapacitor.Plugin { *; }'
+            echo '-keep @com.getcapacitor.annotation.CapacitorPlugin class * { *; }'
+            echo '-keepclassmembers class * { @com.getcapacitor.PluginMethod public <methods>; @android.webkit.JavascriptInterface <methods>; }'
+            echo '-keep class com.rioiraq.delivery.** { *; }'
+            echo '-keep class com.google.firebase.messaging.** { *; }'
+            echo '-dontwarn com.getcapacitor.**'
+            # كل حزم جافا/كوتلن الخاصة بإضافات Capacitor المثبتة (تُكتشف تلقائياً)
+            for d in node_modules/@capacitor/*/android/src/main node_modules/@capgo/*/android/src/main; do
+              [ -d "$d" ] || continue
+              grep -rhoE '^package [A-Za-z0-9_.]+' "$d" 2>/dev/null | awk '{print $2}' | sort -u | while read -r pk; do echo "-keep class $pk.** { *; }"; echo "-dontwarn $pk.**"; done
+            done
+          } >> $P
+          echo "---- proguard-rules.pro ----"; tail -n 40 $P
       - name: بناء AAB (غير موقّع — يُوقَّع محلياً بمفتاح الرفع الثابت)
         working-directory: android
         run: ./gradlew bundleRelease
+      - name: APK تجريبي بنفس إعداد R8 (موقّع بمفتاح تجريبي للتثبيت المباشر)
+        working-directory: android
+        run: |
+          KS="$RUNNER_TEMP/test.keystore"
+          keytool -genkeypair -v -keystore "$KS" -storepass android -keypass android -alias test -keyalg RSA -keysize 2048 -validity 3650 -dname "CN=Rio Test" >/dev/null 2>&1
+          ./gradlew assembleRelease -Pandroid.injected.signing.store.file="$KS" -Pandroid.injected.signing.store.password=android -Pandroid.injected.signing.key.alias=test -Pandroid.injected.signing.key.password=android
       - run: |
           mkdir -p out
           cp android/app/build/outputs/bundle/release/*.aab out/app-unsigned.aab
+          cp android/app/build/outputs/apk/release/*.apk out/rio-release-r8.apk
+          ls -l out; [ -f android/app/build/outputs/mapping/release/mapping.txt ] && wc -l android/app/build/outputs/mapping/release/mapping.txt || echo "no mapping"
+          unzip -l out/app-unsigned.aab | grep -i "proguard.map\|obfuscation" || echo "mapping not bundled" 
       - name: نشر الملفات على فرع مؤقت
         run: |
-          mkdir pub && cp out/app-unsigned.aab pub/
+          mkdir pub && cp out/app-unsigned.aab out/rio-release-r8.apk pub/
           cd pub && git init -q -b aab-output
           git config user.name "github-actions" && git config user.email "actions@github.com"
           git add . && git commit -q -m "aab build ${{ github.run_number }}"
