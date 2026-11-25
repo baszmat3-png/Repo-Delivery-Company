@@ -522,8 +522,29 @@ function payBox(o) {
 }
 
 const nightOn = () => Number((S.data && S.data.settings && S.data.settings.nightPickup)) === 1;
-const qrBox = (o) => (o.kind === 'night' && o.status === 'registered' && o.pickCode && window.RioQR
-  ? `<div class="qrbox"><div class="qrimg">${window.RioQR.svg('RIO:' + o.no + ':' + o.pickCode, 150)}</div><small>أعطِ هذا الرمز للمندوب ليمسحه عند الاستلام · رقم الطلب <bdi>#${o.no}</bdi></small></div>` : '');
+const qrOn = () => Number((S.data && S.data.settings && S.data.settings.qrPickup)) === 1;
+/* هل يحتاج الطلب مسح QR من المندوب لتأكيد الاستلام من المتجر؟ */
+const needPickQr = (o) => qrOn() && o.kind !== 'night' && o.status === 'picking_up';
+const qrBox = (o) => {
+  if (!o.pickCode || !window.RioQR) return '';
+  const night = o.kind === 'night' && o.status === 'registered';
+  const fast = qrOn() && o.kind !== 'night' && ['pending', 'picking_up'].includes(o.status);
+  if (!night && !fast) return '';
+  return `<div class="qrbox"><div class="qrimg">${window.RioQR.svg('RIO:' + o.no + ':' + o.pickCode, 150)}</div>${fast && o.pickPin ? `<div class="qrpin">رمز الاستلام: <b class="num">${o.pickPin}</b></div>` : ''}<small>أعطِ هذا الرمز للمندوب ليمسحه عند الاستلام · رقم الطلب <bdi>#${o.no}</bdi></small></div>`;
+};
+function openPickupScan() {
+  if (!window.RioScan) return toast('الماسح غير متاح', true);
+  window.RioScan.open({
+    title: 'تأكيد الاستلام من المتجر',
+    placeholder: 'أو اكتب رمز الاستلام (4 أرقام)',
+    onCode: async (code) => {
+      const r = await api('POST', '/api/driver/pickup/scan', { code });
+      refresh(true);
+      setTimeout(() => window.RioScan.close(), 1400);
+      return `تم تأكيد استلام الطلب #${r.order.no} — في الطريق للزبون`;
+    }
+  });
+}
 function merchantOpts(o, withCancel) {
   const armed = S.armed === 'c' + o.id;
   return {
@@ -552,7 +573,7 @@ function driverOpts(o) {
   return {
     corner: chatBtn(o), noteBtn: !!o.note,
     status: st, rows: customerRows(o) + ocRow('phone', 'هاتف المتجر', telLink(o.merchantPhone)),
-    after: payBox(o) + (o.status === 'picking_up' && o.payMode === 'prepaid' && directPayOn() ? '' : o.status === 'picking_up' ? (!o.productPrice ? '' : `<div class="notice">ادفع للتاجر ${money(o.productPrice)} عند الاستلام، وبعدها اضغط على الحالة واختر «تم الاستلام من التاجر».</div>`) : ''),
+    after: payBox(o) + (o.status === 'picking_up' && o.payMode === 'prepaid' && directPayOn() ? '' : o.status === 'picking_up' ? (!o.productPrice ? '' : `<div class="notice">ادفع للتاجر ${money(o.productPrice)} عند الاستلام، وبعدها ${needPickQr(o) ? 'امسح رمز QR من التاجر' : 'اضغط على الحالة واختر «تم الاستلام من التاجر»'}.</div>`) : '') + (needPickQr(o) ? `<button class="btn block" data-act="pickup-scan">${ico('check')} مسح QR لتأكيد الاستلام من المتجر</button>` : ''),
     actions: `${receiptsOn() ? `<button class="btn ghost sm" data-act="receipt" data-id="${o.id}">وصل</button>` : ''}<a class="btn wa sm" href="${waLink(o)}" target="_blank" rel="noopener">مراسلة الزبون</a>${o.merchantPhone ? waTo(o.merchantPhone, 'مراسلة التاجر', `مرحباً ${o.merchantName || ''}، بخصوص الطلب #${o.no}`) : ''}<a class="btn ghost sm" href="${supportLink(o)}" target="_blank" rel="noopener">واتساب الدعم</a>${wazeLinks(o)}`
   };
 }
@@ -1726,6 +1747,10 @@ const SHEETS = {
     const opt = (k, label) => `<button type="button" class="st-opt ${o.status === k ? 'on' : ''}" data-act="set-status" data-id="${o.id}" data-s="${k}"><span class="ck">${o.status === k ? ico('check') : ''}</span>${label}</button>`;
     const keys = ['on_the_way', 'postponed', 'no_answer', 'rejected', 'delivered'];
     const LBL = { on_the_way: 'في الطريق للزبون', postponed: 'تأجيل', no_answer: 'لا يرد', rejected: 'مرفوض', delivered: 'تم التسليم' };
+    if (needPickQr(o)) {
+      const retQ = `<button type="button" class="st-opt" data-act="ask-return" data-id="${o.id}"><span class="ck"></span><b>إرجاع للتاجر</b></button>`;
+      return [`حالة الطلب #${o.no}`, `<p class="hint" style="margin:0 0 10px">تأكيد الاستلام من المتجر يتم بمسح رمز QR الخاص بالطلب من التاجر.</p><button type="button" class="btn block" data-act="pickup-scan">${ico('check')} مسح QR لتأكيد الاستلام</button><div class="st-list" role="menu" style="margin-top:10px">${retQ}</div>`];
+    }
     const btns = keys.map((k) => opt(k, LBL[k])).join('');
     const ret = !['delivered', 'return_sent', 'returned'].includes(o.status) ? `<button type="button" class="st-opt" data-act="ask-return" data-id="${o.id}"><span class="ck"></span><b>إرجاع للتاجر</b></button>` : '';
     return [`حالة الطلب #${o.no}`, `<div class="st-list" role="menu">${btns}${ret}</div>`];
@@ -1877,6 +1902,7 @@ const ACTIONS = {
   'night-store': (el) => { S.nstore = Number(el.dataset.id); render(); },
   'close-store': () => { S.nstore = null; render(); },
   'night-scan': () => openNightScan(),
+  'pickup-scan': () => { if (S.sheet) closeSheet(); openPickupScan(); },
   navmap: async (el) => {
     const id = Number(el.dataset.id); const o = findOrder(id); if (!o) return;
     let ll = mapCoords(o.merchantMap);

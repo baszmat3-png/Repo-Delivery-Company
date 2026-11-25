@@ -34,7 +34,7 @@ const RETURNABLE = ['received', 'picking_up', 'on_the_way', 'rejected', 'no_answ
 const TROUBLE = ['no_answer', 'postponed', 'problem', 'other'];
 const DONE = ['delivered', 'partial'];
 
-const DEF_SETTINGS = { bikeSame: 3000, bikeOther: 5000, carSame: 5000, carOther: 8000, feeSame: 500, feeOther: 1000, lateMin: 45, support: '', receipts: 1, directPay: 0, ocDesign: 'steps', nightPickup: 1 };
+const DEF_SETTINGS = { bikeSame: 3000, bikeOther: 5000, carSame: 5000, carOther: 8000, feeSame: 500, feeOther: 1000, lateMin: 45, support: '', receipts: 1, directPay: 0, ocDesign: 'steps', nightPickup: 1, qrPickup: 0 };
 /* تصاميم الوصولات (بطاقة الطلب): يختارها المدير وتُطبَّق فوراً على كل الحسابات */
 const OC_KEYS = ['classic', 'bold', 'green', 'ticket', 'sun', 'night', 'steps'];
 
@@ -102,7 +102,8 @@ const pub = (u) => ({
   ...(u.role === 'staff' ? { username: String(u.phone).replace(/^staff:/, ''), perms: permsOf(u) } : {})
 });
 
-const ordM = (r) => ({ ...ord(r), pickCode: r.pick_code || '' }); // يحتوي رمز QR (للتاجر والإدارة فقط)
+const pickPin = (code) => (code ? String(parseInt(String(code).slice(0, 8), 16) % 10000).padStart(4, '0') : '');
+const ordM = (r) => ({ ...ord(r), pickCode: r.pick_code || '', pickPin: pickPin(r.pick_code) }); // يحتوي رمز QR (للتاجر والإدارة فقط)
 const ord = (r) => ({
   id: r.id, no: r.num, merchantId: r.merchant_id, merchantName: r.merchant_name, merchantArea: r.merchant_area,
   merchantPhone: r.merchant_phone, customerArea: r.customer_area, customerPhone: r.customer_phone,
@@ -407,7 +408,7 @@ route('POST', '/api/merchant/orders', MERCHANT, async (c) => {
         note: clean(b.note, 200), product_price: productPrice, delivery_price: deliveryPrice, total: productPrice + deliveryPrice, discount: disc, fee_quote: feeQuote, pay_mode: payMode,
         status: night ? 'registered' : 'pending', driver_id: null, driver_name: '', fee: 0, created_at: now, updated_at: now,
         accepted_at: null, delivered_at: null, log: JSON.stringify([{ s: night ? 'registered' : 'pending', at: now }]),
-        kind: night ? 'night' : 'fast', pick_code: night ? crypto.randomBytes(6).toString('hex') : ''
+        kind: night ? 'night' : 'fast', pick_code: crypto.randomBytes(6).toString('hex')
       });
       if (!night) await notifyNewOrder(row);
       notifyAdmins({ kind: 'order_new', orderId: row.id, orderNo: row.num, title: night ? `طلب ليلي مسجّل #${row.num}` : `طلب جديد #${row.num}`, body: `${row.merchant_name} — ${row.merchant_area} ← ${row.customer_area}\n${payMode === 'prepaid' ? 'دفع مباشر للتاجر — المطلوب من الزبون ' + iqd(row.total) : 'المطلوب ' + iqd(row.total)}` });
@@ -532,6 +533,41 @@ route('POST', '/api/driver/orders/:id/status', DRIVER, async (c) => {
   if (o.status === 'delivered') fail('تم تسليم هذا الطلب ولا يمكن تغيير حالته', 409);
   if (o.status === 'return_sent' || o.status === 'returned') fail('تم إرجاع هذا الطلب للتاجر ولا يمكن تغيير حالته', 409);
   if (status === 'return_sent' && !RETURNABLE.includes(o.status)) fail('يمكن الإرجاع للتاجر قبل التسليم فقط', 409);
+  if (o.status === 'picking_up' && status !== 'picking_up' && status !== 'return_sent' && o.kind !== 'night' && o.pick_code && Number((await getSettings()).qrPickup) === 1 && !pickMatch(o, c.body.code)) {
+    fail('امسح رمز QR الخاص بالطلب من المتجر لتأكيد الاستلام أولاً', 428);
+  }
+  return { order: ord(await applyDriverStatus(o, status, c.user)) };
+});
+
+/* يطابق رمز QR (RIO:رقم:رمز) أو رمز الاستلام المكوّن من 4 أرقام */
+function pickMatch(o, raw) {
+  const t = String(raw || '').trim();
+  if (!t || !o.pick_code) return false;
+  const m = /^RIO:(\d{1,9}):([0-9a-fA-F]{12})$/.exec(t);
+  if (m) return Number(m[1]) === Number(o.num) && m[2].toLowerCase() === o.pick_code;
+  return /^\d{4}$/.test(t) && t === pickPin(o.pick_code);
+}
+
+/* المندوب: مسح QR الطلب عند المتجر ← «في الطريق للزبون» */
+route('POST', '/api/driver/pickup/scan', DRIVER, async (c) => {
+  const raw = String(c.body.code || '').trim();
+  const r = await q(`SELECT * FROM orders WHERE driver_id=$1 AND status='picking_up' AND kind<>'night' AND pick_code<>''`, [c.user.id]);
+  const hits = r.rows.filter((o) => pickMatch(o, raw));
+  if (!hits.length) {
+    const m = /^RIO:(\d{1,9}):/.exec(raw);
+    if (m) {
+      const x = (await q('SELECT status,driver_id FROM orders WHERE num=$1', [Number(m[1])])).rows[0];
+      if (x && x.driver_id === c.user.id && x.status !== 'picking_up') fail('تم تأكيد استلام هذا الطلب مسبقاً', 409);
+      if (x && x.driver_id !== c.user.id) fail('هذا الطلب ليس من طلباتك', 403);
+    }
+    fail('الرمز غير صحيح أو لا يخص أي طلب بانتظار الاستلام لديك', 400);
+  }
+  if (hits.length > 1) fail('الرمز يطابق أكثر من طلب، امسح رمز QR بدل كتابة الرقم', 409);
+  return { order: ord(await applyDriverStatus(hits[0], 'on_the_way', c.user)) };
+});
+
+async function applyDriverStatus(o, status, user) {
+  const c = { user };
   const now = Date.now();
   const u = await db.update('orders', 'id', o.id, {
     status, updated_at: now, delivered_at: DONE.includes(status) ? (o.delivered_at || now) : null, log: pushLog(o, status, now)
@@ -541,8 +577,8 @@ route('POST', '/api/driver/orders/:id/status', DRIVER, async (c) => {
     notifyAdmins({ kind: 'order_status', orderId: o.id, orderNo: o.num, title: `طلب #${o.num}: ${ST_AR[status]}`, body: `${o.merchant_name} · السائق ${c.user.name}` });
     await notify(o.merchant_id, { kind: 'order_status', orderId: o.id, orderNo: o.num, title: `طلب #${o.num}: ${ST_AR[status]}`, body: `${T[status] || ST_AR[status]} · السائق ${c.user.name}` });
   }
-  return { order: ord(u) };
-});
+  return u;
+}
 
 route('POST', '/api/driver/charge', DRIVER, async (c) => {
   const number = nd(c.body.number).replace(/\D/g, '');
@@ -893,6 +929,7 @@ route('PUT', '/api/admin/settings', ADM('settings', 'edit'), async (c) => {
     next.ocDesign = c.body.ocDesign;
   }
   if (c.body.receipts !== undefined) next.receipts = [true, 1, '1', 'true'].includes(c.body.receipts) ? 1 : 0;
+  if (c.body.qrPickup !== undefined) next.qrPickup = [true, 1, '1', 'true'].includes(c.body.qrPickup) ? 1 : 0;
   if (c.body.nightPickup !== undefined) next.nightPickup = [true, 1, '1', 'true'].includes(c.body.nightPickup) ? 1 : 0;
   if (c.body.directPay !== undefined) next.directPay = [true, 1, '1', 'true'].includes(c.body.directPay) ? 1 : 0;
   if (c.body.support !== undefined) next.support = normPhone(c.body.support).slice(0, 15);

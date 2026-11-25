@@ -721,7 +721,7 @@ function cards() {
 }
 
 /* ---------------- الإعدادات ---------------- */
-const SECS = [['themes', 'الثيمات'], ['wa', 'قوالب رسائل واتساب'], ['prices', 'أسعار التوصيل للزبون'], ['fees', 'الرسوم'], ['receipts', 'الوصولات'], ['night', 'الاستلام الليلي'], ['alerts', 'التنبيهات والدعم'], ['ocd', 'تصميم الوصولات'], ['ads', 'إعلانات التاجر'], ['adsd', 'إعلانات السائق'], ['review', 'حسابات مراجعة Google Play'], ['stats', 'إعادة تعيين الإحصائيات'], ['rcards', 'تصفير الكروت'], ['reset', 'تصفير البيانات']];
+const SECS = [['themes', 'الثيمات'], ['wa', 'قوالب رسائل واتساب'], ['prices', 'أسعار التوصيل للزبون'], ['fees', 'الرسوم'], ['receipts', 'الوصولات'], ['night', 'الاستلام الليلي'], ['qr', 'الاستلام بالـ QR'], ['alerts', 'التنبيهات والدعم'], ['ocd', 'تصميم الوصولات'], ['ads', 'إعلانات التاجر'], ['adsd', 'إعلانات السائق'], ['review', 'حسابات مراجعة Google Play'], ['stats', 'إعادة تعيين الإحصائيات'], ['rcards', 'تصفير الكروت'], ['reset', 'تصفير البيانات']];
 const saveBar = (label = 'حفظ') => `<div class="err" id="fe" role="alert"></div><button class="btn" style="min-height:44px">${label}</button>`;
 function settings() {
   if (!SET) return `<div class="card">جارٍ التحميل…</div>`;
@@ -737,6 +737,7 @@ function settings() {
       ${saveBar('حفظ القوالب')}</div></form>`,
     prices: () => `<form data-f="set-prices"><div class="card"><div class="ch">أسعار التوصيل للزبون <small>بالدينار العراقي</small></div><div class="frm">${f('bikeSame', 'دراجة · نفس المنطقة')}${f('bikeOther', 'دراجة · منطقة ثانية')}${f('carSame', 'سيارة · نفس المنطقة')}${f('carOther', 'سيارة · منطقة ثانية')}</div>${saveBar('حفظ الأسعار')}</div></form>`,
     fees: () => `<form data-f="set-fees"><div class="card"><div class="ch">تعديل الرسوم <small>رسوم التطبيق على السائق، تُخصم من محفظته عند قبول كل طلب</small></div><div class="frm">${f('feeSame', 'نفس المنطقة')}${f('feeOther', 'منطقة ثانية')}</div>${saveBar('حفظ الرسوم')}</div></form>`,
+    qr: () => `<form data-f="set-qr"><div class="card"><div class="ch">تأكيد الاستلام من المتجر بالـ QR <small>لكل طلب رمز QR خاص يظهر عند التاجر</small></div><label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="s-qr" ${Number(SET.qrPickup) === 1 ? 'checked' : ''} style="width:22px;height:22px"><span><b>تفعيل الاستلام عن طريق QR</b><span class="hint" style="display:block">عند التفعيل لا يستطيع المندوب تحويل الطلب إلى «في الطريق للزبون» إلا بمسح رمز QR الخاص بالطلب من التاجر (أو كتابة رمز الاستلام المكوّن من 4 أرقام الظاهر تحته). عند الإيقاف يغيّر المندوب الحالة كالمعتاد.</span></span></label>${saveBar('حفظ')}</div></form>`,
     night: () => `<form data-f="set-night"><div class="card"><div class="ch">الاستلام الليلي <small>تسجيل الطلبات مساءً واستلامها بالـ QR</small></div><label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="s-night" ${SET.nightPickup !== 0 ? 'checked' : ''} style="width:22px;height:22px"><span><b>تفعيل الاستلام الليلي</b><span class="hint" style="display:block">عند الإيقاف لا يستطيع التجار تسجيل طلبات ليلية جديدة (الطلبات المسجلة تبقى).</span></span></label>${saveBar('حفظ')}</div></form>`,
     receipts: () => `<form data-f="set-receipts"><div class="card"><div class="ch">الوصولات <small>تحكم بظهور زر «وصل» في كل مكان</small></div><label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="s-receipts" ${SET.receipts !== 0 ? 'checked' : ''} style="width:22px;height:22px"><span><b>تفعيل الوصولات</b><span class="hint" style="display:block">عند الإيقاف يختفي زر «وصل» من حسابات التجار والسائقين ومن لوحة التحكم أيضاً.</span></span></label>${saveBar('حفظ')}</div></form>`,
     alerts: () => `${notifCard()}<form data-f="set-alerts"><div class="card"><div class="ch">التنبيهات والدعم</div><div class="frm">${f('lateMin', 'مدة التأخير بالدقائق (لتنبيه الطلبات المتأخرة)')}
@@ -1300,6 +1301,7 @@ document.addEventListener('submit', async (e) => {
       else if (sec === 'alerts') { body.lateMin = v('s-lateMin').value; body.support = v('s-support').value; }
       else if (sec === 'receipts') body.receipts = v('s-receipts').checked;
       else if (sec === 'night') body.nightPickup = v('s-night').checked;
+      else if (sec === 'qr') body.qrPickup = v('s-qr').checked;
       else if (sec === 'wa') { body.templates = {}; TPL_DEFS.forEach(([t]) => { body.templates[t] = v('t-' + t).value; }); }
       else if (sec === 'ocd') body.ocDesign = OCSEL || SET.ocDesign || 'classic';
       const r = await api('PUT', '/api/admin/settings', body); SET = r.settings; OCSEL = null;
